@@ -43,11 +43,18 @@ internal fun Chat.isMainListRow(): Boolean = isShownInChatList() && !archived
 internal fun Chat.isArchiveListRow(): Boolean = isShownInChatList() && archived
 
 internal fun sortChats(chats: Collection<Chat>): List<Chat> =
-    chats.filter { it.isShownInChatList() }.sortedWith(
-        compareByDescending<Chat> { it.pinned }
-            .thenBy { it.pinnedOrder }
-            .thenByDescending { it.lastMessageDate ?: 0L },
-    )
+    chats.filter { it.isShownInChatList() }.sortedWith(chatListOrder)
+
+private val chatListOrder =
+    compareByDescending<Chat> { it.pinned }
+        .thenBy { it.pinnedOrder }
+        .thenByDescending { it.lastMessageDate ?: Long.MIN_VALUE }
+        .thenByDescending { it.id.value }
+
+/** Last row in dialog-list order. The next Room page starts strictly after it. */
+internal fun listTail(chats: List<Chat>, archived: Boolean): Chat? =
+    chats.filter { if (archived) it.isArchiveListRow() else it.isMainListRow() }
+        .maxWithOrNull(chatListOrder)
 
 internal fun mergeChats(current: List<Chat>, extra: List<Chat>): List<Chat> {
     val typing = current.filter { it.typing }.associateBy { it.id.value }

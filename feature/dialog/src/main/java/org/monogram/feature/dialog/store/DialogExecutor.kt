@@ -85,6 +85,10 @@ internal class DialogExecutor(
     internal val inlineBots = HashMap<String, PeerId>()
     internal var lastTypingSent: Boolean? = null
     internal var historyGen: Int = 0
+    internal var historyJob: Job? = null
+    internal var olderJob: Job? = null
+    internal var newerJob: Job? = null
+    private var resumeHistory = false
     internal var newerRequestId: Int = 0
     internal var activeNewerRequestId: Int? = null
     internal var olderRequestId: Int = 0
@@ -302,6 +306,27 @@ internal class DialogExecutor(
                 } else if (ForumIo.showTopicList(state().isForum, threadTopMsgId)) {
                     loadTopics(reset = true)
                 }
+            }
+            DialogStore.Intent.Leave -> {
+                resumeHistory = historyJob?.isActive == true
+                historyGen += 1
+                historyJob?.cancel()
+                olderJob?.cancel()
+                newerJob?.cancel()
+                searchJob?.cancel()
+                dispatch(Msg.Loading(false))
+                olderRequestId++
+                activeOlderRequestId = null
+                newerRequestId++
+                activeNewerRequestId = null
+                dispatch(Msg.LoadingOlder(false))
+                dispatch(Msg.LoadingNewer(false))
+            }
+
+            DialogStore.Intent.Resume -> {
+                if (resumeHistory && state().searchQuery.isBlank()) refresh()
+                else if (state().searchQuery.isNotBlank()) search(state().searchQuery)
+                resumeHistory = false
             }
             DialogStore.Intent.LoadOlder -> loadOlder()
             DialogStore.Intent.LoadNewer -> loadNewer()
@@ -543,7 +568,8 @@ internal class DialogExecutor(
         dispatch(Msg.LoadingNewer(false))
         val hasMemory = state().messages.isNotEmpty()
         dispatch(Msg.Error(null))
-        scope.launch {
+        historyJob?.cancel()
+        historyJob = scope.launch {
             client.setDialogForeground(true)
             val cachedChat = warmup?.let { cache ->
                 if (cache.usesIoDispatcher) {
@@ -641,7 +667,7 @@ internal class DialogExecutor(
                         serverHistoryBoundaryId = result.value.minOfOrNull { it.id.id }
                         publishPaintedHistory(result.value, fromCache = false, liveEdge = true, generation = gen)
                         if (gen != historyGen) return@launch
-                        resolveSenders(state().messages)
+                        resolveSendersLater(state().messages)
                         dispatch(Msg.HasOlder(historyHasMore(result.value.size, HISTORY_FIRST_LIMIT) || cachedOlderTail.isNotEmpty()))
                     }
                     is Outcome.Err -> handleError(result.telegramError, true)
@@ -651,13 +677,27 @@ internal class DialogExecutor(
                 loadChatProfile()
                 return@launch
             }
-            val cached = warmup?.let { cache ->
+            val remembered = warmup?.recentHistory?.peek(chatId.value).orEmpty()
+            if (remembered.isNotEmpty()) {
+                publishPaintedHistory(
+                    remembered,
+                    fromCache = true,
+                    liveEdge = true,
+                    generation = gen
+                )
+                if (gen != historyGen) return@launch
+                dispatch(Msg.Loading(false))
+            }
+            val persisted = warmup?.let { cache ->
                 if (cache.usesIoDispatcher) {
                     withContext(Dispatchers.IO) { cache.messages(chatId, HISTORY_CACHE_LIMIT) }
                 } else {
                     cache.messages(chatId, HISTORY_CACHE_LIMIT)
                 }
-            }.orEmpty().replaceComposedDialogSeed(cachedChat).let(::contiguousHistoryFromNewest)
+            }.orEmpty()
+            if (gen != historyGen) return@launch
+            val cached = persisted.ifEmpty { remembered }
+                .replaceComposedDialogSeed(cachedChat).let(::contiguousHistoryFromNewest)
             val lastId = cachedChat?.lastMessageId ?: 0
             val newestCachedId = cached.maxOfOrNull { it.id.id } ?: 0
             if (cached.isNotEmpty()) {
@@ -668,7 +708,7 @@ internal class DialogExecutor(
                 publishPaintedHistory(cached, fromCache = true, liveEdge = true, generation = gen)
                 if (gen != historyGen) return@launch
                 dispatch(Msg.Loading(false))
-                resolveSenders(state().messages)
+                resolveSendersLater(state().messages)
             } else if (!hasMemory) {
                 dispatch(Msg.Loading(true))
             }
@@ -721,7 +761,10 @@ internal class DialogExecutor(
                     } else {
                         persist()
                     }
-                    resolveSenders(state().messages)
+                    if (gen == historyGen && threadTopMsgId == 0) {
+                        warmup?.recentHistory?.remember(chatId.value, state().messages)
+                    }
+                    resolveSendersLater(state().messages)
                 }
                 is Outcome.Err -> {
                     PerfLog.event(
@@ -931,6 +974,10 @@ internal class DialogExecutor(
         canDeleteOthers = chat.canDeleteOthers,
         canManageTopics = chat.canManageTopics,
     )
+
+    internal fun resolveSendersLater(messages: List<Message>) {
+        scope.launch { resolveSenders(messages) }
+    }
 
     internal suspend fun resolveSenders(messages: List<Message>) {
         if (!state().isGroup) return

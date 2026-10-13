@@ -390,6 +390,40 @@ class BridgedMtprotoClientLifecycleTest {
     }
 
     @Test
+    fun oneDrainCallDeliversTheWholeUpdateBatch() = runTest {
+        val batchSizes = mutableListOf<Int>()
+        val native = object : RecordingNative() {
+            override fun isAuthorized(handle: Long) = true
+            override fun drainUpdates(handle: Long): List<UpdateEventDto> {
+                if (batchSizes.isEmpty()) {
+                    val batch = listOf(newMessageEvent(1), newMessageEvent(2), newMessageEvent(3))
+                    batchSizes += batch.size
+                    return batch
+                }
+                batchSizes += 0
+                return emptyList()
+            }
+        }
+        val client = client(native, StandardTestDispatcher(testScheduler))
+        val ids = mutableListOf<Int>()
+        val collector = backgroundScope.launch {
+            client.updates().filterIsInstance<MtprotoUpdate.NewMessage>().collect {
+                ids += it.message.id.id
+            }
+        }
+        try {
+            assertTrue(client.connect() is Outcome.Ok)
+            testScheduler.advanceTimeBy(50)
+            testScheduler.runCurrent()
+            assertEquals(listOf(3), batchSizes.filter { it > 0 })
+            assertEquals(listOf(1, 2, 3), ids.toList())
+        } finally {
+            collector.cancel()
+            client.close()
+        }
+    }
+
+    @Test
     fun updateDrainStartsWithoutStartupDelay() = runTest {
         var drains = 0
         val native = object : RecordingNative() {

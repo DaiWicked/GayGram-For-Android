@@ -11,9 +11,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -24,6 +24,7 @@ import org.junit.Before
 import org.junit.Test
 import org.monogram.core.common.Outcome
 import org.monogram.core.common.telegram.TelegramError
+import org.monogram.core.database.ChatCacheCursor
 import org.monogram.core.database.OfflineWarmup
 import org.monogram.core.database.dao.ChatReadState
 import org.monogram.core.models.ARCHIVE_FOLDER_ID
@@ -53,6 +54,58 @@ class ChatsStoreCacheTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun cachePaintsBeforeDialogsRequest() = runTest {
+        val release = CompletableDeferred<Unit>()
+        val cached = Chat(PeerId(1), "Ada", lastMessageDate = 5, lastMessageId = 1)
+        val warmup = object : OfflineWarmup() {
+            override suspend fun chatsWindow(limit: Int, archiveLimit: Int) = listOf(cached)
+            override suspend fun mainListCount() = 1
+        }
+        val client = StubClient(chats = Outcome.Ok(emptyList()))
+        client.chatsGate = release
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            runCurrent()
+            assertEquals("Ada", store.state.chats.single().title)
+            assertTrue(store.state.fromCache)
+            assertFalse(release.isCompleted)
+        } finally {
+            release.complete(Unit)
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun loadMoreUsesKeysetCursor() = runTest {
+        var seen: ChatCacheCursor? = null
+        val first = Chat(PeerId(5), "Newer", lastMessageDate = 50, lastMessageId = 1)
+        val warmup = object : OfflineWarmup(db = null) {
+            override suspend fun chatsWindow(limit: Int, archiveLimit: Int) = listOf(first)
+            override suspend fun mainListCount() = 2
+            override suspend fun chatsAfter(cursor: ChatCacheCursor, limit: Int): List<Chat> {
+                seen = cursor
+                return listOf(Chat(PeerId(4), "Older", lastMessageDate = 40, lastMessageId = 1))
+            }
+        }
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(),
+            StubClient(chats = Outcome.Ok(listOf(first))),
+            warmup,
+            sessionStore = null,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertEquals(5L, seen?.id)
+            assertEquals(50L, seen?.lastMessageDate)
+            assertFalse(seen?.archived ?: true)
+        } finally {
+            store.dispose()
+        }
     }
 
     @Test
@@ -240,7 +293,7 @@ class ChatsStoreCacheTest {
         val warmup = object : OfflineWarmup(db = null) {
             override suspend fun chatsWindow(limit: Int, archiveLimit: Int): List<Chat> = emptyList()
             override suspend fun mainListCount(): Int = 2
-            override suspend fun chatsExcluding(excludeIds: List<Long>, limit: Int): List<Chat> {
+            override suspend fun chatsAfter(cursor: ChatCacheCursor, limit: Int): List<Chat> {
                 roomStarted.complete(Unit)
                 releaseRoom.await()
                 return listOf(Chat(PeerId(2), "Room", lastMessageDate = 2, lastMessageId = 1))
@@ -846,7 +899,7 @@ class ChatsStoreCacheTest {
             client.events.emit(
                 MtprotoUpdate.NewMessage(
                     Message(
-                        id = org.monogram.core.models.MessageId(comments.id, 8),
+                        id = MessageId(comments.id, 8),
                         senderId = null,
                         text = "hi",
                         date = 99L,
@@ -1249,6 +1302,7 @@ class ChatsStoreCacheTest {
         val events = MutableSharedFlow<MtprotoUpdate>(extraBufferCapacity = 8)
         var notifySettingsCalls = 0
         var profileCalls = 0
+        var chatsGate: CompletableDeferred<Unit>? = null
         var contactsPage: Outcome<ContactsSearch> = Outcome.Err("unsupported")
         val globalPages = ArrayDeque<Outcome<GlobalMessageSearch>>()
         val contactsQueries = mutableListOf<String>()
@@ -1262,8 +1316,10 @@ class ChatsStoreCacheTest {
         override suspend fun sendAuthCode(phone: String) = unused<AuthState.AwaitingCode>()
         override suspend fun signIn(phone: String, phoneCodeHash: String, code: String) = unused<AuthState>()
         override suspend fun checkPassword(password: String) = unused<AuthState.Authorized>()
-        override suspend fun getChats(): Outcome<List<Chat>> =
-            if (chatResponses.isEmpty()) chats else chatResponses.removeFirst()
+        override suspend fun getChats(): Outcome<List<Chat>> {
+            chatsGate?.await()
+            return if (chatResponses.isEmpty()) chats else chatResponses.removeFirst()
+        }
         override suspend fun loadMoreChats(offsetDate: Int, offsetId: Int, offsetPeerId: Long): Outcome<List<Chat>> =
             Outcome.Ok(if (mainPages.isEmpty()) emptyList() else mainPages.removeFirst())
         override suspend fun loadMoreFolderChats(

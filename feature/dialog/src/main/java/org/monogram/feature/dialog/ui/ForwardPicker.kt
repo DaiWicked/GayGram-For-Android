@@ -1,8 +1,10 @@
 package org.monogram.feature.dialog.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -12,28 +14,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.monogram.core.common.Outcome
 import org.monogram.core.models.Chat
-import org.monogram.core.models.peerAvatarCacheKey
-import org.monogram.core.ui.rememberEnsuredFile
-import org.monogram.core.ui.rememberStrippedPreview
 import org.monogram.core.models.PeerId
+import org.monogram.core.models.peerAvatarCacheKey
 import org.monogram.core.ui.components.AppModalSheet
 import org.monogram.core.ui.components.PeerAvatar
-import org.monogram.feature.dialog.R
-import org.monogram.network.http.MediaRepository
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.Alignment
 import org.monogram.core.ui.loading.MonogramBusyField
 import org.monogram.core.ui.loading.MonogramLoadingHeroSize
 import org.monogram.core.ui.loading.MonogramLoadingOverlay
+import org.monogram.core.ui.rememberEnsuredFile
+import org.monogram.core.ui.rememberStrippedPreview
+import org.monogram.feature.dialog.R
+import org.monogram.network.http.MediaRepository
 
 @Composable
 fun ForwardPickerSheet(
@@ -99,7 +98,7 @@ fun ForwardPickerSheet(
                     modifier = Modifier.heightIn(max = 420.dp),
                     contentPadding = PaddingValues(vertical = 4.dp),
                 ) {
-                    items(shown, key = { it.id.value }) { chat ->
+                    items(shown, key = { it.id.value }, contentType = { "forward-chat" }) { chat ->
                         ForwardChatRow(
                             chat = chat,
                             mediaRepository = mediaRepository,

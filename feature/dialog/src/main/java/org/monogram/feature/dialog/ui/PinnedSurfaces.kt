@@ -211,6 +211,7 @@ internal fun PinnedMessagesSheet(
             itemsIndexed(
                 items = messages,
                 key = { _, message -> message.id.id },
+                contentType = { _, message -> message.mediaKind ?: "pinned" },
             ) { index, message ->
                 PinnedRow(
                     message = message,

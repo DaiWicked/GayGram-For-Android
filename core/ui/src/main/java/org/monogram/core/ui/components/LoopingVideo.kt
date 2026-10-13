@@ -19,6 +19,11 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import java.io.File
 
+private val loopPositions = object : LinkedHashMap<String, Long>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?): Boolean =
+        size > 64
+}
+
 @Composable
 fun LoopingVideo(
     file: File,
@@ -37,6 +42,8 @@ fun LoopingVideo(
             if (crop) {
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
             }
+            val resumeAt = loopPositions[playbackKey] ?: 0L
+            if (resumeAt > 0L) seekTo(resumeAt)
             prepare()
         }
     }
@@ -44,10 +51,17 @@ fun LoopingVideo(
     LaunchedEffect(player, loop, muted, playWhenReady, animationEnabled) {
         player.repeatMode = if (loop) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
         player.volume = if (muted) 0f else 1f
-        player.playWhenReady = playWhenReady && animationEnabled
+        if (playWhenReady && animationEnabled) {
+            player.playWhenReady = true
+        } else {
+            // A paused seek still draws that frame onto the current surface.
+            player.seekTo(0)
+            player.playWhenReady = false
+        }
     }
     DisposableEffect(player) {
         onDispose {
+            loopPositions[playbackKey] = player.currentPosition
             player.clearVideoSurface()
             player.release()
         }
@@ -74,6 +88,7 @@ fun LoopingVideo(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 player.setVideoTextureView(this)
+                if (!player.playWhenReady) player.seekTo(0)
             }
         },
         onRelease = { view ->

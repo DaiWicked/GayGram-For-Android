@@ -43,6 +43,29 @@ import java.util.concurrent.atomic.AtomicInteger
 
 fun photoDisplayCacheKey(mediaCacheKey: String): String = "$mediaCacheKey:display"
 
+internal fun streamPrefixPart(
+    directory: File,
+    cacheKey: String,
+    offset: Long
+): File =
+    FileCache(directory, maintainOnInit = false).fileFor(streamPartKey(cacheKey, offset))
+
+internal fun streamPartKey(cacheKey: String, offset: Long): String = "$cacheKey:stream:$offset"
+
+internal fun streamMediaKey(message: Message): String? = message.mediaCacheKey?.let {
+    "$it:chat:${message.id.chatId.value}:message:${message.id.id}:size:${message.fileSize ?: 0}"
+}
+
+/** A prefix part the player can read without fetching again. */
+internal fun reusableStreamPrefix(
+    file: File?,
+    offset: Long = 0,
+    size: Long? = null
+): File? {
+    val expected = size?.takeIf { it > 0 }?.let { minOf(512L * 1024, it - offset) } ?: 512L * 1024
+    return file?.takeIf { expected > 0 && it.isFile && it.length() - offset == expected }
+}
+
 fun mediaThumbCacheKey(mediaCacheKey: String): String =
     if (mediaCacheKey.endsWith(":thumb")) mediaCacheKey else "$mediaCacheKey:thumb"
 
@@ -82,14 +105,14 @@ class MediaRepository(
     private val inlineThumbPeek: TelegramInlineThumbPeek? = null,
     private val peerInlineThumbPeek: TelegramPeerInlineThumbPeek? = null,
 ) {
-    private val streamRoot = File(cacheRoot, "stream-parts")
+    private val streamRoot = cacheRoot
 
     /** OpenStreetMap tiles for the location and venue cards; cached on disk. */
     val mapTiles = MapTileStore(cacheRoot, httpClientFactory)
 
     @OptIn(UnstableApi::class)
     fun createMessageDataSourceFactory(message: Message): androidx.media3.datasource.DataSource.Factory =
-        TelegramVideoDataSource.Factory(message, streamRoot, telegramChunkFetcher)
+        TelegramVideoDataSource.Factory(message, streamRoot, telegramChunkFetcher, cache)
     private val cache = FileCache(cacheRoot, maintainOnInit = false)
     private val progress = MutableStateFlow<Map<String, Long>>(emptyMap())
     private val generation = MutableStateFlow(0L)
@@ -282,6 +305,77 @@ class MediaRepository(
             mediaKind = message.mediaKind,
             priority = maxOf(priority, MediaPriority.DISPLAY),
         )
+    }
+
+    /** First 2 MiB of a stream, not the whole document. */
+    suspend fun ensureStreamingPrefix(
+        message: Message,
+        priority: Int = MediaPriority.VISIBLE,
+    ): Outcome<File> {
+        PerfLog.event("stream_prefix", "priority=$priority")
+        val key = streamMediaKey(message) ?: return Outcome.Err("message has no media key")
+        val fetcher = telegramChunkFetcher ?: return Outcome.Err("stream prefetch unavailable")
+        val limit = message.fileSize?.takeIf { it > 0 }?.coerceAtMost(STREAM_PREFIX_BYTES)
+            ?: STREAM_PREFIX_BYTES
+        if (!streamRoot.isDirectory && !streamRoot.mkdirs()) {
+            return Outcome.Err("stream prefix directory")
+        }
+        var last: File? = null
+        var offset = 0L
+        while (offset < limit) {
+            val dest = streamPrefixPart(streamRoot, key, offset)
+            if (reusableStreamPrefix(dest, offset, message.fileSize) != null) {
+                last = dest
+                offset += STREAM_PART
+                continue
+            }
+            val temporary = File.createTempFile("stream-$offset-", ".part", streamRoot)
+            try {
+                when (val result = fetcher.fetch(
+                    message.id.chatId,
+                    message.id.id,
+                    temporary.absolutePath,
+                    offset
+                )) {
+                    is Outcome.Err -> {
+                        temporary.delete()
+                        return last?.let { Outcome.Ok(it) } ?: result
+                    }
+
+                    is Outcome.Ok -> {
+                        val fetched = File(result.value)
+                        val bytes = fetched.length() - offset
+                        if (fetched.canonicalFile != temporary.canonicalFile ||
+                            bytes <= 0L || bytes > STREAM_PART ||
+                            (message.fileSize?.takeIf { it > 0 } != null &&
+                                    reusableStreamPrefix(fetched, offset, message.fileSize) == null)
+                        ) {
+                            return last?.let { Outcome.Ok(it) }
+                                ?: Outcome.Err("invalid stream prefix")
+                        }
+                        java.io.RandomAccessFile(fetched, "rw").use { it.fd.sync() }
+                        if (!fetched.renameTo(dest)) {
+                            return last?.let { Outcome.Ok(it) }
+                                ?: Outcome.Err("stream prefix publish")
+                        }
+                        val file = dest
+                        last = file
+                        cache.remember(
+                            streamPartKey(key, offset),
+                            message.id.chatId.value,
+                            FileCache.KIND_VIDEOS,
+                            file.length()
+                        )
+                        cache.trimIfNeeded()
+                        if (bytes < STREAM_PART) return Outcome.Ok(file)
+                    }
+                }
+            } finally {
+                temporary.delete()
+            }
+            offset += STREAM_PART
+        }
+        return last?.let { Outcome.Ok(it) } ?: Outcome.Err("empty stream prefix")
     }
 
     suspend fun ensureLocalMessageThumb(
@@ -882,6 +976,8 @@ class MediaRepository(
         const val THUMB_WORKERS = 2
         const val TELEGRAM_WORKERS = 5
         const val MAX_LARGE_PIPELINES = 2
+        const val STREAM_PART = 512L * 1024
+        const val STREAM_PREFIX_BYTES = 2L * 1024 * 1024
         @Volatile
         var progressSink: ((String, Long) -> Unit)? = null
 

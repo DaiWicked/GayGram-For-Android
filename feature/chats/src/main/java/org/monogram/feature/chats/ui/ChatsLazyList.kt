@@ -172,7 +172,7 @@ internal fun ChatsLazyList(
         ),
     ) {
         if (inlineFolderChips && !archive && !searchOpen && !foldersAtBottom) {
-            item(key = "folder-chips") {
+            item(key = "folder-chips", contentType = "chat-chrome") {
                 RecompositionProbe("ChipItemScope")
                 Box {
                     FolderChipRow(
@@ -203,7 +203,7 @@ internal fun ChatsLazyList(
             }
         }
         if (showArchiveRow) {
-            item(key = "archive-row") {
+            item(key = "archive-row", contentType = "chat-chrome") {
                 ArchiveRow(
                     preview = archivedTitles,
                     unmuted = archivedUnmuted,
@@ -219,7 +219,7 @@ internal fun ChatsLazyList(
         if (!loading && paneIds.isEmpty() && error == null && !searchBusy && !searchHasRows &&
             (searchError == null || !searching)
         ) {
-            item(key = "empty-state") {
+            item(key = "empty-state", contentType = "chat-chrome") {
                 FolderEmptyState(
                     archive = archive,
                     filtered = homeFolderId != null && !archive,

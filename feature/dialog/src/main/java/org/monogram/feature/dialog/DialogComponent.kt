@@ -147,10 +147,19 @@ class DialogComponent(
         var started = false
         lifecycle.doOnStart {
             store.accept(DialogStore.Intent.ReadReceipts(true))
-            if (started) onRefreshPresence()
+            if (started) {
+                store.accept(DialogStore.Intent.Resume)
+                onRefreshPresence()
+                mediaPreloader.onVisible(store.state.messages, lastVisibleIds)
+            }
             started = true
         }
-        lifecycle.doOnStop { store.accept(DialogStore.Intent.ReadReceipts(false)) }
+        lifecycle.doOnStop {
+            store.accept(DialogStore.Intent.ReadReceipts(false))
+            store.accept(DialogStore.Intent.Leave)
+            mediaPreloader.close()
+            pickerPreloader.close()
+        }
         lifecycle.doOnDestroy { store.accept(DialogStore.Intent.ReadReceipts(false)) }
         preloadScope.launch {
             DownloadSettings.state.drop(1).collect {

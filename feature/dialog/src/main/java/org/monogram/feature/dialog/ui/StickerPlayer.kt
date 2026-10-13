@@ -101,7 +101,7 @@ fun StickerPlayer(
     }
 
     LaunchedEffect(lottieBytes, displaySizePx, active, animationEnabled) {
-        if (!active || !animationEnabled) return@LaunchedEffect
+        if (!active) return@LaunchedEffect
         CompactVideoSlots.acquire()
         var handle = 0L
         try {
@@ -153,7 +153,7 @@ fun StickerPlayer(
             }
 
             if (!drawFrame(0)) return@LaunchedEffect
-            if (!active || !animationEnabled || frames <= 1) return@LaunchedEffect
+            if (!animationEnabled || frames <= 1) return@LaunchedEffect
 
             val framesPerUpdate = if (fps > 30f) 2 else 1
             val frameDelay = if (fps > 30f) 33L else (1000f / fps)

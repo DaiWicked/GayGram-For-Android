@@ -8,8 +8,9 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
-import org.monogram.core.common.PerfLog
+import org.monogram.core.common.AppLog
 import org.monogram.core.common.Outcome
+import org.monogram.core.common.PerfLog
 import org.monogram.core.models.Message
 import org.monogram.core.models.PeerId
 import java.io.File
@@ -26,13 +27,16 @@ class TelegramVideoDataSource private constructor(
     private val message: Message,
     private val directory: File,
     private val fetcher: TelegramChunkFetcher?,
+    private val cache: FileCache?,
 ) : BaseDataSource(true) {
     class Factory(
         private val message: Message,
         private val directory: File,
         private val fetcher: TelegramChunkFetcher?,
+        private val cache: FileCache? = null,
     ) : DataSource.Factory {
-        override fun createDataSource(): DataSource = TelegramVideoDataSource(message, directory, fetcher)
+        override fun createDataSource(): DataSource =
+            TelegramVideoDataSource(message, directory, fetcher, cache)
     }
 
     private var uri: Uri? = null
@@ -41,7 +45,9 @@ class TelegramVideoDataSource private constructor(
     private var partOffset = -1L
     private var partLength = 0L
     private var partFile: File? = null
+    private var partIsPrefix = false
     private var partHandle: RandomAccessFile? = null
+    private val cacheOwner = "stream:${java.util.UUID.randomUUID()}"
     @Volatile private var request: Job? = null
 
     override fun open(dataSpec: DataSpec): Long {
@@ -92,23 +98,69 @@ class TelegramVideoDataSource private constructor(
     private fun openPart(offset: Long, active: Job) {
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Cannot create media buffer")
         releasePart()
-        val file = File.createTempFile("video-", ".part", directory)
+        val mediaKey = streamMediaKey(message)
+        val prefix = mediaKey?.takeIf { offset < MediaRepository.STREAM_PREFIX_BYTES }
+            ?.let { streamPrefixPart(directory, it, offset) }
+        if (prefix != null) cache?.setProtectedKeys(
+            cacheOwner,
+            listOf(streamPartKey(checkNotNull(mediaKey), offset))
+        )
+        val reused = reusableStreamPrefix(prefix, offset, message.fileSize)
+        val file = reused ?: File.createTempFile("video-", ".part", directory)
+        partIsPrefix = reused != null
+        if (reused != null) {
+            AppLog.api("stream", "prefix-hit offset=$offset bytes=${reused.length()}")
+        }
         val started = PerfLog.nowMs()
         try {
-            runBlocking(active) {
-                when (val result = checkNotNull(fetcher).fetch(message.id.chatId, message.id.id, file.absolutePath, offset)) {
-                    is Outcome.Err -> throw IOException(result.message)
-                    is Outcome.Ok -> Unit
+            if (reused == null) {
+                runBlocking(active) {
+                    when (val result = checkNotNull(fetcher).fetch(
+                        message.id.chatId,
+                        message.id.id,
+                        file.absolutePath,
+                        offset
+                    )) {
+                        is Outcome.Err -> throw IOException(result.message)
+                        is Outcome.Ok -> Unit
+                    }
                 }
             }
             val length = file.length()
-            if (length <= offset) throw IOException("Empty media part")
-            partFile = file
+            if (length <= offset || length - offset > PART_SIZE) throw IOException("Invalid media part")
+            if (message.fileSize?.takeIf { it > 0 } != null && reusableStreamPrefix(
+                    file,
+                    offset,
+                    message.fileSize
+                ) == null) {
+                throw IOException("Incomplete media part")
+            }
+            if (reused == null) RandomAccessFile(file, "rw").use { it.fd.sync() }
+            if (prefix != null && file.canonicalFile != prefix.canonicalFile && !file.renameTo(
+                    prefix
+                )
+            ) throw IOException("Media prefix publish")
+            val published = prefix ?: file
+            partIsPrefix = prefix != null
+            if (partIsPrefix) cache?.setProtectedKeys(
+                cacheOwner,
+                listOf(streamPartKey(checkNotNull(mediaKey), offset))
+            )
+            partFile = published
+            if (prefix != null) {
+                cache?.remember(
+                    streamPartKey(checkNotNull(mediaKey), offset),
+                    message.id.chatId.value,
+                    FileCache.KIND_VIDEOS,
+                    length
+                )
+            }
             partLength = length
-            partHandle = RandomAccessFile(file, "r")
+            partHandle = RandomAccessFile(published, "r")
             partOffset = offset
         } catch (e: Exception) {
-            file.delete()
+            if (reused == null) file.delete()
+            cache?.setProtectedKeys(cacheOwner, emptySet())
             partOffset = -1
             throw IOException("Media part unavailable: ${e.message}", e)
         } finally {
@@ -121,9 +173,11 @@ class TelegramVideoDataSource private constructor(
     private fun releasePart() {
         runCatching { partHandle?.close() }
         partHandle = null
-        // The file is only unlinked here: an open handle keeps serving already-read bytes.
-        runCatching { partFile?.delete() }
+        if (!partIsPrefix) runCatching { partFile?.delete() }
         partFile = null
+        cache?.setProtectedKeys(cacheOwner, emptySet())
+        cache?.trimIfNeeded()
+        partIsPrefix = false
         partLength = 0L
         partOffset = -1
     }

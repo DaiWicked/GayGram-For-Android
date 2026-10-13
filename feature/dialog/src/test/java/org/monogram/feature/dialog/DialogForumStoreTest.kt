@@ -73,6 +73,85 @@ class DialogForumStoreTest {
     }
 
     @Test
+    fun rememberedHistoryPaintsBeforeRpc() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val chatId = PeerId(5)
+        val warmup = FakeWarmup()
+        warmup.recentHistory.remember(
+            chatId.value,
+            listOf(
+                Message(
+                    id = MessageId(chatId, 7),
+                    senderId = null,
+                    text = "cached",
+                    date = 1L,
+                    outgoing = false,
+                    thumbCacheKey = "thumb-7",
+                ),
+            ),
+        )
+        val client = FakeClient().apply { historyGate = gate }
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup,
+            sessionStore = null,
+            chatId = chatId,
+            seedIsForum = false,
+            mainContext = Dispatchers.Unconfined,
+            markupContext = Dispatchers.Unconfined,
+        ).create()
+        try {
+            assertEquals(listOf(7), store.state.messages.map { it.id.id })
+            assertTrue(store.state.fromCache)
+            assertFalse(gate.isCompleted)
+            assertEquals(listOf("thumb-7"), warmup.recentHistory.thumbKeys(chatId.value))
+        } finally {
+            gate.complete(Unit)
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun leaveDropsInFlightHistory() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val client = FakeClient().apply {
+            historyGate = gate
+            history = listOf(
+                Message(
+                    id = MessageId(PeerId(5), 3),
+                    senderId = null,
+                    text = "net",
+                    date = 2L,
+                    outgoing = false,
+                ),
+            )
+        }
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup = null,
+            sessionStore = null,
+            chatId = PeerId(5),
+            seedIsForum = false,
+            mainContext = Dispatchers.Unconfined,
+            markupContext = Dispatchers.Unconfined,
+        ).create()
+        try {
+            store.accept(DialogStore.Intent.Leave)
+            gate.complete(Unit)
+            assertTrue(store.state.messages.isEmpty())
+            assertFalse(store.state.loading)
+            val calls = client.historyCalls
+            store.accept(DialogStore.Intent.Resume)
+            assertEquals(calls + 1, client.historyCalls)
+            assertEquals(listOf(3), store.state.messages.map { it.id.id })
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
     fun refreshForumLoadsTopicList() = runBlocking {
         val client = FakeClient()
         val store = DialogStoreFactory(
@@ -308,6 +387,7 @@ class DialogForumStoreTest {
             advanceUntilIdle()
             assertEquals("pin", store.state.pinnedMessages.single().text)
             assertEquals(0, client.pinnedCalls)
+            assertEquals("pin", PinnedBarMemory.get(5)?.messages?.single()?.text)
         } finally {
             store.dispose()
         }

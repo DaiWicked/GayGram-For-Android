@@ -863,15 +863,14 @@ pub(crate) fn download_media_range_on_lane(
 
 /// Flood wait is off the media lane: the admission guard is already dropped.
 fn wait_flood(dest: &Path, seconds: u64) -> bool {
-    let capped = seconds.min(60).max(1);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(capped);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(seconds.max(1));
     while std::time::Instant::now() < deadline {
-        if media::download_cancelled(dest) {
+        if media::download_cancelled(dest) || crate::request_control::check().is_err() {
             return false;
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
-    !media::download_cancelled(dest)
+    !media::download_cancelled(dest) && crate::request_control::check().is_ok()
 }
 
 /// Home-DC download on the main socket. Used only when a temp key cannot be bound,
@@ -1423,7 +1422,7 @@ fn follow_cdn_redirect(
                 .map_err(|e| MtprotoError::Message(e.to_string()))?;
             let mut offset = job.offset;
             loop {
-                if media::download_cancelled(dest) {
+                if media::download_cancelled(dest) || crate::request_control::check().is_err() {
                     return Err(MtprotoError::Message("cancelled".into()));
                 }
                 let mut part = loop {

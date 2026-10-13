@@ -54,12 +54,14 @@ internal suspend fun DialogExecutor.hydratePinned() {
     if (messages.isEmpty()) return
     AppLog.api("dialog", "pinned cache chat=${chatId.value} count=${messages.size}")
     emit(Msg.Pinned(messages))
+    rememberPinned()
 }
 
 internal fun DialogExecutor.loadPinned() {
     if (pinnedRequested) return
     if (snapshot().pinnedMessages.isNotEmpty()) {
         pinnedRequested = true
+        rememberPinned()
         return
     }
     pinnedRequested = true
@@ -132,7 +134,8 @@ internal fun DialogExecutor.jumpToMessageId(messageId: Int, atTop: Boolean = fal
     emit(Msg.LoadingOlder(false))
     emit(Msg.LoadingNewer(false))
     emit(Msg.Loading(true))
-    work.launch {
+    historyJob?.cancel()
+    historyJob = work.launch {
         when (
             val result = topicOrHistoryPage(
                 offsetId = messageId,
@@ -154,7 +157,7 @@ internal fun DialogExecutor.jumpToMessageId(messageId: Int, atTop: Boolean = fal
                 // Anchor belongs to the committed jump window; publish it before any
                 // suspending enrichment so an obsolete jump cannot overwrite a newer one.
                 emit(Msg.Anchor(messageId, atTop = atTop))
-                resolveSenders(result.value)
+                resolveSendersLater(result.value)
                 warmup?.upsertMessages(result.value)
                 sessionStore?.upsertPeerMins(result.value)
             }
@@ -294,7 +297,8 @@ internal fun DialogExecutor.loadOlder(prefetch: Boolean = false) {
     val gen = historyGen
     val requestId = ++olderRequestId
     activeOlderRequestId = requestId
-    work.launch {
+    olderJob?.cancel()
+    olderJob = work.launch {
         fun ownsRequest() = gen == historyGen && activeOlderRequestId == requestId
         if (!ownsRequest()) return@launch
         val historyTop = ForumIo.historyThreadId(threadTopMsgId)
@@ -347,7 +351,7 @@ internal fun DialogExecutor.loadOlder(prefetch: Boolean = false) {
                     sessionStore?.upsertPeerMins(result.value)
                 }
                 continueUnreadPaging()
-                resolveSenders(result.value)
+                resolveSendersLater(result.value)
             }
             is Outcome.Err -> if (ownsRequest()) {
                 // A failed page is not an end-of-history signal. Preserve the cursor and
@@ -439,7 +443,8 @@ internal fun DialogExecutor.loadNewer() {
     val requestId = ++newerRequestId
     activeNewerRequestId = requestId
     emit(Msg.LoadingNewer(true))
-    work.launch {
+    newerJob?.cancel()
+    newerJob = work.launch {
         fun ownsRequest() = gen == historyGen && activeNewerRequestId == requestId
         try {
             if (!ownsRequest()) return@launch
@@ -457,7 +462,7 @@ internal fun DialogExecutor.loadNewer() {
                     activeNewerRequestId = null
                     warmup?.upsertMessages(result.value)
                     sessionStore?.upsertPeerMins(result.value)
-                    resolveSenders(result.value)
+                    resolveSendersLater(result.value)
                 }
                 is Outcome.Err -> if (ownsRequest()) {
                     // A transient newer-page failure is retryable; it is not proof that the
@@ -492,7 +497,8 @@ internal fun DialogExecutor.jump(epochSeconds: Int) {
     emit(Msg.LoadingOlder(false))
     emit(Msg.LoadingNewer(false))
     emit(Msg.Loading(true))
-    work.launch {
+    historyJob?.cancel()
+    historyJob = work.launch {
         val historyTop = ForumIo.historyThreadId(threadTopMsgId)
         if (historyTop <= 0) {
             val cached = warmup?.let { cache ->
@@ -524,7 +530,7 @@ internal fun DialogExecutor.jump(epochSeconds: Int) {
                 emit(Msg.HasOlder(minId != null && !atHistoryOldest(minId)))
                 warmup?.upsertMessages(result.value)
                 sessionStore?.upsertPeerMins(result.value)
-                resolveSenders(result.value)
+                resolveSendersLater(result.value)
             }
             is Outcome.Err -> if (gen == historyGen) handleError(result.telegramError, false)
         }
@@ -583,7 +589,7 @@ internal fun DialogExecutor.search(query: String) {
                             searchHit = true,
                         ),
                     )
-                    resolveSenders(result.value)
+                    resolveSendersLater(result.value)
                 }
                 is Outcome.Err -> handleError(result.telegramError, true)
             }

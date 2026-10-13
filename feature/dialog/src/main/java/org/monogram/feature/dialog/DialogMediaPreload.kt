@@ -23,7 +23,7 @@ object DialogMediaPreload {
     )
     private val STICKER_KINDS = setOf("sticker", "sticker_animated", "sticker_video")
 
-    enum class Fetch { Thumb, Display, Full }
+    enum class Fetch { Thumb, Display, Full, Prefix }
 
     data class MediaTask(
         val message: Message,
@@ -129,7 +129,11 @@ object DialogMediaPreload {
                         autoplayGifs = autoplayGifs,
                     )
                 }
-                if (!fullKey.isNullOrBlank() && wantFull) {
+                val streamPrefix = kind == "video" && message.supportsStreaming &&
+                        (wantFull || preset.allowsStream(kind, size))
+                if (!fullKey.isNullOrBlank() && streamPrefix) {
+                    media += MediaTask(message, Fetch.Prefix, priority, "$fullKey:prefix")
+                } else if (!fullKey.isNullOrBlank() && wantFull) {
                     media += MediaTask(message, Fetch.Full, priority, fullKey)
                 } else if (visible && !fullKey.isNullOrBlank() && preset.allowsDisplay(
                         kind,

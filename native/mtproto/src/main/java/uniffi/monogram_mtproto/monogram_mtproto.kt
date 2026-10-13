@@ -906,6 +906,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_search_messages_filtered(
     ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_search_messages_page(
+    ): Int
     external fun uniffi_monogram_mtproto_checksum_func_send_auth_code(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_send_inline_bot_result(
@@ -1197,6 +1199,8 @@ internal object UniffiLib {
     external fun uniffi_monogram_mtproto_fn_func_search_messages(`handle`: Long,`chatId`: Long,`query`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_search_messages_filtered(`handle`: Long,`chatId`: Long,`query`: RustBuffer.ByValue,`filter`: RustBuffer.ByValue,`offsetId`: Int,`addOffset`: Int,`limit`: Int,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_monogram_mtproto_fn_func_search_messages_page(`handle`: Long,`chatId`: Long,`query`: RustBuffer.ByValue,`filter`: RustBuffer.ByValue,`offsetId`: Int,`addOffset`: Int,`limit`: Int,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_send_auth_code(`handle`: Long,`phone`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
@@ -1695,6 +1699,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_search_messages_filtered() and 0xFFFF) != 57700) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_search_messages_page() and 0xFFFF) != 57507) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_send_auth_code() and 0xFFFF) != 8829) {
@@ -3479,6 +3486,44 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalLong.write(value.`discussionPeerId`, buf)
             FfiConverterOptionalString.write(value.`replyMarkupJson`, buf)
             FfiConverterBoolean.write(value.`forumTopic`, buf)
+    }
+}
+
+
+
+data class MessagesPageDto (
+    var `messages`: List<MessageDto>
+    ,
+    var `totalCount`: kotlin.Int
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMessagesPageDto: FfiConverterRustBuffer<MessagesPageDto> {
+    override fun read(buf: ByteBuffer): MessagesPageDto {
+        return MessagesPageDto(
+            FfiConverterSequenceTypeMessageDto.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MessagesPageDto) = (
+            FfiConverterSequenceTypeMessageDto.allocationSize(value.`messages`) +
+            FfiConverterInt.allocationSize(value.`totalCount`)
+    )
+
+    override fun write(value: MessagesPageDto, buf: ByteBuffer) {
+            FfiConverterSequenceTypeMessageDto.write(value.`messages`, buf)
+            FfiConverterInt.write(value.`totalCount`, buf)
     }
 }
 
@@ -7609,6 +7654,24 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
             return FfiConverterSequenceTypeMessageDto.lift(
     uniffiRustCallWithError(MtprotoException) { _status ->
     UniffiLib.uniffi_monogram_mtproto_fn_func_search_messages_filtered(
+
+
+        FfiConverterULong.lower(`handle`),
+        FfiConverterLong.lower(`chatId`),
+        FfiConverterString.lower(`query`),
+        FfiConverterString.lower(`filter`),
+        FfiConverterInt.lower(`offsetId`),
+        FfiConverterInt.lower(`addOffset`),
+        FfiConverterInt.lower(`limit`),_status)
+}
+    )
+    }
+
+
+    @Throws(MtprotoException::class) fun `searchMessagesPage`(`handle`: kotlin.ULong, `chatId`: kotlin.Long, `query`: kotlin.String, `filter`: kotlin.String, `offsetId`: kotlin.Int, `addOffset`: kotlin.Int, `limit`: kotlin.Int): MessagesPageDto {
+            return FfiConverterTypeMessagesPageDto.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_search_messages_page(
 
 
         FfiConverterULong.lower(`handle`),

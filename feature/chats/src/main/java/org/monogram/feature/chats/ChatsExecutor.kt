@@ -20,6 +20,7 @@ import org.monogram.core.common.AppLog
 import org.monogram.core.common.Outcome
 import org.monogram.core.common.push.NotificationLocalStore
 import org.monogram.core.common.telegram.TelegramError
+import org.monogram.core.database.ChatCacheCursor
 import org.monogram.core.database.OfflineWarmup
 import org.monogram.core.database.SessionMetadataStore
 import org.monogram.core.database.dao.ChatReadState
@@ -164,7 +165,7 @@ internal class ChatsExecutor(
                         // only for differenceTooLong (Ignored below).
                     }
                     is MtprotoUpdate.Ignored -> if (update.kind == "difference_too_long") {
-                        refresh(force = true)
+                        refresh(force = false)
                     }
                     is MtprotoUpdate.PeerTyping -> scope.launch {
                         applyPeerTyping(update)
@@ -566,10 +567,12 @@ internal class ChatsExecutor(
                     cachedTail = tail
                     recoverMissingTitles()
                     if (cachedTail.none { it.isMainListRow() }) {
-                        val extra = warmup?.chatsExcluding(
-                            first.map { it.id.value },
-                            DIALOGS_NETWORK_PAGE,
-                        ).orEmpty().filter { it.isMainListRow() }
+                        val tail = listTail(first, archived = false)
+                        val extra = if (warmup == null || tail == null) {
+                            emptyList()
+                        } else {
+                            warmup.chatsAfter(ChatCacheCursor.from(tail), DIALOGS_NETWORK_PAGE)
+                        }.filter { it.isMainListRow() }
                         cachedTail = extra + cachedTail
                     }
                     val loadedMain = first.count { it.isMainListRow() } +
@@ -720,12 +723,15 @@ internal class ChatsExecutor(
                     dispatch(Msg.LoadingMore(true))
                     scope.launch {
                         try {
-                            val loadedIds = state().chats.map { it.id.value } +
-                                cachedTail.map { it.id.value }
-                            val roomPage = warmup.chatsArchiveExcluding(
-                                loadedIds,
-                                DIALOGS_NETWORK_PAGE,
-                            ).filter { it.isArchiveListRow() }
+                            val tail = listTail(state().chats + cachedTail, archived = true)
+                            val roomPage = if (tail == null) {
+                                emptyList()
+                            } else {
+                                warmup.chatsAfter(
+                                    ChatCacheCursor.from(tail),
+                                    DIALOGS_NETWORK_PAGE,
+                                )
+                            }.filter { it.isArchiveListRow() }
                             AppLog.api("chats", "loadMore archive room count=${roomPage.size}")
                             if (roomPage.isNotEmpty()) {
                                 dispatch(Msg.Append(roomPage))
@@ -771,10 +777,12 @@ internal class ChatsExecutor(
             dispatch(Msg.LoadingMore(true))
             scope.launch {
                 try {
-                    val loadedIds = state().chats.map { it.id.value } +
-                        cachedTail.map { it.id.value }
-                    val roomPage = warmup.chatsExcluding(loadedIds, DIALOGS_NETWORK_PAGE)
-                        .filter { it.isMainListRow() }
+                    val tail = listTail(state().chats + cachedTail, archived = false)
+                    val roomPage = if (tail == null) {
+                        emptyList()
+                    } else {
+                        warmup.chatsAfter(ChatCacheCursor.from(tail), DIALOGS_NETWORK_PAGE)
+                    }.filter { it.isMainListRow() }
                     AppLog.api("chats", "loadMore room count=${roomPage.size}")
                     if (roomPage.isNotEmpty()) {
                         dispatch(Msg.Append(roomPage))

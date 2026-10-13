@@ -9,8 +9,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -303,6 +303,15 @@ class MonogramApp : Application() {
                 }
                 client.setDownloadProgressListener { path, downloaded, _ ->
                     mediaRepository.onNativeProgress(path, downloaded)
+                }
+                settingsScope.launch {
+                    ready.await()
+                    warmup.prepareRecentHistory()
+                    warmup.recentHistory.warmedMessages().forEach { message ->
+                        if (!message.thumbCacheKey.isNullOrBlank()) {
+                            mediaRepository.ensureLocalMessageThumb(message, MediaPriority.THUMB)
+                        }
+                    }
                 }
             },
             createPush = {

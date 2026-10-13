@@ -40,6 +40,10 @@ interface DialogStore : Store<DialogStore.Intent, DialogStore.State, Nothing> {
         data object RefreshPresence : Intent
         data object LoadOlder : Intent
         data object LoadNewer : Intent
+
+        /** Drop in-flight history prefetch. Painted messages stay. */
+        data object Leave : Intent
+        data object Resume : Intent
         data class DraftChanged(val value: String) : Intent
         data class SetDraftFormatting(val enabled: Boolean) : Intent
         data class SetDraftEntities(val entities: List<TextEntity>) : Intent

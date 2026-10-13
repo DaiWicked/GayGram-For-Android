@@ -1,8 +1,10 @@
 package org.monogram.feature.dialog.ui
 
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -185,8 +187,11 @@ internal fun ColumnScope.DialogHistoryPane(
     val pinned = state.pinnedMessages.getOrNull(state.pinnedIndex)
         ?: state.pinnedMessages.firstOrNull()
     val showPinned = !state.isCommentThread && pinned != null
+    // A bar we already had on the first frame must not slide in again on the next open.
+    val pinWasReady = remember { showPinned }
     val topPadding by animateDpAsState(
         targetValue = if (showPinned) 88.dp else 8.dp,
+        animationSpec = if (pinWasReady) snap() else tween(),
         label = "pinned-top-padding",
     )
     Box(
@@ -910,7 +915,7 @@ internal fun ColumnScope.DialogHistoryPane(
             }
             androidx.compose.animation.AnimatedVisibility(
                 visible = showPinned,
-                enter = fadeIn() + slideInVertically { -it },
+                enter = if (pinWasReady) EnterTransition.None else fadeIn() + slideInVertically { -it },
                 exit = fadeOut() + slideOutVertically { -it },
                 modifier = Modifier.align(Alignment.TopCenter),
             ) {

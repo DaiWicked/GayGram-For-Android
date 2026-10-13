@@ -93,6 +93,9 @@ class DialogMediaPreloader(
 
             DialogMediaPreload.Fetch.Full ->
                 repository?.ensureLocalMessageMedia(task.message, task.priority)
+
+            DialogMediaPreload.Fetch.Prefix ->
+                repository?.ensureStreamingPrefix(task.message, task.priority)
         }
     }
 

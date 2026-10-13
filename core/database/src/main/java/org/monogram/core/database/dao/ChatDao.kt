@@ -62,31 +62,11 @@ interface ChatDao {
     )
     suspend fun archivePreview(limit: Int): List<ChatEntity>
 
-    @Query(
-        """
-        SELECT * FROM chats
-        WHERE `left` = 0 AND archived = 1 AND id NOT IN (:excludeIds)
-        ORDER BY pinned DESC, pinnedOrder ASC, lastMessageDate DESC, id DESC
-        LIMIT :limit
-        """,
-    )
-    suspend fun archiveExcluding(excludeIds: List<Long>, limit: Int): List<ChatEntity>
-
     @Query("SELECT * FROM chats WHERE lastMessageId IN (:ids) AND (:chatId IS NULL OR id = :chatId) AND (:chatId IS NOT NULL OR id > -1000000000000)")
     suspend fun withLastMessageIds(chatId: Long?, ids: List<Int>): List<ChatEntity>
 
     @Query("SELECT COUNT(*) FROM chats WHERE `left` = 0 AND archived = 0")
     suspend fun mainListCount(): Int
-
-    @Query(
-        """
-        SELECT * FROM chats
-        WHERE `left` = 0 AND archived = 0 AND id NOT IN (:excludeIds)
-        ORDER BY pinned DESC, pinnedOrder ASC, lastMessageDate DESC, id DESC
-        LIMIT :limit
-        """,
-    )
-    suspend fun mainListExcluding(excludeIds: List<Long>, limit: Int): List<ChatEntity>
 
     @Query(
         """

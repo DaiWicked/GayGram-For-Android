@@ -205,6 +205,7 @@ fun VideoPlayer(
         if (active && animationEnabled && isGif) {
             player.play()
         } else if (!active || !animationEnabled) {
+            if (isGif) player.seekTo(0)
             player.pause()
         }
     }
@@ -232,7 +233,10 @@ fun VideoPlayer(
                     )
                 }
             },
-            update = { view -> player.setVideoTextureView(view) },
+            update = { view ->
+                player.setVideoTextureView(view)
+                if (isGif && !player.playWhenReady) player.seekTo(0)
+            },
             onRelease = { view -> runCatching { player.clearVideoTextureView(view) } },
             modifier = surfaceModifier,
         )

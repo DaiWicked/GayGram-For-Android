@@ -53,17 +53,17 @@ import org.monogram.core.models.pollAnswersLabel
 import org.monogram.core.models.reactionChoiceKey
 import org.monogram.core.ui.components.AppModalSheet
 import org.monogram.core.ui.components.PeerAvatar
-import org.monogram.core.ui.rememberStrippedPreview
 import org.monogram.core.ui.menu.AppMenuAvatar
-import org.monogram.network.http.MediaRepository
 import org.monogram.core.ui.menu.AppMenuAvatarStack
 import org.monogram.core.ui.menu.AppMenuDivider
 import org.monogram.core.ui.menu.AppMenuGroup
 import org.monogram.core.ui.menu.AppMenuItem
 import org.monogram.core.ui.menu.AppMenuMotion
 import org.monogram.core.ui.menu.AppMenuSurface
+import org.monogram.core.ui.rememberStrippedPreview
 import org.monogram.feature.dialog.DialogTime
 import org.monogram.feature.dialog.R
+import org.monogram.network.http.MediaRepository
 import java.io.File
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -175,7 +175,7 @@ internal fun PeerListSheet(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(chips, key = { it.key }) { chip ->
+                items(chips, key = { it.key }, contentType = { "seen-filter" }) { chip ->
                     FilterChip(
                         selected = selectedKey == chip.key,
                         onClick = { selectedKey = chip.key },
@@ -228,6 +228,7 @@ internal fun PeerListSheet(
                             "${it.peerId.value}:${it.date}:${it.emoticon}:${it.documentId}:" +
                                 it.pollOptionHex.joinToString()
                         },
+                        contentType = { "seen-peer" },
                     ) { viewer ->
                         PeerChoiceRow(
                             viewer = viewer,
@@ -421,7 +422,9 @@ private fun ExpandedViewerList(
 ) {
     val yesterday = stringResource(R.string.dialog_yesterday)
     Column(
-        modifier = modifier.heightIn(max = 312.dp).verticalScroll(rememberScrollState()),
+        modifier = modifier
+            .heightIn(max = 312.dp)
+            .verticalScroll(rememberScrollState()),
     ) {
         AppMenuGroup {
             AppMenuItem(

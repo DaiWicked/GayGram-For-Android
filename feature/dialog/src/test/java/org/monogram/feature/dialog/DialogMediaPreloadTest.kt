@@ -167,6 +167,30 @@ class DialogMediaPreloadTest {
         })
     }
 
+    @Test
+    fun streamingVideoPrefetchesPrefixNotTheWholeFile() {
+        val video = Message(
+            id = MessageId(PeerId(1), 9),
+            senderId = null,
+            text = null,
+            date = 9L,
+            outgoing = false,
+            mediaKind = "video",
+            mediaCacheKey = "video:9",
+            thumbCacheKey = "video:9:thumb",
+            supportsStreaming = true,
+            fileSize = 20L * 1024 * 1024,
+        )
+        val plan = DialogMediaPreload.plan(
+            listOf(video),
+            visibleIds = setOf(9),
+            preset = AutoDownloadPreset.WIFI,
+        )
+        assertTrue(plan.media.any { it.fetch == DialogMediaPreload.Fetch.Prefix && it.cacheKey == "video:9:prefix" })
+        assertFalse(plan.media.any { it.fetch == DialogMediaPreload.Fetch.Full })
+        assertTrue(plan.media.any { it.fetch == DialogMediaPreload.Fetch.Thumb })
+    }
+
     private fun photo(id: Int) = Message(
         id = MessageId(PeerId(1), id),
         senderId = null,

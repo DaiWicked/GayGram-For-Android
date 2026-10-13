@@ -469,9 +469,12 @@ fn batched_range_reports_a_failed_part_and_removes_the_partial_file() {
     assert!(result.is_err(), "a failed part must fail the download");
     assert!(is_file_reference_error(&result.unwrap_err()));
     assert!(
-        !path.exists(),
-        "a failed batch must not leave a partial file"
+        path.exists(),
+        "a recoverable file-reference error must retain the partial file"
     );
+    assert_eq!(fs::read(&path).unwrap(), vec![1; CHUNK as usize]);
+    fs::remove_file(&path).ok();
+    fs::remove_file(ranges_path(&path)).ok();
 }
 
 #[test]
@@ -1007,7 +1010,7 @@ fn file_migrate_retries_that_dc_and_flood_resumes_the_same_transfer() {
 }
 
 #[test]
-fn flood_wait_resumes_the_same_transfer() {
+fn flood_wait_unwinds_without_retrying_on_the_lane() {
     let _globals = hold_media_globals();
     let _profile = bind_download_profile(DownloadProfile::Ordinary);
     let _policy = crate::transfer_policy::bind(std::sync::Arc::new(
@@ -1038,7 +1041,6 @@ fn flood_wait_resumes_the_same_transfer() {
     };
     let path = std::env::temp_dir().join(format!("monogram-flood-{}", std::process::id()));
     let mut calls = 0u8;
-    set_flood_retry_delay_for_test(Some(std::time::Duration::ZERO));
     let result =
         download_media_range_batched(2, &media, &path, &path, None, 1, |_init, requests| {
             calls += 1;
@@ -1059,10 +1061,8 @@ fn flood_wait_resumes_the_same_transfer() {
                 })
                 .collect())
         });
-    assert!(result.is_ok(), "flood must resume the same transfer: {result:?}");
-    assert_eq!(calls, 2);
-    assert_eq!(fs::read(&path).unwrap(), vec![9u8; 20]);
-    set_flood_retry_delay_for_test(None);
+    assert!(result.is_err());
+    assert_eq!(calls, 1);
     fs::remove_file(&path).ok();
 }
 

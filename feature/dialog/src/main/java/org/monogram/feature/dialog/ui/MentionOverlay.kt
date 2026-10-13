@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -163,7 +162,11 @@ internal fun MentionOverlay(
                             .fillMaxWidth()
                             .heightIn(max = composerPanelHeight() - 48.dp),
                     ) {
-                        items(candidates, key = { it.peerId.value }) { candidate ->
+                        items(
+                            candidates,
+                            key = { it.peerId.value },
+                            contentType = { "mention" },
+                        ) { candidate ->
                             MentionRow(
                                 candidate = candidate,
                                 mediaRepository = mediaRepository,
@@ -172,7 +175,7 @@ internal fun MentionOverlay(
                             )
                         }
                         if (loading) {
-                            item(key = "mention-loading") {
+                            item(key = "mention-loading", contentType = "mention-status") {
                                 MonogramLoading(
                                     modifier = Modifier
                                         .fillMaxWidth()

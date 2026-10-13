@@ -5,8 +5,12 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.json.JSONObject
+import org.monogram.core.common.PerfLog
 import java.io.File
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 object DatabaseProvider {
     @Volatile
@@ -44,6 +48,29 @@ object DatabaseProvider {
             db.execSQL("CREATE TABLE IF NOT EXISTS message_holes (chatId INTEGER NOT NULL, startId INTEGER NOT NULL, endId INTEGER NOT NULL, source TEXT NOT NULL, PRIMARY KEY(chatId, startId, endId, source))")
         }
     }
+
+    /** SQL stays off Dispatchers.IO, which media downloads also use. */
+    private val roomWorker = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "monogram-room").apply { isDaemon = true }
+    }
+    internal val roomExecutor: Executor = Executor { runnable ->
+        val queuedAt = PerfLog.nowMs()
+        roomWorker.execute {
+            val startedAt = PerfLog.nowMs()
+            try {
+                runnable.run()
+            } finally {
+                if (PerfLog.isEnabled()) {
+                    PerfLog.event(
+                        "room_queue",
+                        "wait_ms=${startedAt - queuedAt} run_ms=${PerfLog.nowMs() - startedAt}"
+                    )
+                }
+            }
+        }
+    }
+    internal val roomDispatcher = roomExecutor.asCoroutineDispatcher()
+
     private const val DB_NAME = "monogram.db"
     private const val IDENTITY_BACKUP = "session-identity.json"
 
@@ -92,6 +119,8 @@ object DatabaseProvider {
         Room.databaseBuilder(app, MonogramDatabase::class.java, DB_NAME)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .setJournalMode(androidx.room.RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .setQueryExecutor(roomExecutor)
+            .setTransactionExecutor(roomExecutor)
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
                     db.execSQL("PRAGMA synchronous=NORMAL")

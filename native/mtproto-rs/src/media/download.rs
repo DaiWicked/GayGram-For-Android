@@ -1,7 +1,6 @@
 //! https://core.telegram.org/method/upload.getFile
 //! https://core.telegram.org/api/files
 
-use std::cell::Cell;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -295,31 +294,6 @@ pub(crate) fn flood_wait_secs(err: &MtprotoError) -> Option<u64> {
 /// https://core.telegram.org/api/errors
 pub(crate) fn flood_wait_duration(secs: u64) -> std::time::Duration {
     std::time::Duration::from_secs(secs.max(1))
-}
-
-thread_local! {
-    static FLOOD_RETRY_DELAY: Cell<Option<std::time::Duration>> = const { Cell::new(None) };
-}
-
-pub(crate) fn set_flood_retry_delay_for_test(delay: Option<std::time::Duration>) {
-    FLOOD_RETRY_DELAY.with(|cell| cell.set(delay));
-}
-
-fn pause_for_flood(cancellation_path: &Path, seconds: u64) -> bool {
-    let delay = FLOOD_RETRY_DELAY
-        .with(|cell| cell.get())
-        .unwrap_or_else(|| std::time::Duration::from_secs(seconds.min(60).max(1)));
-    if delay.is_zero() {
-        return !download_cancelled(cancellation_path);
-    }
-    let deadline = std::time::Instant::now() + delay;
-    while std::time::Instant::now() < deadline {
-        if download_cancelled(cancellation_path) {
-            return false;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
-    !download_cancelled(cancellation_path)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -1276,7 +1250,6 @@ pub(crate) fn download_media_range_batched_streaming_capped(
         }
         let mut counted_offsets = HashSet::new();
         let mut first_batch = true;
-        let mut flood_retries = 0u8;
         let target_str = cancellation_path.display().to_string();
         'download: loop {
             if already_complete {
@@ -1436,14 +1409,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                         }
                         Err(err) if flood_wait_secs(&err).is_some() => {
                             note_transfer_flood(dc_id, TransferClass::Download, &err);
-                            let seconds = flood_wait_secs(&err).unwrap_or(1);
-                            if flood_retries >= 3
-                                || !pause_for_flood(cancellation_path, seconds)
-                            {
-                                return Err(err);
-                            }
-                            flood_retries += 1;
-                            continue 'download;
+                            return Err(err);
                         }
                         Err(err) if timeout_retries < 3 && is_rpc_timeout(&err) => {
                             timeout_retries += 1;
@@ -1527,14 +1493,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                             }
                             if flood_wait_secs(&err).is_some() {
                                 note_transfer_flood(dc_id, TransferClass::Download, &err);
-                                let seconds = flood_wait_secs(&err).unwrap_or(1);
-                                if flood_retries >= 3
-                                    || !pause_for_flood(cancellation_path, seconds)
-                                {
-                                    return Err(err);
-                                }
-                                flood_retries += 1;
-                                continue 'download;
+                                return Err(err);
                             }
                             if timeout_retries < 3 && is_rpc_timeout(&err) {
                                 timeout_retries += 1;

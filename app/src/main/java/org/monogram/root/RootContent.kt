@@ -69,6 +69,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
@@ -84,6 +85,7 @@ import com.arkivanov.decompose.extensions.compose.stack.animation.slide
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimator
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import kotlinx.coroutines.delay
 import org.monogram.R
 import org.monogram.core.common.PerfLog
 import org.monogram.core.models.canSelectAsForwardRecipient
@@ -296,6 +298,9 @@ private fun RootPlaybackContent(
                 compactHome && currentStack.active.instance !is RootComponent.Child.Home && recipient == null
             val dialogCovered =
                 dialog != null && currentStack.active.instance !is RootComponent.Child.Dialog
+            // Leave loops running through the screen change, then park them on frame 0.
+            val homeMediaHeld = rememberDelayedHold(homeCovered)
+            val dialogMediaHeld = rememberDelayedHold(dialogCovered)
             Layout(
                 content = {
 
@@ -392,17 +397,6 @@ private fun RootPlaybackContent(
                             )
                             .background(MaterialTheme.colorScheme.surfaceContainer),
                     ) {
-                        if (homeCovered) {
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .semantics { hideFromAccessibility() },
-                            ) {
-                                CompositionLocalProvider(LocalMediaAnimationEnabled provides false) {
-                                    homeContent(home, selectedChatId, false)
-                                }
-                            }
-                        }
                         val coveredDialog = dialog
                         if (coveredDialog != null && dialogCovered && !(recipient != null && expanded)) {
                             Box(
@@ -410,7 +404,9 @@ private fun RootPlaybackContent(
                                     .fillMaxSize()
                                     .semantics { hideFromAccessibility() },
                             ) {
-                                key(coveredDialog) { dialogContent(coveredDialog) }
+                                CompositionLocalProvider(LocalMediaAnimationEnabled provides !dialogMediaHeld) {
+                                    key(coveredDialog) { dialogContent(coveredDialog) }
+                                }
                             }
                         }
                         Children(
@@ -486,9 +482,22 @@ private fun RootPlaybackContent(
                                 )
                             }
                         }
-                        if (compactHome && !homeCovered) {
-                            Box(Modifier.fillMaxSize()) {
-                                homeContent(home, selectedChatId, true)
+                        if (compactHome) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .zIndex(if (homeCovered) -1f else 0f)
+                                    .then(
+                                        if (homeCovered) {
+                                            Modifier.semantics { hideFromAccessibility() }
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            ) {
+                                CompositionLocalProvider(LocalMediaAnimationEnabled provides !homeMediaHeld) {
+                                    homeContent(home, selectedChatId, !homeCovered)
+                                }
                             }
                         }
                         var restoreMiniPlayer by remember { mutableStateOf(false) }
@@ -703,4 +712,19 @@ private fun PlaybackBar(
             shape = RoundedCornerShape(20.dp),
         )
     }
+}
+
+/** True only after [active] has stayed true briefly, so a short navigation does not blank loops. */
+@Composable
+private fun rememberDelayedHold(active: Boolean): Boolean {
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(active) {
+        if (!active) {
+            held = false
+        } else {
+            delay(320)
+            held = true
+        }
+    }
+    return held
 }

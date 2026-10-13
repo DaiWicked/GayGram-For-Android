@@ -266,23 +266,31 @@ internal fun DialogExecutor.failOrKeepOutgoing(pendingId: Int, error: TelegramEr
 }
 
 internal suspend fun DialogExecutor.absorbIncoming(incoming: Message) {
-    val existing = snapshot().messages.firstOrNull { it.id.id == incoming.id.id }
+    val current = snapshot()
+    val existing = current.messages.firstOrNull { it.id.id == incoming.id.id }
     if (existing != null) {
         if (existing != incoming) {
             emit(Msg.Append(incoming))
-            resolveSenders(listOf(incoming))
+            resolveSendersLater(listOf(incoming))
             sessionStore?.upsertPeerMins(listOf(incoming))
         }
         return
     }
-    val pending = matchingPending(snapshot().messages, incoming)
+    val pending = matchingPending(current.messages, incoming)
     if (pending != null) {
         PerfLog.event("send", "phase=pending_reconcile via=new_message")
         replaceOutgoing(pending.id.id, incoming.copy(outgoing = true))
         return
     }
+    val newest = current.messages.maxOfOrNull { it.id.id } ?: 0
+    if (!incomingFitsOpenWindow(current.hasNewer, newest, incoming.id.id)) {
+        if (!incoming.outgoing) emit(Msg.UnreadCount(snapshot().unreadCount + 1))
+        warmup?.upsertMessages(listOf(incoming))
+        sessionStore?.upsertPeerMins(listOf(incoming))
+        return
+    }
     emit(Msg.Append(incoming))
-    resolveSenders(listOf(incoming))
+    resolveSendersLater(listOf(incoming))
     sessionStore?.upsertPeerMins(listOf(incoming))
 }
 
