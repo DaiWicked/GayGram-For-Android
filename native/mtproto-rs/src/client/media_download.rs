@@ -790,18 +790,31 @@ pub(crate) fn download_media_range_on_lane(
     }
     let mut target_dc = media::download_dc(home.dc_id, &media.location);
     let large = media.file_size.is_some_and(|size| size >= 20_000_000);
-    let mut migrations = 0;
+    let mut migrations = 0u8;
+    let mut flood_resumes = 0u8;
     let mut routed_media = media.clone();
     let media = &mut routed_media;
     loop {
-        media::check_transfer_flood(target_dc, media::TransferClass::Download)?;
+        if let Err(error) = media::check_transfer_flood(target_dc, media::TransferClass::Download) {
+            match media::transfer_step(&error, target_dc, migrations, flood_resumes) {
+                media::TransferStep::ResumeFlood => {
+                    let seconds = media::flood_wait_secs(&error).unwrap_or(1);
+                    if !wait_flood(dest, seconds) {
+                        return Err(MtprotoError::Message("cancelled".into()));
+                    }
+                    flood_resumes += 1;
+                    continue;
+                }
+                _ => return Err(error),
+            }
+        }
         let admission = client.policy.admit_download(target_dc, large)?;
         let first = download_media_range_on_lane_dc(
             handle, client, home, api_id, media, dest, offset, target_dc,
         );
         if let Err(ref error) = first {
-            if let Some(dc) = api_invoke::migrate_dc(error) {
-                if dc != target_dc && migrations < 3 {
+            match media::transfer_step(error, target_dc, migrations, flood_resumes) {
+                media::TransferStep::Migrate(dc) => {
                     match &mut media.location {
                         media::MediaLocation::Photo { dc_id, .. }
                         | media::MediaLocation::Document { dc_id, .. }
@@ -810,8 +823,19 @@ pub(crate) fn download_media_range_on_lane(
                     }
                     target_dc = dc;
                     migrations += 1;
+                    drop(admission);
                     continue;
                 }
+                media::TransferStep::ResumeFlood => {
+                    let seconds = media::flood_wait_secs(error).unwrap_or(1);
+                    drop(admission);
+                    if !wait_flood(dest, seconds) {
+                        return Err(MtprotoError::Message("cancelled".into()));
+                    }
+                    flood_resumes += 1;
+                    continue;
+                }
+                media::TransferStep::Stop => {}
             }
         }
         return match first {
@@ -835,6 +859,19 @@ pub(crate) fn download_media_range_on_lane(
             other => other,
         };
     }
+}
+
+/// Flood wait is off the media lane: the admission guard is already dropped.
+fn wait_flood(dest: &Path, seconds: u64) -> bool {
+    let capped = seconds.min(60).max(1);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(capped);
+    while std::time::Instant::now() < deadline {
+        if media::download_cancelled(dest) {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    !media::download_cancelled(dest)
 }
 
 /// Home-DC download on the main socket. Used only when a temp key cannot be bound,

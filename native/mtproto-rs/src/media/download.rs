@@ -1,6 +1,7 @@
 //! https://core.telegram.org/method/upload.getFile
 //! https://core.telegram.org/api/files
 
+use std::cell::Cell;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -234,6 +235,45 @@ fn is_limit_invalid(err: &MtprotoError) -> bool {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TransferStep {
+    /// `FILE_MIGRATE_X` only. Home-DC errors such as `USER_MIGRATE` stay put.
+    Migrate(i32),
+    /// Same file, after the lane has been released.
+    ResumeFlood,
+    Stop,
+}
+
+pub(crate) fn file_migrate_dc(error: &MtprotoError, target_dc: i32, migrations: u8) -> Option<i32> {
+    let MtprotoError::Message(message) = error else {
+        return None;
+    };
+    if !message.contains("FILE_MIGRATE_") || migrations >= 3 {
+        return None;
+    }
+    let dc = crate::api_invoke::migrate_dc(error)?;
+    if dc == 0 || dc == target_dc {
+        None
+    } else {
+        Some(dc)
+    }
+}
+
+pub(crate) fn transfer_step(
+    error: &MtprotoError,
+    target_dc: i32,
+    migrations: u8,
+    flood_resumes: u8,
+) -> TransferStep {
+    if let Some(dc) = file_migrate_dc(error, target_dc, migrations) {
+        return TransferStep::Migrate(dc);
+    }
+    if flood_resumes < 3 && flood_wait_secs(error).is_some() {
+        return TransferStep::ResumeFlood;
+    }
+    TransferStep::Stop
+}
+
 pub(crate) fn flood_wait_secs(err: &MtprotoError) -> Option<u64> {
     let MtprotoError::Message(message) = err else {
         return None;
@@ -255,6 +295,31 @@ pub(crate) fn flood_wait_secs(err: &MtprotoError) -> Option<u64> {
 /// https://core.telegram.org/api/errors
 pub(crate) fn flood_wait_duration(secs: u64) -> std::time::Duration {
     std::time::Duration::from_secs(secs.max(1))
+}
+
+thread_local! {
+    static FLOOD_RETRY_DELAY: Cell<Option<std::time::Duration>> = const { Cell::new(None) };
+}
+
+pub(crate) fn set_flood_retry_delay_for_test(delay: Option<std::time::Duration>) {
+    FLOOD_RETRY_DELAY.with(|cell| cell.set(delay));
+}
+
+fn pause_for_flood(cancellation_path: &Path, seconds: u64) -> bool {
+    let delay = FLOOD_RETRY_DELAY
+        .with(|cell| cell.get())
+        .unwrap_or_else(|| std::time::Duration::from_secs(seconds.min(60).max(1)));
+    if delay.is_zero() {
+        return !download_cancelled(cancellation_path);
+    }
+    let deadline = std::time::Instant::now() + delay;
+    while std::time::Instant::now() < deadline {
+        if download_cancelled(cancellation_path) {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    !download_cancelled(cancellation_path)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -454,6 +519,9 @@ pub(crate) fn keep_partial(err: &MtprotoError) -> bool {
         || upper.contains("TIMEOUT")
         || upper.contains("FILE_REFERENCE")
         || upper.contains("DOWNLOAD INCOMPLETE")
+        || upper.contains("AUTH_KEY_UNREGISTERED")
+        || upper.contains("AUTH_KEY_INVALID")
+        || upper.contains("AUTH_KEY_DUPLICATED")
         || upper.contains("NETWORK")
         || upper.contains("CONNECTION")
         || upper.contains("TRANSPORT")
@@ -1208,6 +1276,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
         }
         let mut counted_offsets = HashSet::new();
         let mut first_batch = true;
+        let mut flood_retries = 0u8;
         let target_str = cancellation_path.display().to_string();
         'download: loop {
             if already_complete {
@@ -1367,7 +1436,14 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                         }
                         Err(err) if flood_wait_secs(&err).is_some() => {
                             note_transfer_flood(dc_id, TransferClass::Download, &err);
-                            return Err(err);
+                            let seconds = flood_wait_secs(&err).unwrap_or(1);
+                            if flood_retries >= 3
+                                || !pause_for_flood(cancellation_path, seconds)
+                            {
+                                return Err(err);
+                            }
+                            flood_retries += 1;
+                            continue 'download;
                         }
                         Err(err) if timeout_retries < 3 && is_rpc_timeout(&err) => {
                             timeout_retries += 1;
@@ -1451,7 +1527,14 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                             }
                             if flood_wait_secs(&err).is_some() {
                                 note_transfer_flood(dc_id, TransferClass::Download, &err);
-                                return Err(err);
+                                let seconds = flood_wait_secs(&err).unwrap_or(1);
+                                if flood_retries >= 3
+                                    || !pause_for_flood(cancellation_path, seconds)
+                                {
+                                    return Err(err);
+                                }
+                                flood_retries += 1;
+                                continue 'download;
                             }
                             if timeout_retries < 3 && is_rpc_timeout(&err) {
                                 timeout_retries += 1;

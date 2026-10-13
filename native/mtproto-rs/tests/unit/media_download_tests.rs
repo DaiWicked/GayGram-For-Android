@@ -115,6 +115,15 @@ fn android_range_file_round_trips_and_rejects_a_negative_count() {
     assert!(keep_partial(&crate::MtprotoError::Message(
         "download incomplete: received 200 of 1000 bytes".into()
     )));
+    assert!(keep_partial(&crate::MtprotoError::Message(
+        "401: AUTH_KEY_UNREGISTERED".into()
+    )));
+    assert!(keep_partial(&crate::MtprotoError::Message(
+        "401: AUTH_KEY_INVALID".into()
+    )));
+    assert!(keep_partial(&crate::MtprotoError::Message(
+        "406: AUTH_KEY_DUPLICATED".into()
+    )));
     let staging = std::path::PathBuf::from("video.mp4.100.2.part");
     let sidecar = ranges_path(&staging);
     assert!(sidecar.ends_with("video.mp4.100.2.ranges.part"));
@@ -958,7 +967,47 @@ fn one_mib_chunks_are_rejected() {
 }
 
 #[test]
-fn flood_wait_returns_without_sleeping_or_retrying_on_the_lane() {
+fn file_migrate_retries_that_dc_and_flood_resumes_the_same_transfer() {
+    let migrate = MtprotoError::Message("RPC 303: FILE_MIGRATE_4".into());
+    assert_eq!(transfer_step(&migrate, 2, 0, 0), TransferStep::Migrate(4));
+    assert_eq!(transfer_step(&migrate, 4, 0, 0), TransferStep::Stop);
+    assert_eq!(transfer_step(&migrate, 2, 3, 0), TransferStep::Stop);
+    let user = MtprotoError::Message("RPC 303: USER_MIGRATE_4".into());
+    assert_eq!(transfer_step(&user, 2, 0, 0), TransferStep::Stop);
+    let flood = MtprotoError::Message("RPC 420: FLOOD_WAIT_2".into());
+    assert_eq!(transfer_step(&flood, 2, 0, 0), TransferStep::ResumeFlood);
+    assert_eq!(transfer_step(&flood, 2, 0, 3), TransferStep::Stop);
+
+    let mut dc = 2i32;
+    let mut migrations = 0u8;
+    let mut flood_resumes = 0u8;
+    let mut attempts = Vec::new();
+    let err = loop {
+        let step = match attempts.len() {
+            0 => transfer_step(&flood, dc, migrations, flood_resumes),
+            1 => transfer_step(&migrate, dc, migrations, flood_resumes),
+            _ => break None,
+        };
+        match step {
+            TransferStep::ResumeFlood => {
+                attempts.push(dc);
+                flood_resumes += 1;
+            }
+            TransferStep::Migrate(next) => {
+                attempts.push(dc);
+                dc = next;
+                migrations += 1;
+            }
+            TransferStep::Stop => break Some(step),
+        }
+    };
+    assert_eq!(err, None);
+    assert_eq!(attempts, vec![2, 2]);
+    assert_eq!(dc, 4);
+}
+
+#[test]
+fn flood_wait_resumes_the_same_transfer() {
     let _globals = hold_media_globals();
     let _profile = bind_download_profile(DownloadProfile::Ordinary);
     let _policy = crate::transfer_policy::bind(std::sync::Arc::new(
@@ -989,6 +1038,7 @@ fn flood_wait_returns_without_sleeping_or_retrying_on_the_lane() {
     };
     let path = std::env::temp_dir().join(format!("monogram-flood-{}", std::process::id()));
     let mut calls = 0u8;
+    set_flood_retry_delay_for_test(Some(std::time::Duration::ZERO));
     let result =
         download_media_range_batched(2, &media, &path, &path, None, 1, |_init, requests| {
             calls += 1;
@@ -1009,28 +1059,10 @@ fn flood_wait_returns_without_sleeping_or_retrying_on_the_lane() {
                 })
                 .collect())
         });
-    assert!(
-        matches!(result, Err(MtprotoError::Message(ref message)) if message == "RPC 420: FLOOD_WAIT_2")
-    );
-    assert_eq!(calls, 1);
-    assert!(!path.exists());
-    let policy = crate::transfer_policy::current();
-    *policy.floods.lock() = FloodScope::new();
-    policy.floods.lock().park(2, TransferClass::Download, 2, false,
-        std::time::Instant::now() - std::time::Duration::from_secs(5),
-        DownloadWindow { chunk: FAST_CHUNK, in_flight: 8 });
-    assert!(check_transfer_flood(2, TransferClass::Download).is_ok());
-    download_media_range_batched(2, &media, &path, &path, None, 8, |_, requests| {
-        assert_eq!(requests.len(), 2, "retry must keep the reduced window");
-        Ok(requests.into_iter().map(|request| {
-            Ok(UploadFile::UploadFile(UploadFileConstructor {
-                type_: Box::new(StorageFileType::StorageFileUnknown(StorageFileUnknownConstructor {})),
-                mtime: 0,
-                bytes: vec![9u8; (20i64 - request.offset).max(0) as usize],
-            }))
-        }).collect())
-    }).unwrap();
+    assert!(result.is_ok(), "flood must resume the same transfer: {result:?}");
+    assert_eq!(calls, 2);
     assert_eq!(fs::read(&path).unwrap(), vec![9u8; 20]);
+    set_flood_retry_delay_for_test(None);
     fs::remove_file(&path).ok();
 }
 
