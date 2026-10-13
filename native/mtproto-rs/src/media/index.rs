@@ -341,6 +341,14 @@ pub fn media_ref_peer_photo(
             ),
             None => (None, None),
         };
+    let small_location = MediaLocation::PeerPhoto {
+        peer_kind,
+        peer_id,
+        access_hash,
+        photo_id,
+        big: false,
+        dc_id,
+    };
     MediaRef {
         file_size: None,
         kind: if has_video {
@@ -348,11 +356,11 @@ pub fn media_ref_peer_photo(
         } else {
             "photo".into()
         },
-        cache_key,
+        cache_key: cache_key.clone(),
         thumb_cache_key,
         thumb_location,
-        display_cache_key: None,
-        display_location: None,
+        display_cache_key: Some(format!("{}:small", cache_key)),
+        display_location: Some(small_location),
         sticker_set_id: None,
         sticker_set_access_hash: None,
         source_url: None,

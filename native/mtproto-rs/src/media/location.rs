@@ -73,14 +73,17 @@ pub fn fill_zero_peer_photo_hashes(
     peers: &HashMap<i64, crate::peers::CachedPeer>,
 ) {
     for ((chat_id, _), item) in media.iter_mut() {
-        let MediaLocation::PeerPhoto { access_hash, .. } = &mut item.location else {
-            continue;
-        };
-        if *access_hash != 0 {
-            continue;
-        }
         if let Some(peer) = crate::peers::usable_cached_peer(peers, *chat_id) {
-            *access_hash = peer.access_hash;
+            if let MediaLocation::PeerPhoto { access_hash, .. } = &mut item.location {
+                if *access_hash == 0 {
+                    *access_hash = peer.access_hash;
+                }
+            }
+            if let Some(MediaLocation::PeerPhoto { access_hash, .. }) = &mut item.display_location {
+                if *access_hash == 0 {
+                    *access_hash = peer.access_hash;
+                }
+            }
         }
     }
 }
@@ -245,7 +248,7 @@ pub(crate) fn location_is_getfile_thumb(loc: &MediaLocation) -> bool {
         MediaLocation::Photo { thumb_size, .. } | MediaLocation::Document { thumb_size, .. } => {
             is_getfile_thumb_size(thumb_size)
         }
-        MediaLocation::PeerPhoto { .. } => false,
+        MediaLocation::PeerPhoto { big, .. } => !*big,
     }
 }
 
