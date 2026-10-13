@@ -8,6 +8,12 @@ import org.monogram.core.models.ReplyMarkups
 import org.monogram.core.models.TextEntities
 import org.monogram.core.models.UploadItem
 import uniffi.monogram_mtproto.MessageDto
+import uniffi.monogram_mtproto.MessagesPageDto
+
+internal fun MessagesPageDto.toModel(): MessagePage = MessagePage(
+    messages = messages.map { it.toModel() },
+    totalCount = totalCount,
+)
 
 internal fun MessageDto.toModel(): Message = Message(
     id = MessageId(chatId = PeerId(chatId), id = id),

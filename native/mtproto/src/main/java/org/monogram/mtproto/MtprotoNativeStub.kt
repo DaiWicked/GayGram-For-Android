@@ -110,6 +110,18 @@ object MtprotoNativeStub : MtprotoNative {
         nativeUnavailable()
     }
 
+    override fun searchMessagesPage(
+        handle: Long,
+        chatId: Long,
+        query: String,
+        filter: String,
+        offsetId: Int,
+        addOffset: Int,
+        limit: Int,
+    ): uniffi.monogram_mtproto.MessagesPageDto {
+        nativeUnavailable()
+    }
+
     override fun contactsSearch(
         handle: Long,
         query: String,

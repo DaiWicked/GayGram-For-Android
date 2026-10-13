@@ -43,6 +43,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 fun photoDisplayCacheKey(mediaCacheKey: String): String = "$mediaCacheKey:display"
 
+fun peerPhotoSmallCacheKey(photoCacheKey: String): String =
+    if (photoCacheKey.endsWith(":small") || photoCacheKey.endsWith(":video")) {
+        photoCacheKey
+    } else {
+        "$photoCacheKey:small"
+    }
+
 internal fun streamPrefixPart(
     directory: File,
     cacheKey: String,
@@ -405,31 +412,77 @@ class MediaRepository(
         cacheKey: String,
         priority: Int = MediaPriority.DEFAULT,
     ): Outcome<File> {
+        if (isVideoAvatarKey(cacheKey)) {
+            return fetchFullAvatar(peerId, cacheKey, priority)
+        }
         cache.get(cacheKey)?.let { file ->
             rememberPeerAvatar(peerId, file)
             return Outcome.Ok(file)
         }
-        // Still JPEG at avatar:{id} must not satisfy avatar:{id}:video.
-        if (!isVideoAvatarKey(cacheKey)) {
-            cachedAvatar(peerId)?.let { return Outcome.Ok(it) }
+        val smallKey = peerPhotoSmallCacheKey(cacheKey)
+        cache.get(smallKey)?.let { file ->
+            scheduleFullAvatar(peerId, cacheKey)
+            return Outcome.Ok(file)
         }
-        return when (
+        cachedAvatar(peerId)?.let { file ->
+            scheduleFullAvatar(peerId, cacheKey)
+            return Outcome.Ok(file)
+        }
+        when (
+            val small = ensureLocalTelegramMedia(
+                key = smallKey,
+                chatId = peerId,
+                messageId = 0,
+                kind = MediaFetchKind.Display,
+                priority = priority,
+            )
+        ) {
+            is Outcome.Ok -> {
+                scheduleFullAvatar(peerId, cacheKey)
+                return small
+            }
+
+            is Outcome.Err -> Unit
+        }
+        return fetchFullAvatar(peerId, cacheKey, priority)
+    }
+
+    private suspend fun fetchFullAvatar(
+        peerId: PeerId,
+        cacheKey: String,
+        priority: Int,
+    ): Outcome<File> = when (
+        val fetched = ensureLocalTelegramMedia(
+            key = cacheKey,
+            chatId = peerId,
+            messageId = 0,
+            kind = MediaFetchKind.Full,
+            priority = priority,
+        )
+    ) {
+        is Outcome.Ok -> {
+            rememberPeerAvatar(peerId, fetched.value)
+            fetched
+        }
+
+        is Outcome.Err -> {
+            if (isVideoAvatarKey(cacheKey)) fetched
+            else cachedAvatar(peerId)?.let { Outcome.Ok(it) } ?: fetched
+        }
+    }
+
+    private fun scheduleFullAvatar(peerId: PeerId, cacheKey: String) {
+        if (isVideoAvatarKey(cacheKey) || cache.get(cacheKey) != null) return
+        scope.launch {
+            if (cache.get(cacheKey) != null) return@launch
             val fetched = ensureLocalTelegramMedia(
                 key = cacheKey,
                 chatId = peerId,
                 messageId = 0,
                 kind = MediaFetchKind.Full,
-                priority = priority,
+                priority = MediaPriority.IDLE,
             )
-        ) {
-            is Outcome.Ok -> {
-                rememberPeerAvatar(peerId, fetched.value)
-                fetched
-            }
-            is Outcome.Err -> {
-                if (isVideoAvatarKey(cacheKey)) fetched
-                else cachedAvatar(peerId)?.let { Outcome.Ok(it) } ?: fetched
-            }
+            if (fetched is Outcome.Ok) rememberPeerAvatar(peerId, fetched.value)
         }
     }
 

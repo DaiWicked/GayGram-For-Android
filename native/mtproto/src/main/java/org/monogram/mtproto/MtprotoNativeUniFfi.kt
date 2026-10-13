@@ -13,6 +13,7 @@ import uniffi.monogram_mtproto.InitConnectionInfo
 import uniffi.monogram_mtproto.InlineBotResultsDto
 import uniffi.monogram_mtproto.InstantViewDto
 import uniffi.monogram_mtproto.MessageDto
+import uniffi.monogram_mtproto.MessagesPageDto
 import uniffi.monogram_mtproto.MtprotoException
 import uniffi.monogram_mtproto.NotifyExceptionDto
 import uniffi.monogram_mtproto.NotifySettingsDto
@@ -112,6 +113,7 @@ import uniffi.monogram_mtproto.resolveUsername as nativeResolveUsername
 import uniffi.monogram_mtproto.searchGlobal as nativeSearchGlobal
 import uniffi.monogram_mtproto.searchMessages as nativeSearchMessages
 import uniffi.monogram_mtproto.searchMessagesFiltered as nativeSearchMessagesFiltered
+import uniffi.monogram_mtproto.searchMessagesPage as nativeSearchMessagesPage
 import uniffi.monogram_mtproto.sendAuthCode as nativeSendAuthCode
 import uniffi.monogram_mtproto.sendInlineBotResult as nativeSendInlineBotResult
 import uniffi.monogram_mtproto.sendLocation as nativeSendLocation
@@ -377,6 +379,25 @@ object MtprotoNativeUniFfi : MtprotoNative {
         limit: Int,
     ): List<MessageDto> =
         nativeSearchMessagesFiltered(
+            handle.toULong(),
+            chatId,
+            query,
+            filter,
+            offsetId,
+            addOffset,
+            limit,
+        )
+
+    override fun searchMessagesPage(
+        handle: Long,
+        chatId: Long,
+        query: String,
+        filter: String,
+        offsetId: Int,
+        addOffset: Int,
+        limit: Int,
+    ): MessagesPageDto =
+        nativeSearchMessagesPage(
             handle.toULong(),
             chatId,
             query,

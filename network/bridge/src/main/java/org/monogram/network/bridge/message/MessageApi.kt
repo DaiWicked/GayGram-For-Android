@@ -112,6 +112,31 @@ internal class MessageApi(
         }
     }
 
+    override suspend fun searchMessagesPage(
+        chatId: PeerId,
+        query: String,
+        filter: String,
+        offsetId: Int,
+        addOffset: Int,
+        limit: Int,
+    ): Outcome<MessagePage> {
+        when (val connected = core.ensureConnected()) {
+            is Outcome.Err -> return connected
+            is Outcome.Ok -> Unit
+        }
+        return core.rpcBackground("searchMessagesPage failed") { activeHandle ->
+            core.native.searchMessagesPage(
+                activeHandle,
+                chatId.value,
+                query,
+                filter,
+                offsetId,
+                addOffset,
+                limit,
+            ).toModel()
+        }
+    }
+
     override suspend fun getPinnedMessages(
         chatId: PeerId,
         limit: Int,

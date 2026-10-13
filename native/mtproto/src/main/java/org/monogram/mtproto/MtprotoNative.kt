@@ -12,6 +12,7 @@ import uniffi.monogram_mtproto.GlobalMessageSearchDto
 import uniffi.monogram_mtproto.InlineBotResultsDto
 import uniffi.monogram_mtproto.InstantViewDto
 import uniffi.monogram_mtproto.MessageDto
+import uniffi.monogram_mtproto.MessagesPageDto
 import uniffi.monogram_mtproto.MtprotoException
 import uniffi.monogram_mtproto.NotifyExceptionDto
 import uniffi.monogram_mtproto.NotifySettingsDto
@@ -236,6 +237,17 @@ interface MtprotoNative {
         addOffset: Int,
         limit: Int,
     ): List<MessageDto> = throw MtprotoException.Message("filtered search requires native rebuild")
+
+    @Throws(MtprotoException::class)
+    fun searchMessagesPage(
+        handle: Long,
+        chatId: Long,
+        query: String,
+        filter: String,
+        offsetId: Int,
+        addOffset: Int,
+        limit: Int,
+    ): MessagesPageDto = throw MtprotoException.Message("search page requires native rebuild")
 
     @Throws(MtprotoException::class)
     fun contactsSearch(handle: Long, query: String, limit: Int): ContactsSearchDto =

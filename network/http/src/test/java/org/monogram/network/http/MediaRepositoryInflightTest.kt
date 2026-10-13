@@ -28,8 +28,8 @@ class MediaRepositoryInflightTest {
         val fetches = AtomicInteger(0)
         val repo = MediaRepository(
             cacheRoot = tmp.newFolder("cache"),
-            telegramFetcher = TelegramMediaFetcher { _, _, destPath, _, _ ->
-                fetches.incrementAndGet()
+            telegramFetcher = TelegramMediaFetcher { _, _, destPath, kind, _ ->
+                if (kind == MediaFetchKind.Display) fetches.incrementAndGet()
                 delay(80)
                 File(destPath).writeBytes(byteArrayOf(1, 2, 3, 4))
                 Outcome.Ok(destPath)
@@ -42,6 +42,7 @@ class MediaRepositoryInflightTest {
         assertTrue(a is Outcome.Ok)
         assertTrue(b is Outcome.Ok)
         assertEquals(1, fetches.get())
+        repo.shutdown()
     }
 
     @Test
@@ -134,10 +135,10 @@ class MediaRepositoryInflightTest {
             },
         )
         val a = async {
-            repo.ensureLocalAvatar(PeerId(1), "photo:1")
+            repo.ensureIndexedMedia(PeerId(1), 0, "photo:1")
         }
         val b = async {
-            repo.ensureLocalAvatar(PeerId(2), "photo:2")
+            repo.ensureIndexedMedia(PeerId(2), 0, "photo:2")
         }
         withTimeout(1_000) {
             while (peak.get() < 2) delay(10)
@@ -167,7 +168,7 @@ class MediaRepositoryInflightTest {
         )
         val jobs = (1L..24L).map { id ->
             async {
-                repo.ensureLocalAvatar(PeerId(id), "photo:$id", MediaPriority.IDLE)
+                repo.ensureIndexedMedia(PeerId(id), 0, "photo:$id", priority = MediaPriority.IDLE)
             }
         }
         val results = withTimeout(5_000) { jobs.map { it.await() } }
