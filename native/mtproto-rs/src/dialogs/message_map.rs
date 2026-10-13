@@ -347,14 +347,19 @@ pub(crate) fn dtos_from_messages_page(
     response: MessagesMessages,
     peers: &mut HashMap<i64, CachedPeer>,
     media_index: &mut MediaIndex,
-) -> Result<(Vec<MessageDto>, i32), MtprotoError> {
-    let (messages, users, chats, next_rate) = match response {
-        MessagesMessages::MessagesMessages(m) => (m.messages, m.users, m.chats, 0),
-        MessagesMessages::MessagesMessagesSlice(m) => {
-            (m.messages, m.users, m.chats, m.next_rate.unwrap_or(0))
+) -> Result<(Vec<MessageDto>, i32, i32), MtprotoError> {
+    let (messages, users, chats, next_rate, total_count) = match response {
+        MessagesMessages::MessagesMessages(m) => {
+            let count = vector_boxed_items(&m.messages).count() as i32;
+            (m.messages, m.users, m.chats, 0, count)
         }
-        MessagesMessages::MessagesChannelMessages(m) => (m.messages, m.users, m.chats, 0),
-        MessagesMessages::MessagesMessagesNotModified(_) => return Ok((Vec::new(), 0)),
+        MessagesMessages::MessagesMessagesSlice(m) => {
+            (m.messages, m.users, m.chats, m.next_rate.unwrap_or(0), m.count)
+        }
+        MessagesMessages::MessagesChannelMessages(m) => {
+            (m.messages, m.users, m.chats, 0, m.count)
+        }
+        MessagesMessages::MessagesMessagesNotModified(_) => return Ok((Vec::new(), 0, 0)),
         _ => return Err(MtprotoError::Message("unexpected messages.messages".into())),
     };
     let user_list = vector_boxed_items(&users).cloned().collect::<Vec<_>>();
@@ -373,7 +378,7 @@ pub(crate) fn dtos_from_messages_page(
         })
         .collect();
     fill_missing_reply_quotes(&mut dtos);
-    Ok((dtos, next_rate))
+    Ok((dtos, next_rate, total_count))
 }
 
 #[derive(serde::Serialize)]

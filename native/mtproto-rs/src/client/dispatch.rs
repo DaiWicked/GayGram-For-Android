@@ -454,6 +454,36 @@ pub fn search_messages_filtered(
     })
 }
 
+pub fn search_messages_page(
+    handle: u64,
+    chat_id: i64,
+    query: String,
+    filter: String,
+    offset_id: i32,
+    add_offset: i32,
+    limit: i32,
+) -> Result<crate::dto::MessagesPageDto, MtprotoError> {
+    with_client_mut(handle, |state| {
+        let page = call_with_migrate(state, |state| {
+            with_peer_refresh(state, chat_id, |state| {
+                crate::messages::search_messages_page(
+                    &mut state.snapshot,
+                    state.api_id,
+                    &mut state.peers,
+                    &mut state.media,
+                    chat_id,
+                    &query,
+                    &filter,
+                    offset_id,
+                    add_offset,
+                    limit,
+                )
+            })
+        })?;
+        Ok(page)
+    })
+}
+
 pub fn contacts_search(
     handle: u64,
     query: String,

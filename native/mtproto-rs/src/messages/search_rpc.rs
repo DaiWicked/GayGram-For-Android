@@ -128,7 +128,7 @@ pub fn search_global(
     };
     let response: tellers_mtproto::latest::api::MessagesMessages =
         api_invoke::invoke_api(snapshot, api_id, request)?;
-    let (messages, next_rate) = dialogs::dtos_from_messages_page(response, peers, media)?;
+    let (messages, next_rate, _) = dialogs::dtos_from_messages_page(response, peers, media)?;
     let (next_rate, next_peer_id, next_offset_id) = next_global_page(&messages, next_rate);
     Ok(GlobalMessageSearchDto {
         messages,

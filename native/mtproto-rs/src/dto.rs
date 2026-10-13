@@ -180,6 +180,12 @@ pub struct MessageDto {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct MessagesPageDto {
+    pub messages: Vec<MessageDto>,
+    pub total_count: i32,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct SavedGifDto {
     pub document_id: i64,
     pub cache_key: String,

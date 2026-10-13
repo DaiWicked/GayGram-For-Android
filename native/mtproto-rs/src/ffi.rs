@@ -27,7 +27,7 @@ use crate::waveform;
 use crate::{
     AuthCodeSent, AuthSignedIn, BotCallbackAnswerDto, ChatDto, ContactsSearchDto, DiscussionDto,
     FolderDto, ForumTopicsPageDto, GlobalMessageSearchDto, InlineBotResultsDto, InstantViewDto,
-    JoinChatDto, LottieSize, MessageDto, MtprotoError, NotifyExceptionDto, NotifySettingsDto,
+    JoinChatDto, LottieSize, MessageDto, MessagesPageDto, MtprotoError, NotifyExceptionDto, NotifySettingsDto,
     ProfileDto,
     ReactionChoiceDto, ResolvedPeerDto, SavedGifDto, StickerCatalogDto, StickerListDto,
     StickerPackDto, UpdateEventDto, UpdatesStateDto, UploadItemDto, VpxAlphaFrame, VpxFrame,
@@ -467,6 +467,19 @@ pub fn search_messages_filtered(
     limit: i32,
 ) -> Result<Vec<MessageDto>, MtprotoError> {
     client::search_messages_filtered(handle, chat_id, query, filter, offset_id, add_offset, limit)
+}
+
+#[uniffi::export]
+pub fn search_messages_page(
+    handle: u64,
+    chat_id: i64,
+    query: String,
+    filter: String,
+    offset_id: i32,
+    add_offset: i32,
+    limit: i32,
+) -> Result<MessagesPageDto, MtprotoError> {
+    client::search_messages_page(handle, chat_id, query, filter, offset_id, add_offset, limit)
 }
 
 #[uniffi::export]
