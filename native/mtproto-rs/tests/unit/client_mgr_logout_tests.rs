@@ -31,6 +31,7 @@ fn logout_clears_unauthorized_local_session_without_network() {
         perm_auth_key: None,
         perm_salt: 0,
         perm_session_id: 0,
+        dc_auth_keys: HashMap::new(),
     };
     persist(&state).expect("seed session");
     assert!(path.exists());
@@ -39,6 +40,180 @@ fn logout_clears_unauthorized_local_session_without_network() {
     assert!(!path.exists());
     assert!(!is_authorized(handle).expect("authorization state"));
     destroy_client(handle);
+}
+
+fn dc_key() -> crate::session_file::DcAuthKey {
+    crate::session_file::DcAuthKey {
+        key: vec![9; 256],
+        salt: 3,
+    }
+}
+
+fn seed_dc_auth(handle: u64) {
+    with_client_mut(handle, |state| {
+        state.dc_auth_keys.insert(4, dc_key());
+        Ok(())
+    })
+    .unwrap();
+    let client = get_client(handle).unwrap();
+    let snapshot = client.main.lock().snapshot.clone();
+    client.data.lock().dc_temp_auth.insert(
+        4,
+        DcTempAuth {
+            snapshot,
+            temp_expires_at: i32::MAX,
+            perm_key: vec![9; 256],
+        },
+    );
+}
+
+#[test]
+fn cached_foreign_dc_key_skips_export_until_the_key_is_unusable() {
+    let path = std::env::temp_dir().join(format!("monogram-dc-fast-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let handle = create_client(1, "hash".into(), path.to_string_lossy().into());
+    let client = get_client(handle).unwrap();
+    let mut snapshot = client.main.lock().snapshot.clone();
+    snapshot.dc_id = 2;
+    let mut dc_auth_keys = HashMap::new();
+    dc_auth_keys.insert(4, dc_key());
+    dc_auth_keys.insert(
+        2,
+        crate::session_file::DcAuthKey {
+            key: vec![4; 256],
+            salt: 1,
+        },
+    );
+    dc_auth_keys.insert(
+        5,
+        crate::session_file::DcAuthKey {
+            key: vec![1; 8],
+            salt: 0,
+        },
+    );
+    let mut state = ClientState {
+        api_id: 1,
+        api_hash: "hash".into(),
+        session_path: path.clone(),
+        snapshot,
+        user_id: Some(1),
+        peers: HashMap::new(),
+        updates: None,
+        media: MediaIndex::new(),
+        updates_started: false,
+        channel_pts: HashMap::new(),
+        channel_recovery: VecDeque::new(),
+        seen_messages: HashSet::new(),
+        logout_tokens: Vec::new(),
+        new_session: None,
+        session_dead: false,
+        session_dead_reason: None,
+        test_dc: false,
+        last_inline: None,
+        perm_auth_key: None,
+        perm_salt: 0,
+        perm_session_id: 0,
+        dc_auth_keys,
+    };
+    let foreign = copy_authorization_to_dc(&mut state, 4).unwrap();
+    assert_eq!(foreign.dc_id, 4);
+    assert_eq!(foreign.server_salt, 3);
+    assert_eq!(foreign.auth_key.as_ref().map(Vec::len), Some(256));
+    assert!(copy_authorization_to_dc(&mut state, 2).is_err());
+    assert!(copy_authorization_to_dc(&mut state, 5).is_err());
+    assert!(is_foreign_auth_key_failure(&MtprotoError::Message(
+        "401: AUTH_KEY_UNREGISTERED".into()
+    )));
+    state.dc_auth_keys.remove(&4);
+    assert!(!state.dc_auth_keys.contains_key(&4));
+    destroy_client(handle);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn identity_changes_drop_dc_auth_and_a_later_save_cannot_restore_them() {
+    let path = std::env::temp_dir().join(format!("monogram-dc-clear-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let handle = create_client(1, "hash".into(), path.to_string_lossy().into());
+    seed_dc_auth(handle);
+    with_client_mut(handle, |state| {
+        state.user_id = Some(7);
+        Ok(())
+    })
+    .unwrap();
+    {
+        let client = get_client(handle).unwrap();
+        let data = client.data.lock();
+        assert!(data.dc_auth_keys.is_empty());
+        assert!(data.dc_temp_auth.is_empty());
+    }
+    seed_dc_auth(handle);
+    with_client_mut(handle, |state| {
+        state.test_dc = !state.test_dc;
+        Ok(())
+    })
+    .unwrap();
+    {
+        let client = get_client(handle).unwrap();
+        let data = client.data.lock();
+        assert!(data.dc_auth_keys.is_empty());
+        assert!(data.dc_temp_auth.is_empty());
+    }
+    seed_dc_auth(handle);
+    with_client_mut(handle, |state| {
+        state.snapshot.auth_key = Some(vec![8; 256]);
+        Ok(())
+    })
+    .unwrap();
+    {
+        let client = get_client(handle).unwrap();
+        let data = client.data.lock();
+        assert!(data.dc_auth_keys.is_empty());
+        assert!(data.dc_temp_auth.is_empty());
+    }
+    destroy_client(handle);
+    let _ = std::fs::remove_file(&path);
+    let path = std::env::temp_dir().join(format!(
+        "monogram-dc-logout-{}.json",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&path);
+    let handle = create_client(1, "hash".into(), path.to_string_lossy().into());
+    seed_dc_auth(handle);
+    logout(handle).unwrap();
+    let client = get_client(handle).unwrap();
+    assert!(client.data.lock().dc_auth_keys.is_empty());
+    assert!(client.data.lock().dc_temp_auth.is_empty());
+    let snapshot = client.main.lock().snapshot.clone();
+    let state = ClientState {
+        api_id: 1,
+        api_hash: "hash".into(),
+        session_path: path.clone(),
+        snapshot,
+        user_id: None,
+        peers: HashMap::new(),
+        updates: None,
+        media: MediaIndex::new(),
+        updates_started: false,
+        channel_pts: HashMap::new(),
+        channel_recovery: VecDeque::new(),
+        seen_messages: HashSet::new(),
+        logout_tokens: Vec::new(),
+        new_session: None,
+        session_dead: false,
+        session_dead_reason: None,
+        test_dc: false,
+        last_inline: None,
+        perm_auth_key: None,
+        perm_salt: 0,
+        perm_session_id: 0,
+        dc_auth_keys: client.data.lock().dc_auth_keys.clone(),
+    };
+    persist(&state).unwrap();
+    let loaded = FileSessionStore::new(&path).load().unwrap().unwrap();
+    assert!(loaded.dc_auth_keys.is_empty());
+    destroy_client(handle);
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]

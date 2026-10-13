@@ -75,7 +75,7 @@ pub fn cdn_redirect_error() -> MtprotoError {
     MtprotoError::Message("CDN_REDIRECT".into())
 }
 
-/// AES-256-CTR used by Telegram Android `FileLoadOperation` for CDN parts.
+/// AES-256-CTR used by `FileLoadOperation` for CDN parts.
 pub fn decrypt_cdn_part(
     key: &[u8],
     encryption_iv: &[u8],

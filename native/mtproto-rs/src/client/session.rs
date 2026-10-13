@@ -79,22 +79,43 @@ pub(crate) fn ensure_auth_key(state: &mut ClientState) -> Result<(), MtprotoErro
     persist(state)
 }
 
+pub(crate) fn is_foreign_auth_key_failure(err: &MtprotoError) -> bool {
+    let MtprotoError::Message(message) = err else {
+        return false;
+    };
+    let upper = message.to_ascii_uppercase();
+    upper.contains("AUTH_KEY_UNREGISTERED")
+        || upper.contains("AUTH_KEY_INVALID")
+        || upper.contains("AUTH_KEY_DUPLICATED")
+}
+
 pub(crate) fn copy_authorization_to_dc(
-    home: &mut Snapshot,
-    api_id: i32,
+    state: &mut ClientState,
     target_dc: i32,
 ) -> Result<Snapshot, MtprotoError> {
+    use crate::session_file::DcAuthKey;
     use tellers_mtproto::latest::api::{
         AuthAuthorization, AuthExportAuthorizationRequest, AuthExportedAuthorization,
         AuthImportAuthorizationRequest,
     };
+    if target_dc != state.snapshot.dc_id {
+        if let Some(cached) = state.dc_auth_keys.get(&target_dc) {
+            if cached.key.len() == 256 {
+                let mut dest = fork_session(&state.snapshot);
+                dest.dc_id = target_dc;
+                dest.auth_key = Some(cached.key.clone());
+                dest.server_salt = cached.salt;
+                return Ok(dest);
+            }
+        }
+    }
     let exported: AuthExportedAuthorization = crate::api_invoke::invoke_api(
-        home,
-        api_id,
+        &mut state.snapshot,
+        state.api_id,
         AuthExportAuthorizationRequest { dc_id: target_dc },
     )?;
     let AuthExportedAuthorization::AuthExportedAuthorization(exp) = exported;
-    let mut dest = fork_session(home);
+    let mut dest = fork_session(&state.snapshot);
     dest.dc_id = target_dc;
     dest.auth_key = None;
     dest.server_salt = 0;
@@ -102,7 +123,7 @@ pub(crate) fn copy_authorization_to_dc(
     ensure_auth_key_on(&mut dest)?;
     let _: AuthAuthorization = crate::api_invoke::invoke_api(
         &mut dest,
-        api_id,
+        state.api_id,
         AuthImportAuthorizationRequest {
             id: exp.id,
             bytes: exp.bytes,
@@ -110,6 +131,19 @@ pub(crate) fn copy_authorization_to_dc(
     )?;
     // The destination snapshot leaves this lane; never retain its TCP here.
     crate::rpc::drop_live_transport();
+    if target_dc != state.snapshot.dc_id {
+        if let Some(key) = dest.auth_key.clone() {
+            if key.len() == 256 {
+                state.dc_auth_keys.insert(
+                    target_dc,
+                    DcAuthKey {
+                        key,
+                        salt: dest.server_salt,
+                    },
+                );
+            }
+        }
+    }
     Ok(dest)
 }
 
@@ -199,8 +233,7 @@ pub(crate) fn ensure_ready_after_migrate(
                     // exportAuthorization/importAuthorization. Dropping the
                     // home auth key here turns a normal USER/NETWORK_MIGRATE
                     // into an unnecessary logout and breaks all update lanes.
-                    let mut home = state.snapshot.clone();
-                    let destination = copy_authorization_to_dc(&mut home, state.api_id, dc)?;
+                    let destination = copy_authorization_to_dc(state, dc)?;
                     state.snapshot = destination;
                     // Authorization moved, but these are still the same
                     // account's applied update sequences.
@@ -288,6 +321,7 @@ pub(crate) fn recreate_mtproto_session(state: &mut ClientState) -> Result<(), Mt
     state.session_dead = false;
     crate::rpc::drop_live_transport();
     state.media.clear();
+    state.dc_auth_keys.clear();
     // Keep peer cache; drop auth key so the next RPC builds a fresh session.
     state.snapshot =
         Snapshot::new(dc, &mut OsRandom).map_err(|e| MtprotoError::Message(e.to_string()))?;

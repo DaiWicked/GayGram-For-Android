@@ -82,6 +82,7 @@ fn begin_updates_preserves_the_unapplied_cursor_in_persistence() {
         perm_auth_key: None,
         perm_salt: 0,
         perm_session_id: 0,
+        dc_auth_keys: HashMap::new(),
     };
 
     begin_updates(&mut state);

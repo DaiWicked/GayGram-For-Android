@@ -13,6 +13,21 @@ use crate::media::{MediaIndex, MediaRef};
 use crate::peers::CachedPeer;
 use crate::rpc::NewSessionMetadata;
 
+/// Imported master key for one foreign datacenter. Key bytes stay out of `Debug`.
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct DcAuthKey {
+    pub key: Vec<u8>,
+    pub salt: i64,
+}
+
+impl std::fmt::Debug for DcAuthKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DcAuthKey")
+            .field("key_len", &self.key.len())
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct ChannelRecovery {
     pub chat_id: i64,
@@ -53,6 +68,9 @@ pub struct ClientSession {
     /// Connected to Telegram test DCs (`99966XYYYY`).
     #[serde(default)]
     pub test_dc: bool,
+    /// Imported master keys for foreign datacenters, keyed by DC id.
+    #[serde(default)]
+    pub dc_auth_keys: HashMap<i32, DcAuthKey>,
 }
 
 pub fn media_key(chat_id: i64, message_id: i32) -> String {
@@ -131,6 +149,7 @@ impl FileSessionStore {
             logout_tokens: Vec::new(),
             new_session: None,
             test_dc: false,
+            dc_auth_keys: HashMap::new(),
         };
         if !encrypted && key.is_some() {
             self.save(&session)?;

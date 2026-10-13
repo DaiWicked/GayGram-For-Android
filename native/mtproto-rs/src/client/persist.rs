@@ -79,6 +79,7 @@ pub(crate) fn persist(state: &ClientState) -> Result<(), MtprotoError> {
         new_session: state.new_session.clone(),
         session_dead: state.session_dead,
         test_dc: state.test_dc,
+        dc_auth_keys: state.dc_auth_keys.clone(),
     };
     let clock = persist_generation(&state.session_path);
     let _write = PERSIST_WRITE.lock();
@@ -128,6 +129,7 @@ pub(crate) fn persist_updates_data(client: &Client, session_id: i64) -> Result<(
             new_session: d.new_session.clone(),
             session_dead: d.session_dead,
             test_dc: d.test_dc,
+            dc_auth_keys: d.dc_auth_keys.clone(),
         };
         let path = d.session_path.clone();
         let epoch = d.persist_epoch;

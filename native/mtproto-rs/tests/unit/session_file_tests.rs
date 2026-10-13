@@ -48,7 +48,15 @@ fn legacy_snapshot_and_full_session_round_trip() {
     let dir = TestDir::new();
     let store = dir.store();
     let mut session = seed(&store);
+    assert!(session.dc_auth_keys.is_empty());
     assert!(session.channel_recovery.is_empty());
+    session.dc_auth_keys.insert(
+        4,
+        DcAuthKey {
+            key: vec![9; 256],
+            salt: 11,
+        },
+    );
     session.user_id = Some(42);
     session.channel_pts.insert(-1000000000001, 17);
     session.channel_recovery.push_back(ChannelRecovery {
@@ -69,6 +77,12 @@ fn legacy_snapshot_and_full_session_round_trip() {
     assert_eq!(loaded.channel_pts, session.channel_pts);
     assert_eq!(loaded.channel_recovery, session.channel_recovery);
     assert_eq!(loaded.updates.unwrap().qts, 5);
+    assert_eq!(loaded.dc_auth_keys.len(), 1);
+    assert_eq!(loaded.dc_auth_keys[&4].salt, 11);
+    assert_eq!(loaded.dc_auth_keys[&4].key, vec![9; 256]);
+    let legacy = serde_json::json!({"snapshot": loaded.snapshot});
+    let without_keys: ClientSession = serde_json::from_value(legacy).unwrap();
+    assert!(without_keys.dc_auth_keys.is_empty());
     store.clear().unwrap();
     store.clear().unwrap();
 }

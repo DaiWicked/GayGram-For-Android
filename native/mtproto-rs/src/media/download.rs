@@ -4,6 +4,7 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Condvar, Mutex};
 
 use crate::{HashMapExt, HashSet, HashSetExt};
 
@@ -440,6 +441,29 @@ fn is_rpc_timeout(err: &MtprotoError) -> bool {
     }
 }
 
+/// Keep a partial staging file for another attempt.
+pub(crate) fn keep_partial(err: &MtprotoError) -> bool {
+    let MtprotoError::Message(message) = err else {
+        return false;
+    };
+    let upper = message.to_ascii_uppercase();
+    if upper.contains("CANCEL") {
+        return false;
+    }
+    flood_wait_secs(err).is_some()
+        || upper.contains("TIMEOUT")
+        || upper.contains("FILE_REFERENCE")
+        || upper.contains("DOWNLOAD INCOMPLETE")
+        || upper.contains("NETWORK")
+        || upper.contains("CONNECTION")
+        || upper.contains("TRANSPORT")
+}
+
+/// Android `cancel(false)`: stop the transfer and leave the partial bytes.
+pub(crate) fn stopped_download(err: &MtprotoError) -> bool {
+    matches!(err, MtprotoError::Message(message) if message.to_ascii_uppercase().contains("CANCEL"))
+}
+
 fn first_missing_offset(counted: &HashSet<i64>, start: i64, end: i64, chunk: i32) -> i64 {
     let step = i64::from(chunk.max(1));
     let mut off = start;
@@ -576,18 +600,358 @@ pub(crate) fn download_cancelled(dest_path: &Path) -> bool {
     cancel_marker(dest_path).exists()
 }
 
-/// The caller publishes under its session lease; dropping any failed or stale
-/// download removes only its own staging file, never a previously cached file.
+/// Byte length that is a whole number of download chunks. A short tail is not resumable.
+pub(crate) fn aligned_prefix(len: i64, chunk: i32) -> i64 {
+    if len <= 0 || chunk <= 0 {
+        return 0;
+    }
+    let step = i64::from(chunk);
+    len - len % step
+}
+
+/// `cancel()` calls `cancel(false)`, so the partial and this range file stay.
+/// The sidecar is `<staging-without-.part>.ranges.part`: it ends in `.part`, so
+/// `FileCache` treats it as staging, and the `<pid>.<sequence>.part` matcher skips it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MissingRanges {
+    ranges: Vec<(i64, i64)>,
+}
+
+impl MissingRanges {
+    pub(crate) fn span(start: i64, end: i64) -> Self {
+        if end > start && start >= 0 {
+            Self {
+                ranges: vec![(start, end)],
+            }
+        } else {
+            Self { ranges: Vec::new() }
+        }
+    }
+
+    pub(crate) fn first_start(&self) -> Option<i64> {
+        self.ranges.iter().map(|(start, _)| *start).min()
+    }
+
+    pub(crate) fn overlaps(&self, start: i64, end: i64) -> bool {
+        end > start
+            && self
+                .ranges
+                .iter()
+                .any(|(range_start, range_end)| *range_end > start && *range_start < end)
+    }
+
+    /// The file ended at `end`. Drop holes at or past that point and clip the rest.
+    pub(crate) fn clip_to_end(&mut self, end: i64) {
+        if end < 0 {
+            self.ranges.clear();
+            return;
+        }
+        let mut next = Vec::new();
+        for (start, range_end) in self.ranges.drain(..) {
+            if start >= end || range_end <= start {
+                continue;
+            }
+            next.push((start, range_end.min(end)));
+        }
+        self.ranges = next;
+    }
+
+    /// Drop bytes that have been written. `end` is exclusive.
+    pub(crate) fn cover(&mut self, start: i64, end: i64) {
+        if end <= start {
+            return;
+        }
+        let mut next = Vec::new();
+        for (range_start, range_end) in self.ranges.drain(..) {
+            if end <= range_start || start >= range_end {
+                next.push((range_start, range_end));
+                continue;
+            }
+            if start > range_start {
+                next.push((range_start, start));
+            }
+            if end < range_end {
+                next.push((end, range_end));
+            }
+        }
+        self.ranges = next;
+    }
+
+    pub(crate) fn load(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < 4 {
+            return None;
+        }
+        let count = i32::from_be_bytes(bytes[0..4].try_into().ok()?);
+        if count < 0 {
+            return None;
+        }
+        let count = count as usize;
+        let body = count.checked_mul(16)?;
+        let total = body.checked_add(4)?;
+        if bytes.len() != total {
+            return None;
+        }
+        let mut ranges = Vec::with_capacity(count);
+        for index in 0..count {
+            let offset = 4 + index * 16;
+            let start = i64::from_be_bytes(bytes[offset..offset + 8].try_into().ok()?);
+            let end = i64::from_be_bytes(bytes[offset + 8..offset + 16].try_into().ok()?);
+            if start < 0 || end < start {
+                return None;
+            }
+            if end > start {
+                ranges.push((start, end));
+            }
+        }
+        Some(Self { ranges })
+    }
+
+    pub(crate) fn to_bytes(&self) -> Option<Vec<u8>> {
+        let count = i32::try_from(self.ranges.len()).ok()?;
+        let mut bytes = Vec::with_capacity(4 + self.ranges.len() * 16);
+        bytes.extend_from_slice(&count.to_be_bytes());
+        for (start, end) in &self.ranges {
+            bytes.extend_from_slice(&start.to_be_bytes());
+            bytes.extend_from_slice(&end.to_be_bytes());
+        }
+        Some(bytes)
+    }
+}
+
+pub(crate) fn ranges_path(staging: &Path) -> PathBuf {
+    let text = staging.to_string_lossy();
+    if let Some(stripped) = text.strip_suffix(".part") {
+        PathBuf::from(format!("{stripped}.ranges.part"))
+    } else {
+        PathBuf::from(format!("{text}.ranges.part"))
+    }
+}
+
+fn load_ranges(staging: &Path) -> Option<MissingRanges> {
+    let bytes = fs::read(ranges_path(staging)).ok()?;
+    MissingRanges::load(&bytes)
+}
+
+fn store_ranges(staging: &Path, ranges: &MissingRanges) {
+    let Some(bytes) = ranges.to_bytes() else {
+        return;
+    };
+    let _ = fs::write(ranges_path(staging), bytes);
+}
+
+/// Where a full-file retry should request next. A range file wins. A missing or
+/// corrupt file falls back to the chunk-aligned length. Neither path panics.
+pub(crate) fn resume_start(ranges: Option<&MissingRanges>, file_len: i64, chunk: i32) -> i64 {
+    if let Some(start) = ranges.and_then(MissingRanges::first_start) {
+        return aligned_prefix(start, chunk);
+    }
+    aligned_prefix(file_len.max(0), chunk)
+}
+
+/// Final length after a full-file attempt. A remaining hole is `Err` so the
+/// partial stays. Success uses the known size, never the first-hole cursor,
+/// so a tail past the hole is not truncated.
+pub(crate) fn preserved_end(
+    file_len: i64,
+    written_end: i64,
+    expected: Option<i64>,
+    missing: Option<&MissingRanges>,
+) -> Result<i64, ()> {
+    let known = file_len.max(written_end).max(0);
+    if let Some(expected) = expected.filter(|size| *size > 0) {
+        if missing.is_some_and(|ranges| ranges.overlaps(0, expected)) {
+            return Err(());
+        }
+        return Ok(expected);
+    }
+    if missing.is_some_and(|ranges| ranges.overlaps(0, known.max(1))) {
+        return Err(());
+    }
+    Ok(known)
+}
+
+fn request_offsets(ranges: &MissingRanges, chunk: i64, limit: usize) -> Vec<i64> {
+    if chunk <= 0 || limit == 0 {
+        return Vec::new();
+    }
+    let mut offsets = Vec::new();
+    let mut ordered = ranges.ranges.clone();
+    ordered.sort_by_key(|(start, _)| *start);
+    for (start, end) in ordered {
+        if end <= start {
+            continue;
+        }
+        let mut offset = start - start % chunk;
+        if offset < 0 {
+            offset = 0;
+        }
+        while offset < end && offsets.len() < limit {
+            if offset + chunk > start && !offsets.contains(&offset) {
+                offsets.push(offset);
+            }
+            offset = offset.saturating_add(chunk);
+        }
+        if offsets.len() >= limit {
+            break;
+        }
+    }
+    offsets
+}
+
+pub(crate) fn is_native_staging_name(name: &str, destination_name: &str) -> bool {
+    let Some(body) = name
+        .strip_prefix(destination_name)
+        .and_then(|rest| rest.strip_prefix('.'))
+        .and_then(|rest| rest.strip_suffix(".part"))
+    else {
+        return false;
+    };
+    let Some((pid, sequence)) = body.split_once('.') else {
+        return false;
+    };
+    !pid.is_empty()
+        && !sequence.is_empty()
+        && pid.bytes().all(|byte| byte.is_ascii_digit())
+        && sequence.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn native_staging_files(destination: &Path) -> Vec<PathBuf> {
+    let Some(name) = destination.file_name().and_then(|name| name.to_str()) else {
+        return Vec::new();
+    };
+    let parent = destination.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+    let Ok(entries) = fs::read_dir(parent) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|file_name| file_name.to_str())
+                .is_some_and(|file_name| is_native_staging_name(file_name, name))
+        })
+        .collect()
+}
+
+fn take_resume_file(destination: &Path) -> Option<PathBuf> {
+    let mut files = native_staging_files(destination);
+    if files.is_empty() {
+        return None;
+    }
+    files.sort_by_key(|path| fs::metadata(path).map(|meta| meta.len()).unwrap_or(0));
+    let best = files.pop()?;
+    for extra in files {
+        let _ = fs::remove_file(extra);
+    }
+    if fs::metadata(&best).map(|meta| meta.len()).unwrap_or(0) == 0 {
+        let _ = fs::remove_file(&best);
+        return None;
+    }
+    Some(best)
+}
+
+struct DestOwner {
+    thread: Option<std::thread::ThreadId>,
+    depth: usize,
+}
+
+struct DestEntry {
+    state: Mutex<DestOwner>,
+    cv: Condvar,
+}
+
+/// One writer per destination. The same thread may lock again when a home-DC
+/// download takes over a lane that already staged the same path.
+pub(crate) struct DestinationLock {
+    entry: Arc<DestEntry>,
+}
+
+impl DestinationLock {
+    pub(crate) fn acquire(path: &Path) -> Self {
+        static LOCKS: std::sync::OnceLock<Mutex<std::collections::HashMap<PathBuf, Arc<DestEntry>>>> =
+            std::sync::OnceLock::new();
+        let locks = LOCKS.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+        let entry = {
+            let mut map = locks.lock().unwrap_or_else(|error| error.into_inner());
+            map.entry(path.to_path_buf())
+                .or_insert_with(|| {
+                    Arc::new(DestEntry {
+                        state: Mutex::new(DestOwner {
+                            thread: None,
+                            depth: 0,
+                        }),
+                        cv: Condvar::new(),
+                    })
+                })
+                .clone()
+        };
+        let id = std::thread::current().id();
+        let mut owner = entry.state.lock().unwrap_or_else(|error| error.into_inner());
+        loop {
+            if owner.thread == Some(id) {
+                owner.depth += 1;
+                break;
+            }
+            if owner.thread.is_none() {
+                owner.thread = Some(id);
+                owner.depth = 1;
+                break;
+            }
+            owner = entry.cv.wait(owner).unwrap_or_else(|error| error.into_inner());
+        }
+        drop(owner);
+        Self { entry }
+    }
+}
+
+impl Drop for DestinationLock {
+    fn drop(&mut self) {
+        let mut owner = self.entry.state.lock().unwrap_or_else(|error| error.into_inner());
+        owner.depth = owner.depth.saturating_sub(1);
+        if owner.depth == 0 {
+            owner.thread = None;
+            self.entry.cv.notify_one();
+        }
+    }
+}
+
+/// The caller publishes under its session lease. A dropped download removes its
+/// staging file unless [StagedDownload::keep] preserved a retryable partial.
 pub(crate) struct StagedDownload {
     path: PathBuf,
+    preserve: bool,
+    _lock: DestinationLock,
 }
 
 impl StagedDownload {
     pub(crate) fn new(destination: &Path) -> Result<Self, MtprotoError> {
+        Self::open(destination, false)
+    }
+
+    /// Reopen `<destination>.<pid>.<sequence>.part` when a full-file download is retried.
+    pub(crate) fn resume_or_create(destination: &Path) -> Result<Self, MtprotoError> {
+        Self::open(destination, true)
+    }
+
+    fn open(destination: &Path, resume: bool) -> Result<Self, MtprotoError> {
         use std::sync::atomic::{AtomicU64, Ordering};
         static NEXT: AtomicU64 = AtomicU64::new(1);
-        if let Some(parent) = destination.parent() {
+        let lock = DestinationLock::acquire(destination);
+        if let Some(parent) = destination.parent().filter(|path| !path.as_os_str().is_empty()) {
             fs::create_dir_all(parent).map_err(|e| MtprotoError::Message(e.to_string()))?;
+        }
+        if download_cancelled(destination) {
+            return Err(MtprotoError::Message("cancelled".into()));
+        }
+        if resume {
+            if let Some(path) = take_resume_file(destination) {
+                return Ok(Self {
+                    path,
+                    preserve: false,
+                    _lock: lock,
+                });
+            }
         }
         loop {
             let mut name = destination.as_os_str().to_os_string();
@@ -602,7 +966,13 @@ impl StagedDownload {
                 .create_new(true)
                 .open(&path)
             {
-                Ok(_) => return Ok(Self { path }),
+                Ok(_) => {
+                    return Ok(Self {
+                        path,
+                        preserve: false,
+                        _lock: lock,
+                    })
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
                 Err(e) => return Err(MtprotoError::Message(e.to_string())),
             }
@@ -613,10 +983,17 @@ impl StagedDownload {
         &self.path
     }
 
-    pub(crate) fn publish(self, destination: &Path) -> Result<String, MtprotoError> {
+    /// Leave the staging file on disk. Used for retryable failures and process death.
+    pub(crate) fn keep(mut self) {
+        self.preserve = true;
+    }
+
+    pub(crate) fn publish(mut self, destination: &Path) -> Result<String, MtprotoError> {
         if download_cancelled(destination) {
+            self.preserve = true;
             return Err(MtprotoError::Message("cancelled".into()));
         }
+        let _ = fs::remove_file(ranges_path(&self.path));
         fs::rename(&self.path, destination).map_err(|e| MtprotoError::Message(e.to_string()))?;
         Ok(destination.display().to_string())
     }
@@ -624,7 +1001,10 @@ impl StagedDownload {
 
 impl Drop for StagedDownload {
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
+        if !self.preserve {
+            let _ = fs::remove_file(&self.path);
+            let _ = fs::remove_file(ranges_path(&self.path));
+        }
     }
 }
 
@@ -745,29 +1125,94 @@ pub(crate) fn download_media_range_batched_streaming_capped(
         fs::create_dir_all(parent).map_err(|e| MtprotoError::Message(e.to_string()))?;
     }
     let result = (|| -> Result<(), MtprotoError> {
-        let mut out =
-            fs::File::create(dest_path).map_err(|e| MtprotoError::Message(e.to_string()))?;
+        let stream = offset.is_some();
+        let file_len = fs::metadata(dest_path).map(|meta| meta.len() as i64).unwrap_or(0);
+        let loaded_ranges = if stream { None } else { load_ranges(dest_path) };
+        let chunk_now = resolve_chunk(offset);
+        let origin = if stream {
+            offset.unwrap_or(0)
+        } else {
+            resume_start(loaded_ranges.as_ref(), file_len, chunk_now)
+        };
+        let mut missing = if stream {
+            None
+        } else if let Some(ranges) = loaded_ranges.clone() {
+            Some(ranges)
+        } else {
+            let end = media.file_size.filter(|size| *size > 0).unwrap_or(i64::MAX);
+            Some(MissingRanges::span(origin, end))
+        };
+        if !stream {
+            if let Some(ranges) = missing.as_ref() {
+                store_ranges(dest_path, ranges);
+            }
+        }
+        let mut out = if !stream && file_len > 0 {
+            use std::io::{Seek, SeekFrom};
+            let mut file = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(dest_path)
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            if loaded_ranges.is_none() && origin < file_len {
+                file.set_len(origin as u64)
+                    .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            }
+            file.seek(SeekFrom::Start(origin as u64))
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            file
+        } else if origin > 0 {
+            use std::io::{Seek, SeekFrom};
+            let mut file = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(dest_path)
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            file.seek(SeekFrom::Start(origin as u64))
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            file
+        } else {
+            fs::File::create(dest_path).map_err(|e| MtprotoError::Message(e.to_string()))?
+        };
         let window = crate::transfer_policy::current().floods.lock().window(
             dc_id,
             TransferClass::Download,
             std::time::Instant::now(),
             DownloadWindow {
-                chunk: resolve_chunk(offset),
+                chunk: resolve_chunk(if origin > 0 { Some(origin) } else { offset }),
                 in_flight: parts_in_flight.max(1),
             },
         );
         FORCED_CHUNK.with(|cell| cell.set(window.chunk));
         let mut width = window.in_flight;
-        let stream = offset.is_some();
-        let mut next = offset.unwrap_or(0);
+        let mut next = origin;
         let mut retried_limit = false;
         let mut timeout_retries = 0u8;
-        let mut written_end = 0i64;
-        let mut downloaded_bytes = offset.unwrap_or(0);
+        let mut written_end = origin;
+        let mut downloaded_bytes = origin;
+        let already_complete = !stream && media.file_size.is_some_and(|expected| {
+            expected > 0 && missing.as_ref().is_none_or(|ranges| !ranges.overlaps(0, expected))
+        });
+        if already_complete {
+            let expected = media.file_size.unwrap_or(origin);
+            out.set_len(expected as u64)
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
+            written_end = expected;
+            downloaded_bytes = expected;
+        } else if origin > 0 {
+            notify_progress(
+                &cancellation_path.display().to_string(),
+                origin,
+                media.file_size.unwrap_or(0),
+            );
+        }
         let mut counted_offsets = HashSet::new();
         let mut first_batch = true;
         let target_str = cancellation_path.display().to_string();
         'download: loop {
+            if already_complete {
+                break 'download;
+            }
             width = crate::transfer_policy::current().floods.lock().window(
                 dc_id,
                 TransferClass::Download,
@@ -787,10 +1232,20 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                 if download_cancelled(cancellation_path) {
                     return Err(MtprotoError::Message("cancelled".into()));
                 }
-                let mut offsets = Vec::with_capacity(batch);
-                for step in 0..batch {
-                    offsets.push(next + (step as i64) * i64::from(chunk));
-                }
+                let mut offsets = if let Some(ranges) = missing.as_ref().filter(|_| !stream) {
+                    let planned = request_offsets(ranges, i64::from(chunk.max(1)), batch);
+                    if planned.is_empty() {
+                        break 'download;
+                    }
+                    next = planned[0];
+                    planned
+                } else {
+                    let mut sequential = Vec::with_capacity(batch);
+                    for step in 0..batch {
+                        sequential.push(next + (step as i64) * i64::from(chunk));
+                    }
+                    sequential
+                };
                 if stream {
                     let seek = offset.unwrap_or(next);
                     let cancelled = cancel_outside_seek_window(seek, chunk, batch, &offsets);
@@ -798,7 +1253,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                         offsets.retain(|off| !cancelled.contains(off));
                     }
                 }
-                let (flags, cdn_supported) = cdn_fields_for_seek(offset.unwrap_or(0));
+                let (flags, cdn_supported) = cdn_fields_for_seek(origin);
                 let requests: Vec<UploadGetFileRequest> = offsets
                     .iter()
                     .map(|offset| UploadGetFileRequest {
@@ -838,6 +1293,10 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                                     && out.write_all(bytes).is_ok()
                                 {
                                     written_end = written_end.max(part_offset + bytes.len() as i64);
+                                    if let Some(ranges) = missing.as_mut() {
+                                        ranges.cover(part_offset, part_offset + bytes.len() as i64);
+                                        store_ranges(dest_path, ranges);
+                                    }
                                     if counted_offsets.insert(part_offset) {
                                         downloaded_bytes += bytes.len() as i64;
                                         crate::transfer_policy::current().floods.lock()
@@ -914,7 +1373,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                             timeout_retries += 1;
                             next = first_missing_offset(
                                 &counted_offsets,
-                                offset.unwrap_or(0),
+                                origin,
                                 next_to_request,
                                 chunk,
                             );
@@ -998,7 +1457,7 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                                 timeout_retries += 1;
                                 next = first_missing_offset(
                                     &counted_offsets,
-                                    offset.unwrap_or(0),
+                                    origin,
                                     next_to_request,
                                     chunk,
                                 );
@@ -1008,30 +1467,48 @@ pub(crate) fn download_media_range_batched_streaming_capped(
                         }
                     }
                 }
-                if last_part || stream {
+                if stream {
                     break 'download;
+                }
+                if last_part {
+                    if let Some(ranges) = missing.as_mut() {
+                        ranges.clip_to_end(written_end);
+                        store_ranges(dest_path, ranges);
+                    }
+                    let still_open = missing
+                        .as_ref()
+                        .is_some_and(|ranges| ranges.overlaps(0, written_end.max(1)));
+                    if !still_open {
+                        break 'download;
+                    }
                 }
                 // A caller may ignore the refill request returned by `on_chunk`.
                 // Continue at the first hole instead of the cursor those refills advanced.
                 next = first_missing_offset(
                     &counted_offsets,
-                    offset.unwrap_or(0),
+                    origin,
                     next_to_request,
                     chunk,
                 );
             }
         } // 'download
         if !stream {
-            if let Some(expected) = media.file_size {
-                if expected > 0 && written_end < expected {
+            match preserved_end(file_len, written_end, media.file_size, missing.as_ref()) {
+                Err(()) => {
+                    let expected = media.file_size.unwrap_or(0);
                     return Err(MtprotoError::Message(format!(
                         "download incomplete: received {written_end} of {expected} bytes"
                     )));
                 }
+                Ok(end) => {
+                    out.set_len(end as u64)
+                        .map_err(|e| MtprotoError::Message(e.to_string()))?;
+                }
             }
+        } else {
+            out.set_len(written_end as u64)
+                .map_err(|e| MtprotoError::Message(e.to_string()))?;
         }
-        out.set_len(written_end as u64)
-            .map_err(|e| MtprotoError::Message(e.to_string()))?;
         out.flush()
             .map_err(|e| MtprotoError::Message(e.to_string()))?;
         Ok(())
@@ -1039,7 +1516,10 @@ pub(crate) fn download_media_range_batched_streaming_capped(
     match result {
         Ok(()) => Ok(dest_path.display().to_string()),
         Err(err) => {
-            let _ = fs::remove_file(dest_path);
+            if !keep_partial(&err) && !stopped_download(&err) {
+                let _ = fs::remove_file(dest_path);
+                let _ = fs::remove_file(ranges_path(dest_path));
+            }
             Err(err)
         }
     }

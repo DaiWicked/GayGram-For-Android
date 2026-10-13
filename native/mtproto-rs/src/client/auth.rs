@@ -111,6 +111,7 @@ pub(crate) fn apply_test_dc(
     crate::rpc::drop_live_transport();
     crate::rpc::set_use_test_dc(want_test);
     state.test_dc = want_test;
+    state.dc_auth_keys.clear();
     state.snapshot =
         Snapshot::new(want_dc, &mut OsRandom).map_err(|e| MtprotoError::Message(e.to_string()))?;
     state.session_dead = false;
@@ -294,6 +295,7 @@ pub fn logout(handle: u64) -> Result<(), MtprotoError> {
         state.updates_started = false;
         state.session_dead = false;
         state.new_session = None;
+        state.dc_auth_keys.clear();
         state.snapshot =
             Snapshot::new(dc, &mut OsRandom).map_err(|e| MtprotoError::Message(e.to_string()))?;
         if state.logout_tokens.is_empty() {
@@ -306,6 +308,9 @@ pub fn logout(handle: u64) -> Result<(), MtprotoError> {
 
         remote.map(|_| ())
     });
+    if let Ok(client) = get_client(handle) {
+        client.data.lock().dc_temp_auth.clear();
+    }
     drop_all_transports(handle);
     result
 }

@@ -18,14 +18,85 @@ fn home_lease_ok(state: &ClientState, home_session_id: i64) -> bool {
     state.snapshot.session_id == home_session_id || state.perm_session_id == home_session_id
 }
 
-fn download_temp_ready(io: &super::lanes::SessionIo, dc: i32, home_key: Option<&[u8]>) -> bool {
-    io.temp_expires_at > crate::auth::bind_temp::unix_now()
-        && io.snapshot.dc_id == dc
-        && io
-            .snapshot
-            .auth_key
-            .as_deref()
-            .is_some_and(|key| Some(key) != home_key)
+fn download_temp_ready(
+    io: &super::lanes::SessionIo,
+    client: &Client,
+    dc: i32,
+    home_key: Option<&[u8]>,
+) -> bool {
+    if io.temp_expires_at <= crate::auth::bind_temp::unix_now() || io.snapshot.dc_id != dc {
+        return false;
+    }
+    let Some(lane_key) = io.snapshot.auth_key.as_deref() else {
+        return false;
+    };
+    if Some(lane_key) == home_key {
+        return false;
+    }
+    let Some(perm) = io.perm_key.as_deref().filter(|key| key.len() == 256) else {
+        return false;
+    };
+    let data = client.data.lock();
+    let master = if dc == data.home_dc {
+        data.home_auth_key.as_deref()
+    } else {
+        data.dc_auth_keys
+            .get(&dc)
+            .map(|cached| cached.key.as_slice())
+            .filter(|key| key.len() == 256)
+    };
+    master == Some(perm)
+}
+
+fn matching_temp(client: &Client, dc: i32, perm_key: &[u8]) -> Option<DcTempAuth> {
+    if perm_key.len() != 256 {
+        return None;
+    }
+    let data = client.data.lock();
+    let entry = data.dc_temp_auth.get(&dc)?;
+    if entry.temp_expires_at <= crate::auth::bind_temp::unix_now() || entry.perm_key.as_slice() != perm_key {
+        return None;
+    }
+    Some(entry.clone())
+}
+
+fn remember_temp(client: &Client, dc: i32, snapshot: &tellers_mtproto_session::Snapshot, expires: i32, perm_key: &[u8]) {
+    if perm_key.len() != 256 || expires <= crate::auth::bind_temp::unix_now() {
+        return;
+    }
+    client.data.lock().dc_temp_auth.insert(
+        dc,
+        DcTempAuth {
+            snapshot: snapshot.clone(),
+            temp_expires_at: expires,
+            perm_key: perm_key.to_vec(),
+        },
+    );
+}
+
+fn stage_for(dest: &Path, offset: Option<i64>) -> Result<media::StagedDownload, MtprotoError> {
+    if offset.is_none() {
+        media::StagedDownload::resume_or_create(dest)
+    } else {
+        media::StagedDownload::new(dest)
+    }
+}
+
+fn finish_staged(
+    staged: media::StagedDownload,
+    result: Result<String, MtprotoError>,
+    client: &Client,
+    session_id: i64,
+    dest: &Path,
+) -> Result<String, MtprotoError> {
+    match result {
+        Ok(_) => publish_media(client, session_id, staged, dest),
+        Err(err) if media::keep_partial(&err) || media::stopped_download(&err) => {
+            staged.keep();
+            Err(err)
+        }
+        Err(err) => Err(err),
+    }
 }
 
 pub(crate) struct MediaLanePreparation {
@@ -785,10 +856,10 @@ pub(crate) fn download_media_range_on_home_session(
         }
         (expected_session_id, data.home_dc)
     };
-    let staged = media::StagedDownload::new(dest)?;
+    let staged = stage_for(dest, offset)?;
     // Cap refills to one window so `with_client_mut` returns and updates can drain.
     // Sliding refill still keeps the in-flight window full inside that lease.
-    media::download_media_range_batched_streaming_capped(
+    let downloaded = media::download_media_range_batched_streaming_capped(
         dc,
         media,
         staged.path(),
@@ -811,8 +882,8 @@ pub(crate) fn download_media_range_on_home_session(
                 })
             })
         },
-    )?;
-    publish_media(client, session_id, staged, dest)
+    );
+    finish_staged(staged, downloaded, client, session_id, dest)
 }
 
 pub(crate) fn split_even_odd_request_indices(
@@ -1010,16 +1081,12 @@ pub(crate) fn download_media_range_on_lane_dc(
     target_dc: i32,
 ) -> Result<String, MtprotoError> {
     let _span = crate::perf::span("media_file");
-    let staged = media::StagedDownload::new(dest)?;
     let mut io = lock_media_lane(client)?;
     if !session_lease_valid(&client.data.lock(), home.session_id) {
         return Err(expired_session_lease());
     }
     let mut first_chunk_span = Some(crate::perf::span("media_first_chunk"));
-    let now = crate::auth::bind_temp::unix_now();
-    let already_temp = io.temp_expires_at > now
-        && io.snapshot.dc_id == target_dc
-        && io.snapshot.auth_key.as_ref() != home.auth_key.as_ref();
+    let already_temp = download_temp_ready(&io, client, target_dc, home.auth_key.as_deref());
     if !already_temp {
         match prepare_media_lane_snapshot(&mut io.snapshot, home, target_dc) {
             MediaLanePrep::NeedExport => {
@@ -1027,7 +1094,7 @@ pub(crate) fn download_media_range_on_lane_dc(
                     if !home_lease_ok(state, home.session_id) {
                         return Err(expired_session_lease());
                     }
-                    copy_authorization_to_dc(&mut state.snapshot, api_id, target_dc)
+                    copy_authorization_to_dc(state, target_dc)
                 })?;
                 io.transport = None;
             }
@@ -1035,13 +1102,21 @@ pub(crate) fn download_media_range_on_lane_dc(
             MediaLanePrep::Reuse => {}
         }
         if let Some(key) = io.snapshot.auth_key.clone() {
-            io.perm_key = Some(key.clone());
-            let offset = io.snapshot.time_offset_micros;
             let dc = io.snapshot.dc_id;
-            if let Ok(bound) = crate::auth::bind_temp::negotiate_bound_temp(&key, dc, offset) {
-                io.snapshot = bound.snapshot;
-                io.temp_expires_at = bound.expires_at;
+            if let Some(cached) = matching_temp(client, dc, &key) {
+                io.perm_key = Some(cached.perm_key);
+                io.snapshot = fork_session(&cached.snapshot);
+                io.temp_expires_at = cached.temp_expires_at;
                 io.transport = None;
+            } else {
+                io.perm_key = Some(key.clone());
+                let time_offset = io.snapshot.time_offset_micros;
+                if let Ok(bound) = crate::auth::bind_temp::negotiate_bound_temp(&key, dc, time_offset) {
+                    remember_temp(client, dc, &bound.snapshot, bound.expires_at, &key);
+                    io.snapshot = bound.snapshot;
+                    io.temp_expires_at = bound.expires_at;
+                    io.transport = None;
+                }
             }
         }
     }
@@ -1057,6 +1132,7 @@ pub(crate) fn download_media_range_on_lane_dc(
             offset,
         );
     }
+    let staged = stage_for(dest, offset)?;
     let bind_key = io.perm_key.clone().or_else(|| {
         (target_dc == home.dc_id)
             .then(|| home.auth_key.clone())
@@ -1068,7 +1144,7 @@ pub(crate) fn download_media_range_on_lane_dc(
         None
     };
     let second_ready = match io2.as_mut() {
-        Some(second) if download_temp_ready(second, target_dc, home.auth_key.as_deref()) => {
+        Some(second) if download_temp_ready(second, client, target_dc, home.auth_key.as_deref()) => {
             true
         }
         _ => false,
@@ -1090,10 +1166,18 @@ pub(crate) fn download_media_range_on_lane_dc(
                         let _span = crate::perf::span("media_second_lane_prepare");
                         let Some(mut second) = try_lock_second_media_lane(&worker_client) else { return false; };
                         if !session_lease_valid(&worker_client.data.lock(), expected_session) { return false; }
-                        if download_temp_ready(&second, target_dc, home_key.as_deref()) { return true; }
+                        if download_temp_ready(&second, &worker_client, target_dc, home_key.as_deref()) { return true; }
+                        if let Some(cached) = matching_temp(&worker_client, target_dc, &key) {
+                            second.perm_key = Some(cached.perm_key);
+                            second.snapshot = fork_session(&cached.snapshot);
+                            second.temp_expires_at = cached.temp_expires_at;
+                            second.transport = None;
+                            return true;
+                        }
                         let Ok(bound) = crate::auth::bind_temp::negotiate_bound_temp(&key, target_dc, time_offset) else { return false; };
                         if crate::request_control::check().is_err()
                             || !session_lease_valid(&worker_client.data.lock(), expected_session) { return false; }
+                        remember_temp(&worker_client, target_dc, &bound.snapshot, bound.expires_at, &key);
                         second.perm_key = Some(key);
                         second.snapshot = bound.snapshot;
                         second.temp_expires_at = bound.expires_at;
@@ -1126,7 +1210,7 @@ pub(crate) fn download_media_range_on_lane_dc(
                     preparation = None;
                     if should_open_second_media_lane(lane_dc, media::download_in_flight()) {
                         io2 = try_lock_second_media_lane(client).filter(|lane|
-                            download_temp_ready(lane, lane_dc, home.auth_key.as_deref()));
+                            download_temp_ready(lane, client, lane_dc, home.auth_key.as_deref()));
                         media_snap2 = io2.as_ref().map(|lane| lane.snapshot.clone());
                         slot2 = io2.as_mut().map(|lane| lane.transport.take());
                     }
@@ -1184,6 +1268,32 @@ pub(crate) fn download_media_range_on_lane_dc(
         persist_updates_data(client, home.session_id)?;
     }
     if let Err(ref err) = path {
+        let foreign_key = target_dc != home.dc_id
+            && !(media_snap.dc_id == home.dc_id && media_snap.auth_key == home.auth_key)
+            && is_foreign_auth_key_failure(err);
+        if foreign_key && !DC_AUTH_RETRY.with(std::cell::Cell::get) {
+            let _retry = DcAuthRetry::enter();
+            let _ = with_client_mut(handle, |state| {
+                if home_lease_ok(state, home.session_id) {
+                    state.dc_auth_keys.remove(&target_dc);
+                }
+                Ok(())
+            });
+            client.data.lock().dc_temp_auth.remove(&target_dc);
+            for lane in client.media.iter() {
+                if let Some(mut lane_io) = lane.io.try_lock() {
+                    if lane_io.snapshot.dc_id == target_dc {
+                        lane_io.temp_expires_at = 0;
+                        lane_io.perm_key = None;
+                        lane_io.transport = None;
+                    }
+                }
+            }
+            staged.keep();
+            return download_media_range_on_lane_dc(
+                handle, client, home, api_id, media, dest, offset, target_dc,
+            );
+        }
         if media_snap.dc_id == home.dc_id
             && media_snap.auth_key == home.auth_key
             && is_unrecoverable_session(err)
@@ -1197,8 +1307,25 @@ pub(crate) fn download_media_range_on_lane_dc(
             });
         }
     }
-    path?;
-    publish_media(client, home.session_id, staged, dest)
+    finish_staged(staged, path, client, home.session_id, dest)
+}
+
+thread_local! {
+    static DC_AUTH_RETRY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+struct DcAuthRetry(bool);
+
+impl DcAuthRetry {
+    fn enter() -> Self {
+        Self(DC_AUTH_RETRY.with(|flag| flag.replace(true)))
+    }
+}
+
+impl Drop for DcAuthRetry {
+    fn drop(&mut self) {
+        DC_AUTH_RETRY.with(|flag| flag.set(self.0));
+    }
 }
 
 pub(crate) fn should_open_second_media_lane(dc_id: i32, in_flight: usize) -> bool {

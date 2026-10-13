@@ -61,7 +61,7 @@ use tellers_mtproto_session::{OsRandom, Snapshot};
 use crate::media::MediaIndex;
 use crate::peers::CachedPeer;
 use crate::scheduler;
-use crate::session_file::{ChannelRecovery, FileSessionStore, media_to_index};
+use crate::session_file::{ChannelRecovery, DcAuthKey, FileSessionStore, media_to_index};
 use crate::tcp;
 use crate::{MtprotoError, UpdatesStateDto};
 
@@ -97,6 +97,10 @@ pub(crate) struct ClientData {
     pub(crate) home_time_offset: i64,
     pub(crate) test_dc: bool,
     pub(crate) last_inline: Option<LastInlineQuery>,
+    /// Imported foreign-DC master keys. Not a temporary PFS cache.
+    pub(crate) dc_auth_keys: HashMap<i32, DcAuthKey>,
+    /// Bound temporary keys for media lanes. Process-local; never persisted.
+    pub(crate) dc_temp_auth: HashMap<i32, DcTempAuth>,
     pub(crate) persist_epoch: u64,
     pub(crate) persisted_epoch: u64,
     /// In-memory catch-up edge. Not written into the session file.
@@ -163,6 +167,15 @@ pub(crate) struct ClientState {
     pub(crate) perm_auth_key: Option<Vec<u8>>,
     pub(crate) perm_salt: i64,
     pub(crate) perm_session_id: i64,
+    pub(crate) dc_auth_keys: HashMap<i32, DcAuthKey>,
+}
+
+/// In-memory bound temporary key. Deliberately not `Debug`: it holds key material.
+#[derive(Clone)]
+pub(crate) struct DcTempAuth {
+    pub(crate) snapshot: Snapshot,
+    pub(crate) temp_expires_at: i32,
+    pub(crate) perm_key: Vec<u8>,
 }
 
 pub(crate) fn prefer_newer_cursor(
@@ -242,6 +255,7 @@ pub fn create_client(api_id: i32, api_hash: String, session_path: String) -> u64
         new_session,
         session_dead,
         test_dc,
+        dc_auth_keys,
     ) = match loaded {
         Some(session) => (
             session.snapshot,
@@ -255,6 +269,7 @@ pub fn create_client(api_id: i32, api_hash: String, session_path: String) -> u64
             session.new_session,
             session.session_dead,
             session.test_dc,
+            session.dc_auth_keys,
         ),
         None => (
             Snapshot::new(DEFAULT_DC_ID, &mut OsRandom).expect("snapshot"),
@@ -268,6 +283,7 @@ pub fn create_client(api_id: i32, api_hash: String, session_path: String) -> u64
             None,
             load_failed,
             false,
+            HashMap::new(),
         ),
     };
     crate::rpc::set_use_test_dc(test_dc);
@@ -325,6 +341,8 @@ pub fn create_client(api_id: i32, api_hash: String, session_path: String) -> u64
                 home_time_offset: snapshot.time_offset_micros,
                 test_dc,
                 last_inline: None,
+                dc_auth_keys,
+                dc_temp_auth: HashMap::new(),
                 persist_epoch: 0,
                 persisted_epoch: 0,
                 is_syncing: false,
@@ -536,6 +554,7 @@ pub(crate) fn with_client_mut<T>(
                 .flatten(),
             perm_salt: d.home_salt,
             perm_session_id: d.home_session_id,
+            dc_auth_keys: d.dc_auth_keys.clone(),
         }
     };
     crate::rpc::set_use_test_dc(state.test_dc);
@@ -548,6 +567,7 @@ pub(crate) fn with_client_mut<T>(
     let before_new_session = state.new_session.clone();
     let before_dead = state.session_dead;
     let before_test_dc = state.test_dc;
+    let before_dc_auth_keys = state.dc_auth_keys.clone();
     let mut slot = io.transport.take();
     let before_snapshot = io.snapshot.clone();
     let result = with_client_transport(&client, &mut slot, || f(&mut state));
@@ -572,6 +592,11 @@ pub(crate) fn with_client_mut<T>(
     }
     let identity_changed =
         before_user_id != state.user_id || before_snapshot.auth_key != state.snapshot.auth_key;
+    let drop_dc_auth = identity_changed || before_test_dc != state.test_dc;
+    if drop_dc_auth {
+        state.dc_auth_keys.clear();
+    }
+    let dc_keys_changed = before_dc_auth_keys != state.dc_auth_keys;
     if identity_changed {
         if state.user_id.is_none() || before_user_id.is_some() {
             client.policy.premium.store(false, Ordering::Relaxed);
@@ -623,12 +648,19 @@ pub(crate) fn with_client_mut<T>(
         }
         d.test_dc = state.test_dc;
         d.last_inline = state.last_inline;
+        if dc_keys_changed {
+            d.dc_auth_keys = state.dc_auth_keys.clone();
+        }
+        if drop_dc_auth {
+            d.dc_temp_auth.clear();
+        }
         persist_needed = result.is_ok()
             && (identity_changed
                 || snapshot_changed
                 || maps_changed
                 || tokens_changed
-                || session_meta_changed);
+                || session_meta_changed
+                || dc_keys_changed);
         if persist_needed {
             d.persist_epoch = d.persist_epoch.saturating_add(1);
         }
@@ -734,6 +766,7 @@ pub(crate) fn with_read_lane<T>(
                     .flatten(),
                 perm_salt: d.home_salt,
                 perm_session_id: d.home_session_id,
+                dc_auth_keys: d.dc_auth_keys.clone(),
             })
         }
     };
@@ -749,6 +782,7 @@ pub(crate) fn with_read_lane<T>(
     let before_peers = state.peers.clone();
     let before_media = state.media.clone();
     let before_channel_pts = state.channel_pts.clone();
+    let before_dc_auth_keys = state.dc_auth_keys.clone();
     let mut slot = io.transport.take();
     let before_snapshot = io.snapshot.clone();
     let result = EXTRA_READ_LANE.with(|cell| {
@@ -812,6 +846,9 @@ pub(crate) fn with_read_lane<T>(
             d.last_inline = state.last_inline;
             d.home_salt = state.snapshot.server_salt;
             d.home_time_offset = state.snapshot.time_offset_micros;
+            if before_dc_auth_keys != state.dc_auth_keys {
+                d.dc_auth_keys = state.dc_auth_keys.clone();
+            }
             if result.is_ok() {
                 d.persist_epoch = d.persist_epoch.saturating_add(1);
             }
