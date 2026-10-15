@@ -14,6 +14,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -21,10 +23,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -33,12 +35,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
@@ -57,24 +59,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import org.monogram.core.models.SavedGif
 import org.monogram.core.models.StickerPack
 import org.monogram.feature.dialog.R
 import org.monogram.network.http.MediaRepository
+import kotlin.math.abs
 
 private val HandleTopPadding = 16.dp
 private const val SheetBackdropBlurPx = 40
@@ -203,7 +203,8 @@ internal fun AttachSheet(
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        LeaveComposerClear(composerSheetBottomGap())
+        val composerGap = composerSheetBottomGap()
+        if (composerGap > 0.dp) LeaveComposerClear(composerGap)
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val density = LocalDensity.current
             // The permission hand-off and the fallback itself crossfade instead of popping.
@@ -245,7 +246,11 @@ internal fun AttachSheet(
                 val tallHeight = maxHeight * TallSheetFraction
                 val tallHeightPx = with(density) { tallHeight.toPx() }
                 val containerHeightPx = with(density) { maxHeight.toPx() }
-                Box(modifier = Modifier.fillMaxWidth().height(tallHeight)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(tallHeight)
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -253,7 +258,11 @@ internal fun AttachSheet(
                             .clipToBounds(),
                     ) {
                         AttachDragHandle()
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
                             // Body swaps crossfade instead of popping.
                             Crossfade(
                                 targetState = current,
@@ -366,8 +375,11 @@ internal class ComposerChromeHeight {
 
 internal val LocalComposerChrome = staticCompositionLocalOf { ComposerChromeHeight() }
 
+internal val LocalComposerFillsScreen = staticCompositionLocalOf { true }
+
 @Composable
 internal fun composerSheetBottomGap(): Dp {
+    if (!LocalComposerFillsScreen.current) return 0.dp
     val measured = LocalComposerChrome.current.value
     if (measured > 0.dp) return measured
     return 72.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

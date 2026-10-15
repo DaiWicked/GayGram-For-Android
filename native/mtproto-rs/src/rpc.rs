@@ -9,7 +9,7 @@ mod inbound;
 mod invoke;
 mod live;
 mod main_policy;
-mod salts;
+pub(crate) mod salts;
 mod supervisor;
 mod timeout;
 

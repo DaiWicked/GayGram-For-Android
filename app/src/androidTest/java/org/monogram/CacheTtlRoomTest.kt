@@ -13,6 +13,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.monogram.core.database.entity.MessageHoleEntity
 import org.monogram.core.database.entity.MessageTombstoneEntity
+import org.monogram.core.database.entity.MetaEntity
+import org.monogram.core.database.entity.PeerEntity
 import org.monogram.core.database.entity.ProfileCommonEntity
 import org.monogram.core.database.entity.ProfileMediaEntity
 import org.monogram.core.database.entity.ProfileMemberEntity
@@ -49,6 +51,12 @@ class CacheTtlRoomTest {
                 database.messageTombstoneDao().insert(
                     listOf(MessageTombstoneEntity(7L, 3), MessageTombstoneEntity(7L, 50)),
                 )
+                database.peerDao().upsertAll(
+                    listOf(PeerEntity(7L, "user", "Kept"), PeerEntity(99L, "user", "Stray")),
+                )
+                repeat(503) { index ->
+                    database.metaDao().upsert(MetaEntity("discussion_read:7:${index + 1}", "1"))
+                }
                 database.updateCursorDao().upsert(UpdateCursorEntity("updates", 4, 5, 6, 7, 0))
                 database.updateCursorDao().upsert(
                     UpdateCursorEntity("$KEY_CHANNEL_CURSOR_PREFIX" + "1", 1, 0, 2, 0, 9),
@@ -104,6 +112,10 @@ class CacheTtlRoomTest {
                 assertEquals(1, database.profileCommonDao().list(2L).size)
                 assertTrue(database.messageTombstoneDao().deletedIds(7L, listOf(3)).isEmpty())
                 assertEquals(listOf(50), database.messageTombstoneDao().deletedIds(7L, listOf(50)))
+                assertNotNull(database.peerDao().get(7L))
+                assertNull(database.peerDao().get(99L))
+                assertNull(database.metaDao().get("discussion_read:7:1"))
+                assertNotNull(database.metaDao().get("discussion_read:7:503"))
                 val holes = database.messageHoleDao().forChat(7L, MessageHoleEntity.SOURCE_HISTORY)
                 assertTrue(holes.any { 1 in it.startId..it.endId })
                 assertTrue(holes.none { hole -> (22..121).any { it in hole.startId..hole.endId } })

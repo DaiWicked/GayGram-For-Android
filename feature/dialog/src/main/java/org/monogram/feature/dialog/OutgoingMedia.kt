@@ -17,6 +17,12 @@ internal fun localOutgoingFile(cacheKey: String?): File? {
     return File(path).takeIf { it.isFile && it.length() > 0L }
 }
 
+internal fun releaseAttachCopy(path: String) {
+    val file = File(path)
+    if (!file.name.startsWith("attach-")) return
+    if (file.isFile) file.delete()
+}
+
 /** Native emits `UpdateMessageId:{random_id}:{id}` through the existing Ignored event. */
 internal fun parseUpdateMessageId(kind: String): Pair<Long, Int>? {
     val prefix = "UpdateMessageId:"

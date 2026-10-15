@@ -1016,6 +1016,89 @@ pub(crate) fn is_native_staging_name(name: &str, destination_name: &str) -> bool
         && sequence.bytes().all(|byte| byte.is_ascii_digit())
 }
 
+const STAGING_DIR_BYTE_CAP: u64 = 32 * 1024 * 1024;
+const STAGING_STALE_SECS: u64 = 120;
+
+fn remove_staging_sidecars(staging: &Path) {
+    let _ = fs::remove_file(ranges_path(staging));
+    let _ = fs::remove_file(identity_path(staging));
+}
+
+pub(crate) fn sweep_orphan_sidecars(dir: &Path, protect: &Path) {
+    let protect_identity = identity_path(protect);
+    let protect_ranges = ranges_path(protect);
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == protect || path == protect_identity || path == protect_ranges {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let stem = name
+            .strip_suffix(".identity.part")
+            .or_else(|| name.strip_suffix(".ranges.part"));
+        let Some(stem) = stem else {
+            continue;
+        };
+        if !dir.join(format!("{stem}.part")).exists() {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+pub(crate) fn sweep_stale_parts(dir: &Path, protect: &Path) {
+    sweep_orphan_sidecars(dir, protect);
+    let Some(cutoff) = std::time::SystemTime::now()
+        .checked_sub(std::time::Duration::from_secs(STAGING_STALE_SECS))
+    else {
+        return;
+    };
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut stale = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == protect {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if !name.ends_with(".part") {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        let Ok(modified) = meta.modified() else {
+            continue;
+        };
+        if modified > cutoff {
+            continue;
+        }
+        stale.push((modified, meta.len(), path));
+    }
+    let mut total: u64 = stale.iter().map(|(_, len, _)| *len).sum();
+    if total <= STAGING_DIR_BYTE_CAP {
+        return;
+    }
+    stale.sort_by_key(|(modified, _, _)| *modified);
+    for (_, len, path) in stale {
+        if total <= STAGING_DIR_BYTE_CAP {
+            break;
+        }
+        if fs::remove_file(&path).is_ok() {
+            total = total.saturating_sub(len);
+            remove_staging_sidecars(&path);
+        }
+    }
+}
+
 fn native_staging_files(destination: &Path) -> Vec<PathBuf> {
     let Some(name) = destination.file_name().and_then(|name| name.to_str()) else {
         return Vec::new();
@@ -1064,17 +1147,23 @@ struct DestEntry {
 
 /// One writer per destination. The same thread may lock again when a home-DC
 /// download takes over a lane that already staged the same path.
+fn destination_locks() -> &'static Mutex<std::collections::HashMap<PathBuf, Arc<DestEntry>>> {
+    static LOCKS: std::sync::OnceLock<Mutex<std::collections::HashMap<PathBuf, Arc<DestEntry>>>> =
+        std::sync::OnceLock::new();
+    LOCKS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
 pub(crate) struct DestinationLock {
+    path: PathBuf,
     entry: Arc<DestEntry>,
 }
 
 impl DestinationLock {
     pub(crate) fn acquire(path: &Path) -> Self {
-        static LOCKS: std::sync::OnceLock<Mutex<std::collections::HashMap<PathBuf, Arc<DestEntry>>>> =
-            std::sync::OnceLock::new();
-        let locks = LOCKS.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
         let entry = {
-            let mut map = locks.lock().unwrap_or_else(|error| error.into_inner());
+            let mut map = destination_locks()
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
             map.entry(path.to_path_buf())
                 .or_insert_with(|| {
                     Arc::new(DestEntry {
@@ -1102,7 +1191,10 @@ impl DestinationLock {
             owner = entry.cv.wait(owner).unwrap_or_else(|error| error.into_inner());
         }
         drop(owner);
-        Self { entry }
+        Self {
+            path: path.to_path_buf(),
+            entry,
+        }
     }
 }
 
@@ -1114,8 +1206,39 @@ impl Drop for DestinationLock {
             owner.thread = None;
             self.entry.cv.notify_one();
         }
+        let idle = owner.depth == 0;
+        drop(owner);
+        if !idle {
+            return;
+        }
+        let mut map = destination_locks()
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if Arc::strong_count(&self.entry) == 2
+            && map
+                .get(&self.path)
+                .is_some_and(|existing| Arc::ptr_eq(existing, &self.entry))
+        {
+            map.remove(&self.path);
+        }
     }
 }
+
+#[cfg(test)]
+pub(crate) fn destination_lock_entries() -> usize {
+    destination_locks()
+        .lock()
+        .map(|map| map.len())
+        .unwrap_or(0)
+}
+
+#[cfg(test)]
+#[path = "../../tests/unit/destination_lock_tests.rs"]
+mod destination_lock_tests;
+
+#[cfg(test)]
+#[path = "../../tests/unit/staging_sweep_tests.rs"]
+mod staging_sweep_tests;
 
 /// The caller publishes under its session lease. A dropped download removes its
 /// staging file unless [StagedDownload::keep] preserved a retryable partial.
@@ -1187,6 +1310,9 @@ impl StagedDownload {
     /// Leave the staging file on disk. Used for retryable failures and process death.
     pub(crate) fn keep(mut self) {
         self.preserve = true;
+        if let Some(parent) = self.path.parent() {
+            sweep_stale_parts(parent, &self.path);
+        }
     }
 
     pub(crate) fn publish(mut self, destination: &Path) -> Result<String, MtprotoError> {
@@ -1194,8 +1320,11 @@ impl StagedDownload {
             self.preserve = true;
             return Err(MtprotoError::Message("cancelled".into()));
         }
-        let _ = fs::remove_file(ranges_path(&self.path));
+        remove_staging_sidecars(&self.path);
         fs::rename(&self.path, destination).map_err(|e| MtprotoError::Message(e.to_string()))?;
+        if let Some(parent) = destination.parent() {
+            sweep_orphan_sidecars(parent, destination);
+        }
         Ok(destination.display().to_string())
     }
 }
@@ -1204,7 +1333,7 @@ impl Drop for StagedDownload {
     fn drop(&mut self) {
         if !self.preserve {
             let _ = fs::remove_file(&self.path);
-            let _ = fs::remove_file(ranges_path(&self.path));
+            remove_staging_sidecars(&self.path);
         }
     }
 }

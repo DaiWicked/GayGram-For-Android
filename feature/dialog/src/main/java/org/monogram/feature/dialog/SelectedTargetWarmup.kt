@@ -71,7 +71,6 @@ class SelectedTargetWarmup(
     private fun launch() {
         val peer = peerId ?: return
         if (!frameReady || underPressure()) return
-        val gen = generation
         val anchor = anchorId
         val requested = priority
         val key = ownerKey(peer)
@@ -85,7 +84,7 @@ class SelectedTargetWarmup(
             } catch (_: Exception) {
             } finally {
                 WorkOwnership.release(key)
-                if (gen == generation) WorkOwnership.finish(key)
+                WorkOwnership.finish(key)
             }
         }
     }

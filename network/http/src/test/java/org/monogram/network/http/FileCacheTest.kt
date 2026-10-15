@@ -187,6 +187,18 @@ class FileCacheTest {
         assertEquals(4, freed)
         assertEquals(0, cache.totalBytes())
         assertFalse(cache.get("photo:1")?.exists() == true)
+        assertEquals(0, cache.retainedDiskNames())
+    }
+
+    @Test
+    fun removeDropsTheRetainedDiskName() {
+        val cache = FileCache(tmp.newFolder("names"), maxBytes = 1024 * 1024)
+        cache.put("photo:1", byteArrayOf(1))
+        cache.put("photo:2", byteArrayOf(2))
+        assertTrue(cache.retainedDiskNames() >= 2)
+        cache.remove("photo:1")
+        cache.get("photo:2")
+        assertEquals(1, cache.retainedDiskNames())
     }
 
     @Test

@@ -271,7 +271,7 @@ class FileCache(
     }
 
     private fun pendingDeletion(key: String): Boolean =
-        pendingDeletes.any { diskName(it) == diskName(key) }
+        pendingDeletes.any { peekName(it) == peekName(key) }
 
     private fun flushPendingDeletes() {
         val ready = pendingDeletes.filterNot(::protected)
@@ -300,10 +300,11 @@ class FileCache(
 
     fun get(key: String): File? = synchronized(recordsLock) {
         if (pendingDeletion(key)) return@synchronized null
-        val file = fileFor(key)
+        val name = peekName(key)
+        val file = File(root, name)
         if (!file.isFile) return@synchronized null
+        if (!diskNames.containsKey(key)) diskNames[key] = name
         val now = nowMs()
-        val name = diskName(key)
         val previous = lastAccess[name]
         lastAccess[name] = now
         if (previous == null || now - previous >= ACCESS_TOUCH_MS) file.setLastModified(now)
@@ -505,8 +506,9 @@ class FileCache(
 
     fun remove(key: String): Boolean {
         unpin(key)
+        val name = synchronized(recordsLock) { peekName(key) }
         deleteKeys(listOf(key), force = true)
-        return !fileFor(key).exists()
+        return !File(root, name).exists()
     }
 
     /** Deletes all cached files. Used by settings "clear media cache". */
@@ -548,7 +550,10 @@ class FileCache(
             val length = file.length()
             if (!file.exists() || file.delete()) {
                 total -= length
-                records.keys.filter { diskName(it) == name }.forEach(records::remove)
+                records.keys.filter { diskName(it) == name }.forEach { key ->
+                    records.remove(key)
+                    diskNames.remove(key)
+                }
                 lastAccess.remove(name)
             }
         }
@@ -568,11 +573,13 @@ class FileCache(
             }
             val file = fileFor(key)
             val len = if (file.exists()) file.length() else 0L
+            val name = diskName(key)
             if (!file.exists() || file.delete()) {
                 freed += len
                 records.remove(key)
+                diskNames.remove(key)
                 pendingDeletes.remove(key)
-                lastAccess.remove(diskName(key))
+                lastAccess.remove(name)
             }
         }
             markIndexDirty(force = true)
@@ -582,7 +589,10 @@ class FileCache(
     private fun dropMissing() {
         val gone = records.filter { !fileFor(it.key).exists() }.keys
         if (gone.isEmpty()) return
-        gone.forEach { records.remove(it) }
+        gone.forEach {
+            records.remove(it)
+            diskNames.remove(it)
+        }
         markIndexDirty(force = true)
     }
 
@@ -654,6 +664,14 @@ class FileCache(
 
     private fun isStaging(name: String): Boolean =
         name.endsWith(".part") || name.endsWith(".cancel")
+
+    internal fun retainedDiskNames(): Int = synchronized(recordsLock) { diskNames.size }
+
+    private fun peekName(key: String): String {
+        diskNames[key]?.let { return it }
+        val raw = if (key.startsWith(ORPHAN_PREFIX)) key.removePrefix(ORPHAN_PREFIX) else key
+        return hash(raw)
+    }
 
     private fun diskName(key: String): String = diskNames.computeIfAbsent(key) { raw ->
         if (raw.startsWith(ORPHAN_PREFIX)) raw.removePrefix(ORPHAN_PREFIX) else hash(raw)

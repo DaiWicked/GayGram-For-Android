@@ -82,3 +82,18 @@ fun holesAfterCacheTtl(
     }
     return holes
 }
+
+const val DISCUSSION_READ_KEEP = 500
+const val DISCUSSION_READ_PRUNE_ROWS = 40
+
+/** Oldest discussion-read keys past [keep], at most [limit] per pass. */
+fun discussionReadKeysToDrop(
+    keys: List<String>,
+    keep: Int = DISCUSSION_READ_KEEP,
+    limit: Int = DISCUSSION_READ_PRUNE_ROWS,
+): List<String> {
+    if (keys.size <= keep) return emptyList()
+    return keys
+        .sortedBy { it.substringAfterLast(':').toIntOrNull() ?: Int.MIN_VALUE }
+        .take((keys.size - keep).coerceAtMost(limit))
+}

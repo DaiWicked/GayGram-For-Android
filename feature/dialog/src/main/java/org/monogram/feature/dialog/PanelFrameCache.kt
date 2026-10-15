@@ -23,6 +23,7 @@ internal object PanelFrameCache {
         byteArrayOf('P'.code.toByte(), 'F'.code.toByte(), '0'.code.toByte(), '1'.code.toByte())
     private const val MAX_FRAMES = 90
     private const val MAX_SIDE = 512
+    private const val PANEL_FRAME_BYTE_CAP = 32L * 1024 * 1024
 
     fun file(dir: File, documentId: Long, bucket: PanelBucket, tag: PanelTag): File =
         File(dir, panelCacheName(documentId, bucket, tag) + ".frames")
@@ -51,6 +52,14 @@ internal object PanelFrameCache {
             tmp.copyTo(dest, overwrite = true)
             tmp.delete()
         }
+        dest.parentFile?.let(::trim)
+    }
+
+    fun trim(dir: File) {
+        trimFrameFiles(
+            dir.listFiles()?.filter { it.isFile && it.name.endsWith(".frames") }.orEmpty(),
+            PANEL_FRAME_BYTE_CAP,
+        )
     }
 
     fun read(source: File): PanelFrameClip? {
@@ -93,6 +102,16 @@ internal object PanelFrameCache {
         if (count !in 1..MAX_FRAMES || packedSize <= 0) return false
         val area = width.toLong() * height.toLong()
         return area <= MAX_SIDE.toLong() * MAX_SIDE.toLong()
+    }
+}
+
+internal fun trimFrameFiles(files: List<File>, capBytes: Long) {
+    var total = files.sumOf { it.length() }
+    if (total <= capBytes) return
+    for (file in files.sortedBy { it.lastModified() }) {
+        if (total <= capBytes) return
+        val length = file.length()
+        if (file.delete()) total -= length
     }
 }
 

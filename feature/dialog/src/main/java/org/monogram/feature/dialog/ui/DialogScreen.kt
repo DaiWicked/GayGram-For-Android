@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -58,6 +60,8 @@ import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.DialogComponent
 import org.monogram.feature.dialog.R
 import org.monogram.feature.dialog.dialogSyncStatus
+import org.monogram.feature.dialog.sheetScrimKeepsComposerClear
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -362,258 +366,272 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
             )
         },
     ) { inner ->
-        CompositionLocalProvider(LocalComposerChrome provides composerChrome) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = inner.calculateTopPadding())
-                    .imePadding(),
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val composerFillsScreen = sheetScrimKeepsComposerClear(
+                maxWidth.value.roundToInt(),
+                LocalConfiguration.current.screenWidthDp,
+            )
+            CompositionLocalProvider(
+                LocalComposerChrome provides composerChrome,
+                LocalComposerFillsScreen provides composerFillsScreen,
             ) {
-                AnimatedVisibility(
-                    visible = showSearch,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = inner.calculateTopPadding())
+                        .imePadding(),
                 ) {
-                    SearchField(
-                        query = state.searchQuery,
-                        onQueryChanged = component::onSearch,
-                        placeholder = stringResource(R.string.dialog_search),
-                        closeLabel = stringResource(R.string.dialog_search_clear),
-                        focusRequester = searchFocus,
-                        busy = state.searching,
-                        busyLabel = stringResource(R.string.dialog_inline_loading),
+                    AnimatedVisibility(
+                        visible = showSearch,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        SearchField(
+                            query = state.searchQuery,
+                            onQueryChanged = component::onSearch,
+                            placeholder = stringResource(R.string.dialog_search),
+                            closeLabel = stringResource(R.string.dialog_search_clear),
+                            focusRequester = searchFocus,
+                            busy = state.searching,
+                            busyLabel = stringResource(R.string.dialog_inline_loading),
+                        )
+                    }
+                    AppStatusBanner(
+                        sync = if (state.messages.isEmpty() && state.loading) {
+                            AppSyncStatus.Hidden
+                        } else {
+                            syncStatus
+                        },
+                        error = state.error,
+                        onRetry = component::onRefresh,
                     )
-                }
-                AppStatusBanner(
-                    sync = if (state.messages.isEmpty() && state.loading) {
-                        AppSyncStatus.Hidden
-                    } else {
-                        syncStatus
-                    },
-                    error = state.error,
-                    onRetry = component::onRefresh,
-                )
-                CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
-                    if (state.composerPanel == ComposerPanels.ATTACH) {
-                        AttachSheet(
-                            hasGalleryAccess = galleryAccess,
-                            accessDenied = galleryAccessDenied,
-                            canSendPhotos = state.canSendPhotos,
-                            canSendFiles = state.canSendPlain || state.canSendPhotos,
-                            media = deviceMedia,
-                            mediaLoading = deviceMedia.isEmpty() && !deviceMediaFailed,
-                            mediaFailed = deviceMediaFailed,
-                            pickers = AttachSheetPickers(
-                                gifs = state.savedGifs,
-                                gifsLoaded = state.savedGifsLoaded,
-                                gifsError = state.savedGifsError,
-                                stickerSets = state.stickerSets,
-                                loadedStickerPacks = state.loadedStickerPacks,
-                                stickersLoaded = state.stickerSetsLoaded,
-                                stickersError = state.stickerSetsError,
-                                mediaRepository = component.mediaRepository,
-                            ),
-                            onRequestAccess = { galleryAccessLauncher.launch(AttachGalleryAccess.required()) },
-                            onRetryMedia = {
-                                deviceMediaFailed = false
-                                deviceMediaWanted = deviceMedia.size + AttachMediaStore.PageSize
-                            },
-                            onReloadPickers = component::onReloadPickerContent,
-                            onLoadMoreMedia = {
-                                if (!deviceMediaComplete) {
+                    CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
+                        if (state.composerPanel == ComposerPanels.ATTACH) {
+                            AttachSheet(
+                                hasGalleryAccess = galleryAccess,
+                                accessDenied = galleryAccessDenied,
+                                canSendPhotos = state.canSendPhotos,
+                                canSendFiles = state.canSendPlain || state.canSendPhotos,
+                                media = deviceMedia,
+                                mediaLoading = deviceMedia.isEmpty() && !deviceMediaFailed,
+                                mediaFailed = deviceMediaFailed,
+                                pickers = AttachSheetPickers(
+                                    gifs = state.savedGifs,
+                                    gifsLoaded = state.savedGifsLoaded,
+                                    gifsError = state.savedGifsError,
+                                    stickerSets = state.stickerSets,
+                                    loadedStickerPacks = state.loadedStickerPacks,
+                                    stickersLoaded = state.stickerSetsLoaded,
+                                    stickersError = state.stickerSetsError,
+                                    mediaRepository = component.mediaRepository,
+                                ),
+                                onRequestAccess = { galleryAccessLauncher.launch(AttachGalleryAccess.required()) },
+                                onRetryMedia = {
                                     deviceMediaFailed = false
                                     deviceMediaWanted = deviceMedia.size + AttachMediaStore.PageSize
-                                }
-                            },
-                            onSendMedia = { items ->
-                                attachScope.launch {
-                                    val picked = items.mapNotNull { item ->
-                                        copyPickedMedia(
-                                            context,
-                                            item.uri,
-                                            item.kind,
-                                            if (item.kind == "video") "mp4" else "jpg",
+                                },
+                                onReloadPickers = component::onReloadPickerContent,
+                                onLoadMoreMedia = {
+                                    if (!deviceMediaComplete) {
+                                        deviceMediaFailed = false
+                                        deviceMediaWanted =
+                                            deviceMedia.size + AttachMediaStore.PageSize
+                                    }
+                                },
+                                onSendMedia = { items ->
+                                    attachScope.launch {
+                                        val picked = items.mapNotNull { item ->
+                                            copyPickedMedia(
+                                                context,
+                                                item.uri,
+                                                item.kind,
+                                                if (item.kind == "video") "mp4" else "jpg",
+                                            )
+                                        }
+                                        sendPickedMedia(
+                                            component, composer, picked, attachSingle = true
                                         )
                                     }
-                                    sendPickedMedia(
-                                        component, composer, picked, attachSingle = true
+                                },
+                                onPickPhoto = {
+                                    photoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
+                                    )
+                                },
+                                onPickVideo = {
+                                    videoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
+                                    )
+                                },
+                                onPickFile = {
+                                    filePicker.launch(arrayOf("*/*"))
+                                },
+                                onSendDocument = component::onSendSavedGif,
+                                onSendLocation = sendLocation,
+                                // The sheet closes itself exactly once; a toggle here would double-dismiss it.
+                                onDismiss = component::onCloseAttachSheet,
+                                requestHide = attachHide,
+                            )
+                        }
+                        if (locationPicker) {
+                            LocationPickerSheet(
+                                place = locationDraft?.let { GeoPlace(it.first, it.second) },
+                                locating = locating,
+                                mapTiles = component.mediaRepository?.mapTiles,
+                                onSend = {
+                                    val draft = locationDraft ?: return@LocationPickerSheet
+                                    component.onSendLocation(draft.first, draft.second)
+                                    locationPicker = false
+                                    locating = false
+                                },
+                                onDismiss = {
+                                    locationPicker = false
+                                    locating = false
+                                },
+                            )
+                        }
+                        EmojiStickerGifPanel(
+                            visible = state.composerPanel == ComposerPanels.EMOJI,
+                            tab = state.emojiTab,
+                            gifs = state.savedGifs,
+                            stickerSets = state.stickerSets,
+                            emojiSets = state.emojiSets,
+                            openPack = state.openStickerPack,
+                            loadedPacks = state.loadedStickerPacks,
+                            loadingPackIds = state.loadingStickerPackIds,
+                            failedPackIds = state.failedStickerPackIds,
+                            mediaRepository = component.mediaRepository,
+                            stickerLoaded = state.stickerSetsLoaded,
+                            stickerError = state.stickerSetsError,
+                            emojiLoaded = state.emojiSetsLoaded,
+                            gifsLoaded = state.savedGifsLoaded,
+                            gifsError = state.savedGifsError,
+                            onTab = component::onSetEmojiTab,
+                            onInsertEmoji = { glyph ->
+                                composer.value = insertComposerText(composer.value, glyph)
+                                component.onDraftChanged(composer.value.text)
+                            },
+                            onInsertCustomEmoji = { documentId ->
+                                val before = composer.value
+                                val offset = before.selection.min
+                                val glyph = "🙂"
+                                composer.value = insertComposerText(before, glyph)
+                                val entities = remapTextEntities(
+                                    before.text,
+                                    composer.value.text,
+                                    state.draftEntities
+                                ) +
+                                        TextEntity(
+                                            "custom_emoji",
+                                            offset,
+                                            glyph.length,
+                                            documentId.toString()
+                                        )
+                                component.onDraftChanged(composer.value.text)
+                                component.onDraftEntities(entities)
+                            },
+                            onOpenPack = { pack ->
+                                component.onOpenStickerPack(
+                                    pack.id, pack.accessHash
+                                )
+                            },
+                            onSendDocument = component::onSendSavedGif,
+                            onDismiss = component::onToggleEmojiPanel,
+                            onPickerDocumentsVisible = component::onPickerDocumentsVisible,
+                            onPickerGifsVisible = component::onPickerGifsVisible,
+                            onPickerClosed = component::onPickerClosed,
+                        )
+                    }
+                    if (state.pinnedListOpen) {
+                        PinnedMessagesSheet(
+                            messages = state.pinnedMessages,
+                            pinnedIndex = state.pinnedIndex,
+                            senders = state.senders,
+                            mediaRepository = component.mediaRepository,
+                            onJump = component::onJumpToPinned,
+                            onDismiss = component::onClosePinnedList,
+                        )
+                    }
+                    val listId = peerListId.value
+                    if (listId != null) {
+                        val users = if (peerListKind.value == "poll") {
+                            state.pollVoters[listId]
+                        } else {
+                            state.reactionUsers[listId]
+                        }
+                        PeerListSheet(
+                            kind = peerListKind.value,
+                            users = users,
+                            poll = if (peerListKind.value == "poll") {
+                                state.messages.firstOrNull { it.id.id == listId }?.poll
+                            } else {
+                                null
+                            },
+                            initialFilter = peerListFilter.value,
+                            mediaRepository = component.mediaRepository,
+                            viewerAvatar = { viewer ->
+                                viewer.avatarCacheKey?.let {
+                                    component.mediaRepository?.cachedFile(
+                                        it
                                     )
                                 }
+                                    ?: component.mediaRepository?.cachedAvatar(
+                                        PeerId(viewer.peerId.value),
+                                    )
                             },
-                            onPickPhoto = {
+                            onOpenProfile = { id ->
+                                peerListId.value = null
+                                peerListKind.value = null
+                                peerListFilter.value = null
+                                component.onOpenPeer(PeerId(id))
+                            },
+                            onDismiss = {
+                                peerListId.value = null
+                                peerListKind.value = null
+                                peerListFilter.value = null
+                            },
+                        )
+                    }
+                    CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
+                        DialogHistoryPane(
+                            component = component,
+                            state = state,
+                            composer = composer,
+                            selectingMessageId = selectingMessageId,
+                            selectedMessageIds = selectedMessageIds,
+                            packDocumentId = packDocumentId,
+                            instantViewUrl = instantViewUrl,
+                            instantViewHash = instantViewHash,
+                            pendingDeleteIds = pendingDeleteIds,
+                            taskDraftFor = taskDraftFor,
+                            peerListId = peerListId,
+                            peerListKind = peerListKind,
+                            peerListFilter = peerListFilter,
+                            clipboard = clipboard,
+                            attachScope = attachScope,
+                        )
+                        DialogScreenDialogs(
+                            component = component,
+                            state = state,
+                            composer = composer,
+                            packDocumentId = packDocumentId,
+                            instantViewUrl = instantViewUrl,
+                            instantViewHash = instantViewHash,
+                            pendingDeleteIds = pendingDeleteIds,
+                            taskDraftFor = taskDraftFor,
+                            taskDraft = taskDraft,
+                            onPhotos = {
                                 photoPicker.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
                                 )
                             },
-                            onPickVideo = {
-                                videoPicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
-                                )
-                            },
-                            onPickFile = {
-                                filePicker.launch(arrayOf("*/*"))
-                            },
-                            onSendDocument = component::onSendSavedGif,
-                            onSendLocation = sendLocation,
-                            // The sheet closes itself exactly once; a toggle here would double-dismiss it.
-                            onDismiss = component::onCloseAttachSheet,
-                            requestHide = attachHide,
-                        )
-                    }
-                    if (locationPicker) {
-                        LocationPickerSheet(
-                            place = locationDraft?.let { GeoPlace(it.first, it.second) },
-                            locating = locating,
-                            mapTiles = component.mediaRepository?.mapTiles,
-                            onSend = {
-                                val draft = locationDraft ?: return@LocationPickerSheet
-                                component.onSendLocation(draft.first, draft.second)
-                                locationPicker = false
-                                locating = false
-                            },
-                            onDismiss = {
-                                locationPicker = false
-                                locating = false
+                            onFile = { filePicker.launch(arrayOf("*/*")) },
+                            onLocation = sendLocation,
+                            onCloseAttachAnimated = {
+                                attachHide.value?.invoke() ?: component.onCloseAttachSheet()
                             },
                         )
                     }
-                    EmojiStickerGifPanel(
-                        visible = state.composerPanel == ComposerPanels.EMOJI,
-                        tab = state.emojiTab,
-                        gifs = state.savedGifs,
-                        stickerSets = state.stickerSets,
-                        emojiSets = state.emojiSets,
-                        openPack = state.openStickerPack,
-                        loadedPacks = state.loadedStickerPacks,
-                        loadingPackIds = state.loadingStickerPackIds,
-                        failedPackIds = state.failedStickerPackIds,
-                        mediaRepository = component.mediaRepository,
-                        stickerLoaded = state.stickerSetsLoaded,
-                        stickerError = state.stickerSetsError,
-                        emojiLoaded = state.emojiSetsLoaded,
-                        gifsLoaded = state.savedGifsLoaded,
-                        gifsError = state.savedGifsError,
-                        onTab = component::onSetEmojiTab,
-                        onInsertEmoji = { glyph ->
-                            composer.value = insertComposerText(composer.value, glyph)
-                            component.onDraftChanged(composer.value.text)
-                        },
-                        onInsertCustomEmoji = { documentId ->
-                            val before = composer.value
-                            val offset = before.selection.min
-                            val glyph = "🙂"
-                            composer.value = insertComposerText(before, glyph)
-                            val entities = remapTextEntities(
-                                before.text,
-                                composer.value.text,
-                                state.draftEntities
-                            ) +
-                                    TextEntity(
-                                        "custom_emoji",
-                                        offset,
-                                        glyph.length,
-                                        documentId.toString()
-                                    )
-                            component.onDraftChanged(composer.value.text)
-                            component.onDraftEntities(entities)
-                        },
-                        onOpenPack = { pack ->
-                            component.onOpenStickerPack(
-                                pack.id, pack.accessHash
-                            )
-                        },
-                        onSendDocument = component::onSendSavedGif,
-                        onDismiss = component::onToggleEmojiPanel,
-                        onPickerDocumentsVisible = component::onPickerDocumentsVisible,
-                        onPickerGifsVisible = component::onPickerGifsVisible,
-                        onPickerClosed = component::onPickerClosed,
-                    )
-                }
-                if (state.pinnedListOpen) {
-                    PinnedMessagesSheet(
-                        messages = state.pinnedMessages,
-                        pinnedIndex = state.pinnedIndex,
-                        senders = state.senders,
-                        mediaRepository = component.mediaRepository,
-                        onJump = component::onJumpToPinned,
-                        onDismiss = component::onClosePinnedList,
-                    )
-                }
-                val listId = peerListId.value
-                if (listId != null) {
-                    val users = if (peerListKind.value == "poll") {
-                        state.pollVoters[listId]
-                    } else {
-                        state.reactionUsers[listId]
-                    }
-                    PeerListSheet(
-                        kind = peerListKind.value,
-                        users = users,
-                        poll = if (peerListKind.value == "poll") {
-                            state.messages.firstOrNull { it.id.id == listId }?.poll
-                        } else {
-                            null
-                        },
-                        initialFilter = peerListFilter.value,
-                        mediaRepository = component.mediaRepository,
-                        viewerAvatar = { viewer ->
-                            viewer.avatarCacheKey?.let { component.mediaRepository?.cachedFile(it) }
-                                ?: component.mediaRepository?.cachedAvatar(
-                                    PeerId(viewer.peerId.value),
-                                )
-                        },
-                        onOpenProfile = { id ->
-                            peerListId.value = null
-                            peerListKind.value = null
-                            peerListFilter.value = null
-                            component.onOpenPeer(PeerId(id))
-                        },
-                        onDismiss = {
-                            peerListId.value = null
-                            peerListKind.value = null
-                            peerListFilter.value = null
-                        },
-                    )
-                }
-                CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
-                    DialogHistoryPane(
-                        component = component,
-                        state = state,
-                        composer = composer,
-                        selectingMessageId = selectingMessageId,
-                        selectedMessageIds = selectedMessageIds,
-                        packDocumentId = packDocumentId,
-                        instantViewUrl = instantViewUrl,
-                        instantViewHash = instantViewHash,
-                        pendingDeleteIds = pendingDeleteIds,
-                        taskDraftFor = taskDraftFor,
-                        peerListId = peerListId,
-                        peerListKind = peerListKind,
-                        peerListFilter = peerListFilter,
-                        clipboard = clipboard,
-                        attachScope = attachScope,
-                    )
-                    DialogScreenDialogs(
-                        component = component,
-                        state = state,
-                        composer = composer,
-                        packDocumentId = packDocumentId,
-                        instantViewUrl = instantViewUrl,
-                        instantViewHash = instantViewHash,
-                        pendingDeleteIds = pendingDeleteIds,
-                        taskDraftFor = taskDraftFor,
-                        taskDraft = taskDraft,
-                        onPhotos = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
-                            )
-                        },
-                        onFile = { filePicker.launch(arrayOf("*/*")) },
-                        onLocation = sendLocation,
-                        onCloseAttachAnimated = {
-                            attachHide.value?.invoke() ?: component.onCloseAttachSheet()
-                        },
-                    )
                 }
             }
         }

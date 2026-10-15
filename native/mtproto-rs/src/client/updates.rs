@@ -36,7 +36,6 @@ struct AppliedDrain {
     recovery: VecDeque<ChannelRecovery>,
     seen_messages: crate::HashSet<(i64, i32)>,
     lazy_queue: crate::HashSet<i64>,
-    patched_dialogs: Vec<crate::ChatDto>,
     lazy_retry_at: u64,
     stopped_channel: Option<i64>,
     cursor: Option<UpdatesStateDto>,
@@ -476,7 +475,6 @@ pub fn drain_updates(handle: u64) -> Result<UpdateDrainDto, MtprotoError> {
                 }
             }
         }
-        let mut patched_dialogs = Vec::new();
         pull_priority_channels(
             &mut lazy_queue,
             &mut recovery,
@@ -516,7 +514,6 @@ pub fn drain_updates(handle: u64) -> Result<UpdateDrainDto, MtprotoError> {
                 Ok(page) => {
                     lazy_retry_at = recovery_now().saturating_add(5);
                     restore_lazy_batch(&mut lazy_queue, &page.unresolved);
-                    patched_dialogs.extend(page.chats.iter().cloned());
                     events.extend(lazy_dialog_events(page.chats));
                 }
                 Err(err) => {
@@ -578,7 +575,6 @@ pub fn drain_updates(handle: u64) -> Result<UpdateDrainDto, MtprotoError> {
                 recovery,
                 seen_messages,
                 lazy_queue,
-                patched_dialogs,
                 lazy_retry_at,
                 stopped_channel,
                 cursor: Some(live),
@@ -704,9 +700,6 @@ pub fn drain_updates(handle: u64) -> Result<UpdateDrainDto, MtprotoError> {
         d.lazy_retry_at = applied.lazy_retry_at;
         if applied.stopped_channel == Some(d.last_history_chat_id) {
             d.last_history_chat_id = 0;
-        }
-        for chat in applied.patched_dialogs {
-            d.dialogs.insert(chat.id, chat);
         }
         if new_session.is_some() {
             d.new_session = new_session.clone();

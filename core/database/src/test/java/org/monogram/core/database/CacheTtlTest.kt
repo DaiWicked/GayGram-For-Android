@@ -50,4 +50,14 @@ class CacheTtlTest {
         assertTrue(holes.any { 1 in it.startId..it.endId && 5 in it.startId..it.endId })
         assertTrue(holes.none { hole -> kept.any { it in hole.startId..hole.endId } })
     }
+
+    @Test
+    fun discussionReadPruneDropsOnlyTheOldestOverflow() {
+        val keys = (1..503).map { "discussion_read:7:$it" }
+        assertEquals(
+            listOf("discussion_read:7:1", "discussion_read:7:2", "discussion_read:7:3"),
+            discussionReadKeysToDrop(keys),
+        )
+        assertTrue(discussionReadKeysToDrop(keys.take(500)).isEmpty())
+    }
 }

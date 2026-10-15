@@ -176,16 +176,17 @@ class MediaRepository(
     fun protectCacheKeys(owner: String, keys: Collection<String>) {
         cache.setProtectedKeys(owner, keys)
     }
-    private val inlineThumbs = ConcurrentHashMap<String, ByteArray>()
+    private val inlineThumbs =
+        java.util.LinkedHashMap<String, ByteArray>(INLINE_THUMB_CAP, 0.75f, true)
 
     fun inlineThumbJpeg(message: Message): ByteArray? {
         val key = message.thumbCacheKey
             ?: message.mediaCacheKey?.let(::mediaThumbCacheKey)
             ?: return null
-        inlineThumbs[key]?.let { return it }
+        cachedInlineThumb(key)?.let { return it }
         val bytes = inlineThumbPeek?.peek(message.id.chatId, message.id.id) ?: return null
         if (bytes.isNotEmpty()) {
-            inlineThumbs[key] = bytes
+            rememberInlineThumb(key, bytes)
             PerfLog.event("stripped_inline")
         }
         return bytes.takeIf { it.isNotEmpty() }
@@ -194,13 +195,22 @@ class MediaRepository(
     /** Stripped or cached avatar JPEG indexed at `(peerId, messageId = 0)`. No download. */
     fun peerInlineThumbJpeg(peerId: PeerId): ByteArray? {
         val key = "${avatarPeerKey(peerId)}:thumb"
-        inlineThumbs[key]?.let { return it }
+        cachedInlineThumb(key)?.let { return it }
         val bytes = peerInlineThumbPeek?.peek(peerId) ?: return null
         if (bytes.isNotEmpty()) {
-            inlineThumbs[key] = bytes
+            rememberInlineThumb(key, bytes)
             PerfLog.event("stripped_peer")
         }
         return bytes.takeIf { it.isNotEmpty() }
+    }
+
+    private fun cachedInlineThumb(key: String): ByteArray? = synchronized(inlineThumbs) {
+        inlineThumbs[key]
+    }
+
+    private fun rememberInlineThumb(key: String, bytes: ByteArray) = synchronized(inlineThumbs) {
+        inlineThumbs[key] = bytes
+        dropEldest(inlineThumbs, INLINE_THUMB_CAP)
     }
 
     private fun markCached(key: String) {
@@ -1209,6 +1219,7 @@ class MediaRepository(
     }
 
     companion object {
+        const val INLINE_THUMB_CAP = 128
         const val THUMB_WORKERS = 2
         const val TELEGRAM_WORKERS = 5
         const val MAX_LARGE_PIPELINES = 2
@@ -1218,5 +1229,12 @@ class MediaRepository(
         var progressSink: ((String, Long) -> Unit)? = null
 
         fun isVideoAvatarKey(key: String): Boolean = key.endsWith(":video")
+    }
+}
+
+internal fun dropEldest(map: MutableMap<String, ByteArray>, cap: Int) {
+    while (map.size > cap) {
+        val eldest = map.keys.firstOrNull() ?: return
+        map.remove(eldest)
     }
 }

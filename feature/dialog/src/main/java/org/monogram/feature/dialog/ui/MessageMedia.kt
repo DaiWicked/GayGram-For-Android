@@ -184,7 +184,6 @@ fun MessageMedia(
             ?.distinctUntilChanged()
             ?: flowOf(0L)
     }
-    val downloadedBytes by progress.collectAsStateWithLifecycle(initialValue = 0L)
 
     LaunchedEffect(
         thumbKey,
@@ -397,7 +396,7 @@ fun MessageMedia(
                 voice = kind == "voice",
                 loading = requestFull && fullFile == null && !fullFailed,
                 failed = fullFailed,
-                downloadedBytes = downloadedBytes,
+                downloadProgress = progress,
                 fileSize = message.fileSize,
                 onRequest = { wantFull = true; playing = true },
                 onCancel = {
@@ -422,7 +421,7 @@ fun MessageMedia(
                 size = message.fileSize,
                 loading = requestFull && fullFile == null && !fullFailed,
                 failed = fullFailed,
-                downloadedBytes = downloadedBytes,
+                downloadProgress = progress,
                 onDownload = {
                     fullFailed = false
                     wantFull = true
@@ -516,7 +515,7 @@ fun MessageMedia(
                         previewFetchDone,
                         failed || (playing && fullFailed),
                     ),
-                    downloadedBytes = downloadedBytes,
+                    downloadProgress = progress,
                     fileSize = message.fileSize,
                     onPlay = {
                         if (kind == "video") {
@@ -584,7 +583,7 @@ fun MessageMedia(
                 )
                 MediaProgressOverlay(
                     visible = loadingFull,
-                    bytes = downloadedBytes,
+                    downloadProgress = progress,
                     total = message.fileSize,
                 )
             }

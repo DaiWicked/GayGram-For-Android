@@ -23,6 +23,7 @@ import org.monogram.feature.dialog.isTransientSendFailure
 import org.monogram.feature.dialog.localMediaCacheKey
 import org.monogram.feature.dialog.localMediaPath
 import org.monogram.feature.dialog.nextRetryText
+import org.monogram.feature.dialog.releaseAttachCopy
 import org.monogram.network.bridge.MtprotoClient
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -253,6 +254,10 @@ internal suspend fun DialogExecutor.replaceOutgoing(pendingId: Int, sent: Messag
     } else sent
     emit(Msg.ReplacePending(pendingId, resolved))
     warmup?.reconcileOutgoing(pendingId, resolved, pending?.randomId)
+    val local = localMediaPath(pending?.mediaCacheKey)
+    if (local != null && snapshot().messages.none { localMediaPath(it.mediaCacheKey) == local }) {
+        releaseAttachCopy(local)
+    }
 }
 
 internal suspend fun DialogExecutor.failOrKeepOutgoing(pendingId: Int, error: TelegramError) {

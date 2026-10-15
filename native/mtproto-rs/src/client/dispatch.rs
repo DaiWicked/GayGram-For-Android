@@ -26,7 +26,6 @@ pub fn get_chats(handle: u64) -> Result<Vec<ChatDto>, MtprotoError> {
                 )
             })
         })?;
-        remember_dialogs(handle, &chats);
         Ok(chats)
     })
 }
@@ -214,7 +213,6 @@ pub fn load_more_chats(
                 )
             })
         })?;
-        remember_dialogs(handle, &chats);
         Ok(chats)
     })
 }

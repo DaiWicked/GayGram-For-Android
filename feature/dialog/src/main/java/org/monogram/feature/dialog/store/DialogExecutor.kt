@@ -35,6 +35,7 @@ import org.monogram.feature.dialog.SenderTagMemory
 import org.monogram.feature.dialog.applyMessageEdit
 import org.monogram.feature.dialog.contiguousHistoryFromNewest
 import org.monogram.feature.dialog.encodeSenderTags
+import org.monogram.feature.dialog.forgetEvictedDialogMeta
 import org.monogram.feature.dialog.historyHasMore
 import org.monogram.feature.dialog.mergeSenderTags
 import org.monogram.feature.dialog.parseUpdateMessageId
@@ -812,9 +813,10 @@ internal class DialogExecutor(
 
     internal fun rememberPinned() {
         val current = state()
-        PinnedBarMemory.put(chatId.value, current.pinnedMessages, current.pinnedIndex)
+        val evicted = PinnedBarMemory.put(chatId.value, current.pinnedMessages, current.pinnedIndex)
         val ids = current.pinnedMessages.map { it.id.id }
         scope.launch {
+            forgetEvictedDialogMeta(sessionStore, evicted, ::pinnedMetaKey)
             sessionStore?.writeMeta(pinnedMetaKey(chatId.value), ids.joinToString(","))
             if (current.pinnedMessages.isNotEmpty()) {
                 warmup?.upsertMessages(current.pinnedMessages)
@@ -878,7 +880,8 @@ internal class DialogExecutor(
                 is Outcome.Ok -> {
                     val tags = mergeSenderTags(result.value, state().senders)
                     dispatch(Msg.SenderTags(tags))
-                    SenderTagMemory.put(chatId.value, tags)
+                    val evicted = SenderTagMemory.put(chatId.value, tags)
+                    forgetEvictedDialogMeta(sessionStore, evicted, ::tagsMetaKey)
                     sessionStore?.writeMeta(tagsMetaKey(chatId.value), encodeSenderTags(tags))
                 }
                 is Outcome.Err -> Unit

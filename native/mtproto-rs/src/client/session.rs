@@ -18,7 +18,11 @@ pub(crate) fn sync_upload_snapshot(upload: &mut Snapshot, home: &Snapshot) -> bo
         || upload.auth_key != home.auth_key
         || upload.session_id == home.session_id;
     if replaced {
+        let previous = upload.session_id;
         *upload = fork_session(home);
+        if previous != upload.session_id {
+            crate::rpc::salts::forget_session(previous);
+        }
         return true;
     }
     upload.server_salt = home.server_salt;
@@ -47,8 +51,12 @@ pub(crate) fn apply_home_auth(
     target.server_salt = salt;
     target.time_offset_micros = time_offset;
     if changed {
+        let previous = target.session_id;
         let fresh = Snapshot::new(dc, &mut OsRandom).expect("resession");
         target.session_id = fresh.session_id;
+        if previous != target.session_id {
+            crate::rpc::salts::forget_session(previous);
+        }
         target.last_message_id = 0;
         target.content_sequence = 0;
         target.pending_acknowledgements.clear();

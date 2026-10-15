@@ -37,6 +37,12 @@ pub(crate) fn choose_salt(windows: &[SaltWindow], now: i32) -> Option<i64> {
         .map(|window| window.salt)
 }
 
+pub(crate) fn forget_session(session_id: i64) {
+    let mut book = book();
+    book.windows.remove(&session_id);
+    book.requested_at.remove(&session_id);
+}
+
 pub(crate) fn store_windows(session_id: i64, windows: &[SaltWindow]) {
     let mut book = book();
     book.windows.insert(session_id, windows.to_vec());
@@ -77,6 +83,10 @@ pub(crate) fn apply_preferred_salt(snapshot: &mut Snapshot, now: i32) {
         snapshot.server_salt = salt;
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/unit/salt_book_tests.rs"]
+mod salt_book_tests;
 
 #[cfg(test)]
 #[path = "../../tests/unit/rpc_salts_tests.rs"]

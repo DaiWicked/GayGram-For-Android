@@ -77,7 +77,6 @@ pub(crate) struct ClientData {
     pub(crate) session_path: PathBuf,
     pub(crate) user_id: Option<i64>,
     pub(crate) peers: HashMap<i64, CachedPeer>,
-    pub(crate) dialogs: crate::IndexMap<i64, crate::ChatDto>,
     pub(crate) updates: Option<UpdatesStateDto>,
     pub(crate) media: MediaIndex,
     pub(crate) updates_started: bool,
@@ -385,7 +384,6 @@ pub fn create_client(api_id: i32, api_hash: String, session_path: String) -> u64
                 session_path: path,
                 user_id,
                 peers,
-                dialogs: crate::IndexMap::default(),
                 updates,
                 media,
                 updates_started: false,
@@ -503,16 +501,6 @@ pub(crate) fn with_client_transport<T>(
     tcp::with_connection_control(&client.connections, || {
         crate::rpc::with_live_transport(slot, body)
     })
-}
-
-pub(crate) fn remember_dialogs(handle: u64, chats: &[crate::ChatDto]) {
-    let Ok(client) = get_client(handle) else {
-        return;
-    };
-    let mut data = client.data.lock();
-    for chat in chats {
-        data.dialogs.insert(chat.id, chat.clone());
-    }
 }
 
 pub fn client_exists(handle: u64) -> bool {

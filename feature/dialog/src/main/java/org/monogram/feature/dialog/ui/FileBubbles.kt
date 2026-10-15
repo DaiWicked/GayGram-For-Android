@@ -45,7 +45,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import org.monogram.core.common.AppLog
 import org.monogram.core.models.Message
@@ -66,7 +69,7 @@ internal fun DocumentBubble(
     size: Long?,
     loading: Boolean,
     failed: Boolean,
-    downloadedBytes: Long = 0L,
+    downloadProgress: Flow<Long> = flowOf(0L),
     uploading: Boolean = false,
     onDownload: () -> Unit = {},
     onCancel: () -> Unit = {},
@@ -154,8 +157,8 @@ internal fun DocumentBubble(
                         uploading = true,
                     )
 
-                    "download" -> DownloadCancelBadge(
-                        bytes = downloadedBytes,
+                    "download" -> LiveDownloadBadge(
+                        progress = downloadProgress,
                         total = size,
                     )
 
@@ -187,24 +190,15 @@ internal fun DocumentBubble(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val sizeText = when {
-                openFailed -> stringResource(R.string.dialog_media_open_failed)
-                failed && file == null -> stringResource(R.string.dialog_media_failed)
-                uploading && loading -> stringResource(R.string.dialog_media_uploading)
-                loading && file == null -> downloadProgressText(downloadedBytes, size)
-                else -> size?.takeIf { it > 0 }?.let(::formatFileSize)
-            }
-            sizeText?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (openFailed || (failed && file == null)) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
+            DocumentSizeLabel(
+                progress = downloadProgress,
+                size = size,
+                loading = loading,
+                file = file,
+                failed = failed,
+                uploading = uploading,
+                openFailed = openFailed,
+            )
         }
         if (file != null) {
             IconButton(onClick = onRemoveCache) {
@@ -219,6 +213,73 @@ internal fun DocumentBubble(
 }
 
 @Composable
+private fun LiveDownloadBadge(
+    progress: Flow<Long>,
+    total: Long?,
+    modifier: Modifier = Modifier.size(48.dp),
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f),
+    scrim: Color? = null,
+) {
+    val bytes by progress.collectAsStateWithLifecycle(initialValue = 0L)
+    DownloadCancelBadge(
+        bytes = bytes,
+        total = total,
+        modifier = modifier,
+        color = color,
+        trackColor = trackColor,
+        scrim = scrim,
+    )
+}
+
+@Composable
+private fun DocumentSizeLabel(
+    progress: Flow<Long>,
+    size: Long?,
+    loading: Boolean,
+    file: File?,
+    failed: Boolean,
+    uploading: Boolean,
+    openFailed: Boolean,
+) {
+    if (loading && file == null && !failed && !uploading) {
+        LiveDocumentSize(progress, size)
+        return
+    }
+    val sizeText = when {
+        openFailed -> stringResource(R.string.dialog_media_open_failed)
+        failed && file == null -> stringResource(R.string.dialog_media_failed)
+        uploading && loading -> stringResource(R.string.dialog_media_uploading)
+        else -> size?.takeIf { it > 0 }?.let(::formatFileSize)
+    }
+    DocumentSizeText(
+        text = sizeText,
+        error = openFailed || (failed && file == null),
+    )
+}
+
+@Composable
+private fun LiveDocumentSize(progress: Flow<Long>, size: Long?) {
+    val bytes by progress.collectAsStateWithLifecycle(initialValue = 0L)
+    DocumentSizeText(text = downloadProgressText(bytes, size), error = false)
+}
+
+@Composable
+private fun DocumentSizeText(text: String?, error: Boolean) {
+    text?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (error) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+@Composable
 internal fun AudioBubble(
     message: Message,
     repository: MediaRepository?,
@@ -228,13 +289,14 @@ internal fun AudioBubble(
     voice: Boolean,
     loading: Boolean,
     failed: Boolean,
-    downloadedBytes: Long = 0L,
+    downloadProgress: Flow<Long> = flowOf(0L),
     fileSize: Long? = null,
     onRequest: () -> Unit = {},
     onCancel: () -> Unit = {},
     onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val downloadedBytes by downloadProgress.collectAsStateWithLifecycle(initialValue = 0L)
     val context = LocalContext.current
     val session = remember(context) { MediaPlaybackHolder.session(context) }
     val playback = LocalAudioMessagePlayback.current

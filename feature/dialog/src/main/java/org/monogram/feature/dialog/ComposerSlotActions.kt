@@ -2,6 +2,9 @@ package org.monogram.feature.dialog
 
 import org.monogram.core.ui.ComposerSlotAction
 
+internal fun sheetScrimKeepsComposerClear(paneWidthDp: Int, screenWidthDp: Int): Boolean =
+    paneWidthDp >= screenWidthDp - 1
+
 internal fun ComposerSlotAction.emojiPanelTab(): String? = when (this) {
     ComposerSlotAction.Emoji -> ComposerPanels.TAB_EMOJI
     ComposerSlotAction.Stickers -> ComposerPanels.TAB_STICKERS

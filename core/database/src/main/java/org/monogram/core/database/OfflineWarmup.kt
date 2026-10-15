@@ -161,11 +161,14 @@ open class OfflineWarmup(
             val old = database.messageDao()
                 .oldConfirmedIds(chatId, cutoffSeconds, CACHE_PRUNE_ROWS + newest.size)
             val drop = old.filter { it !in newest }.take(CACHE_PRUNE_ROWS)
+            val kept = (newest + database.messageDao()
+                .stickyIds(chatId, cutoffSeconds, 200)).distinct()
+            kept.minOrNull()?.let { oldestKept ->
+                database.messageTombstoneDao().deleteBelow(chatId, oldestKept)
+            }
             if (drop.isNotEmpty()) {
                 database.messageDao().deleteInChat(chatId, drop)
                 database.messageTombstoneDao().deleteIds(chatId, drop)
-                val kept = (newest + database.messageDao()
-                    .stickyIds(chatId, cutoffSeconds, 200)).distinct()
                 val holes = holesAfterCacheTtl(
                     chatId,
                     database.messageHoleDao().forChat(chatId, MessageHoleEntity.SOURCE_HISTORY),
@@ -178,6 +181,16 @@ open class OfflineWarmup(
             }
             kotlinx.coroutines.yield()
         }
+        val tombstones = database.messageTombstoneDao()
+        val emptyChats = tombstones.chatsWithoutMessages(CACHE_PRUNE_CHATS)
+        if (emptyChats.isNotEmpty()) tombstones.deleteChats(emptyChats)
+        tombstones.trimUserSpace(HISTORY_CACHE_WINDOW * 2)
+        val discussion = database.metaDao().keysLike("discussion_read:%")
+        for (key in discussionReadKeysToDrop(discussion)) {
+            database.metaDao().delete(key)
+        }
+        val stalePeers = database.peerDao().unreferencedIds(CACHE_PRUNE_ROWS)
+        if (stalePeers.isNotEmpty()) database.peerDao().deleteIds(stalePeers)
         val cutoffMillis = nowMillis - CACHE_PROFILE_TTL_MILLIS
         for (peerId in database.profileTabsDao().stalePeerIds(cutoffMillis, CACHE_PRUNE_ROWS)) {
             currentCoroutineContext().ensureActive()
@@ -841,6 +854,7 @@ open class OfflineWarmup(
         database.profileCommonDao().clear()
         database.messageHoleDao().clearAll()
         database.metaDao().deleteLike("history_coverage:%")
+        database.metaDao().deleteLike("discussion_read:%")
         database.metaDao().deleteLike("${DRAFT_META_PREFIX}%")
     }
 
