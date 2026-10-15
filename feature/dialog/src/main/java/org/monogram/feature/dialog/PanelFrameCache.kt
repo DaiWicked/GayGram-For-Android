@@ -1,13 +1,12 @@
 package org.monogram.feature.dialog
 
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.util.zip.Deflater
 import java.util.zip.DeflaterOutputStream
-import java.util.zip.InflaterInputStream
+import java.util.zip.Inflater
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -16,13 +15,19 @@ internal data class PanelFrameClip(
     val height: Int,
     val delayMs: Int,
     val frames: List<ByteArray>,
+    val complete: Boolean = false,
+    val sourceDurationMs: Long = 0L,
 )
 
 internal object PanelFrameCache {
+    internal const val PACKED_BYTE_CAP = 32 * 1024 * 1024
+    internal const val INFLATED_BYTE_CAP = 512 * 512 * 4 * 90
+
     private val MAGIC =
-        byteArrayOf('P'.code.toByte(), 'F'.code.toByte(), '0'.code.toByte(), '1'.code.toByte())
+        byteArrayOf('P'.code.toByte(), 'F'.code.toByte(), '0'.code.toByte(), '2'.code.toByte())
     private const val MAX_FRAMES = 90
     private const val MAX_SIDE = 512
+    private const val HEADER_BYTES = 33L
     private const val PANEL_FRAME_BYTE_CAP = 32L * 1024 * 1024
 
     fun file(dir: File, documentId: Long, bucket: PanelBucket, tag: PanelTag): File =
@@ -39,6 +44,8 @@ internal object PanelFrameCache {
             data.writeInt(clip.height)
             data.writeInt(clip.delayMs.coerceAtLeast(1))
             data.writeInt(clip.frames.size)
+            data.writeBoolean(clip.complete)
+            data.writeLong(clip.sourceDurationMs.coerceAtLeast(0L))
             val packed = ByteArrayOutputStream()
             DeflaterOutputStream(packed, Deflater(Deflater.BEST_SPEED)).use { deflater ->
                 clip.frames.forEach { frame -> deflater.write(frame) }
@@ -62,8 +69,15 @@ internal object PanelFrameCache {
         )
     }
 
-    fun read(source: File): PanelFrameClip? {
-        if (!source.isFile || source.length() < 24L) return null
+    fun read(source: File): PanelFrameClip? = readBounded(source, requestedSide = null)
+
+    fun read(source: File, requestedSide: Int): PanelFrameClip? {
+        if (requestedSide <= 0) return null
+        return readBounded(source, requestedSide)
+    }
+
+    private fun readBounded(source: File, requestedSide: Int?): PanelFrameClip? {
+        if (!source.isFile || source.length() < HEADER_BYTES) return null
         return runCatching {
             source.inputStream().buffered().use { stream ->
                 val data = DataInputStream(stream)
@@ -74,24 +88,47 @@ internal object PanelFrameCache {
                 val height = data.readInt()
                 val delay = data.readInt()
                 val count = data.readInt()
+                val complete = data.readBoolean()
+                val sourceDurationMs = data.readLong()
                 val packedSize = data.readInt()
+                if (sourceDurationMs < 0L) return null
                 if (!validShape(width, height, count, packedSize)) return null
+                if (requestedSide != null && max(width, height) < requestedSide) return null
+                val inflated = width.toLong() * height.toLong() * 4L * count.toLong()
+                if (inflated <= 0L || inflated > INFLATED_BYTE_CAP) return null
+                if (packedSize.toLong() > source.length() - HEADER_BYTES) return null
                 val packed = ByteArray(packedSize)
                 data.readFully(packed)
-                val frameBytes = width * height * 4
-                val raw = InflaterInputStream(ByteArrayInputStream(packed)).use { it.readBytes() }
-                if (raw.size != frameBytes * count) return null
+                val raw = ByteArray(inflated.toInt())
+                val inflater = Inflater()
+                try {
+                    inflater.setInput(packed)
+                    var offset = 0
+                    while (offset < raw.size) {
+                        val read = inflater.inflate(raw, offset, raw.size - offset)
+                        if (read <= 0) return null
+                        offset += read
+                    }
+                    if (!inflater.finished()) {
+                        val extra = inflater.inflate(ByteArray(1))
+                        if (extra != 0 || !inflater.finished()) return null
+                    }
+                } finally {
+                    inflater.end()
+                }
+                val frameBytes = (inflated / count).toInt()
                 val frames = ArrayList<ByteArray>(count)
                 for (index in 0 until count) {
                     val start = index * frameBytes
                     frames += raw.copyOfRange(start, start + frameBytes)
                 }
-                PanelFrameClip(width, height, delay, frames)
+                PanelFrameClip(width, height, delay, frames, complete, sourceDurationMs)
             }
         }.getOrNull()
     }
 
     private fun storeable(clip: PanelFrameClip): Boolean {
+        if (clip.sourceDurationMs < 0L) return false
         if (!validShape(clip.width, clip.height, clip.frames.size, packedSize = 1)) return false
         val frameBytes = clip.width * clip.height * 4
         return clip.frames.all { it.size == frameBytes }
@@ -99,9 +136,9 @@ internal object PanelFrameCache {
 
     private fun validShape(width: Int, height: Int, count: Int, packedSize: Int): Boolean {
         if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) return false
-        if (count !in 1..MAX_FRAMES || packedSize <= 0) return false
-        val area = width.toLong() * height.toLong()
-        return area <= MAX_SIDE.toLong() * MAX_SIDE.toLong()
+        if (count !in 1..MAX_FRAMES || packedSize <= 0 || packedSize > PACKED_BYTE_CAP) return false
+        val inflated = width.toLong() * height.toLong() * 4L * count.toLong()
+        return inflated in 1..INFLATED_BYTE_CAP.toLong()
     }
 }
 

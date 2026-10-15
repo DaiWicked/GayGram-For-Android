@@ -7,9 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 
 /** Reads a media cache generation at the point of use. */
 @Composable
@@ -44,9 +44,14 @@ fun rememberEnsuredFile(
     identity: Any?,
     resolve: () -> File?,
     ensure: suspend () -> File?,
+    demand: Boolean = true,
 ): File? {
     var file by remember(identity) { mutableStateOf(resolve()) }
-    LaunchedEffect(identity, generation) {
+    LaunchedEffect(identity, generation, demand) {
+        if (!demand) {
+            file = resolve()
+            return@LaunchedEffect
+        }
         repeat(3) { attempt ->
             val resolved = resolve()
             if (resolved != null) {

@@ -2,13 +2,10 @@ package org.monogram.feature.dialog.ui
 
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +17,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -39,47 +37,70 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
-internal class VpxFrameRetirement<T> {
-    private data class Retired<T>(val frame: T, val retiredAtDraw: Int)
+internal data class VpxDecodedFrame(
+    val width: Int,
+    val height: Int,
+    val rgba: ByteArray,
+)
 
-    private val pending = ArrayDeque<Retired<T>>()
-    private var draws = 0
+internal data class VpxDecodedAlpha(
+    val width: Int,
+    val height: Int,
+    val alpha: ByteArray,
+)
 
-    fun retire(frame: T) {
-        synchronized(pending) { pending.addLast(Retired(frame, draws)) }
+internal interface VpxHandleOwner {
+    fun create(): Long
+    fun destroy(handle: Long)
+    fun decode(handle: Long, packet: ByteArray): VpxDecodedFrame?
+    fun decodeAlpha(handle: Long, packet: ByteArray): VpxDecodedAlpha?
+}
+
+internal object NativeVpxHandleOwner : VpxHandleOwner {
+    override fun create(): Long = VpxNative.create()
+
+    override fun destroy(handle: Long) = VpxNative.destroy(handle)
+
+    override fun decode(handle: Long, packet: ByteArray): VpxDecodedFrame? {
+        val frame = VpxNative.decode(handle, packet) ?: return null
+        return VpxDecodedFrame(frame.width.toInt(), frame.height.toInt(), frame.rgba)
     }
 
-    fun pollRecyclable(current: T?): List<T> = synchronized(pending) {
-        draws += 1
-        val ready = ArrayList<T>()
-        while (pending.isNotEmpty()) {
-            val head = pending.first()
-            if (head.frame === current || head.retiredAtDraw > draws - 2) break
-            pending.removeFirst()
-            ready += head.frame
+    override fun decodeAlpha(handle: Long, packet: ByteArray): VpxDecodedAlpha? {
+        val mask = VpxNative.decodeAlpha(handle, packet) ?: return null
+        return VpxDecodedAlpha(mask.width.toInt(), mask.height.toInt(), mask.alpha)
+    }
+}
+
+internal suspend fun <T> withOwnedVpxHandles(
+    owner: VpxHandleOwner,
+    count: Int,
+    use: suspend (LongArray) -> T,
+): T? {
+    val handles = LongArray(count)
+    try {
+        for (index in handles.indices) {
+            currentCoroutineContext().ensureActive()
+            val handle = try {
+                owner.create()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                0L
+            }
+            if (handle == 0L) return null
+            handles[index] = handle
         }
-        ready
+        return use(handles)
+    } finally {
+        for (index in handles.indices.reversed()) {
+            val handle = handles[index]
+            if (handle != 0L) owner.destroy(handle)
+        }
     }
-
-    fun takeAll(): MutableList<T> = synchronized(pending) {
-        val rest = pending.mapTo(ArrayList()) { it.frame }
-        pending.clear()
-        rest
-    }
 }
 
-private fun recycleBitmap(image: ImageBitmap) {
-    image.asAndroidBitmap().takeIf { !it.isRecycled }?.recycle()
-}
-
-private fun recycleBitmapLater(image: ImageBitmap) {
-    val bitmap = image.asAndroidBitmap()
-    if (bitmap.isRecycled) return
-    val handler = Handler(Looper.getMainLooper())
-    handler.post { handler.post { if (!bitmap.isRecycled) bitmap.recycle() } }
-}
-
-private object VpxStickerSlots {
+internal object VpxStickerSlots {
     private const val MAX = 8
     private val playing = AtomicInteger(0)
 
@@ -102,6 +123,27 @@ private object VpxStickerSlots {
     fun release() {
         playing.updateAndGet { value -> (value - 1).coerceAtLeast(0) }
     }
+
+    internal fun inUse(): Int = playing.get()
+
+    internal fun resetForTests() {
+        playing.set(0)
+    }
+}
+
+internal suspend fun runLegacyVpxSlot(
+    dispatcher: CoroutineDispatcher,
+    block: suspend () -> Unit,
+) {
+    VpxStickerSlots.acquire()
+    try {
+        withContext(dispatcher) {
+            currentCoroutineContext().ensureActive()
+            block()
+        }
+    } finally {
+        VpxStickerSlots.release()
+    }
 }
 @Composable
 internal fun VpxStickerPlayer(
@@ -114,36 +156,14 @@ internal fun VpxStickerPlayer(
     org.monogram.core.ui.rememberFileLease(file)
     val frame = remember(file.absolutePath) { mutableStateOf<ImageBitmap?>(null) }
     val hasFrame = remember(file.absolutePath) { mutableStateOf(false) }
-    val retirement = remember(file.absolutePath) { VpxFrameRetirement<ImageBitmap>() }
-    DisposableEffect(file.absolutePath) {
-        onDispose {
-            val pending = retirement.takeAll()
-            val shown = frame.value
-            frame.value = null
-            if (shown != null && pending.none { it === shown }) pending.add(shown)
-            pending.forEach(::recycleBitmapLater)
-        }
-    }
     LaunchedEffect(file.absolutePath, playable) {
         if (!playable) return@LaunchedEffect
-
-        VpxStickerSlots.acquire()
-        try {
-            withContext(Dispatchers.Default) {
-                playVpxLoop(file) { next ->
-                    if (!isActive) {
-                        recycleBitmapLater(next)
-                        return@playVpxLoop false
-                    }
-                    val previous = frame.value
-                    frame.value = next
-                    if (!hasFrame.value) hasFrame.value = true
-                    if (previous != null && previous !== next) retirement.retire(previous)
-                    true
-                }
+        playLegacyVpx(file) { next ->
+            withContext(Dispatchers.Main.immediate) {
+                frame.value = next
+                if (!hasFrame.value) hasFrame.value = true
+                isActive
             }
-        } finally {
-            VpxStickerSlots.release()
         }
     }
     Box(modifier) {
@@ -156,9 +176,6 @@ internal fun VpxStickerPlayer(
         }
         Canvas(Modifier.fillMaxSize()) {
             val current = frame.value
-            retirement.pollRecyclable(current).forEach { old ->
-                if (old !== current) recycleBitmap(old)
-            }
             val drawn = current?.takeIf { !it.asAndroidBitmap().isRecycled } ?: return@Canvas
             val scale = minOf(size.width / drawn.width, size.height / drawn.height)
             val width = (drawn.width * scale).roundToInt().coerceAtLeast(1)
@@ -188,159 +205,221 @@ internal suspend fun decodePanelVpx(
     maxSide: Int,
     alpha: Boolean,
     maxFrames: Int = 1,
+    owner: VpxHandleOwner = NativeVpxHandleOwner,
 ): PanelFrameClip? {
     val limit = maxFrames.coerceIn(1, 16)
-    return if (alpha) decodeAlphaPanel(file, maxSide, limit) else decodeColorPanel(
+    return if (alpha) decodeAlphaPanel(file, maxSide, limit, owner) else decodeColorPanel(
         file,
         maxSide,
-        limit
+        limit,
+        owner,
     )
 }
 
-private suspend fun decodeAlphaPanel(file: File, maxSide: Int, maxFrames: Int): PanelFrameClip? {
-    var colorHandle = 0L
-    var alphaHandle = 0L
-    return try {
-        val reader = MatroskaAlphaReader(file)
-        colorHandle = VpxNative.create()
-        alphaHandle = VpxNative.create()
-        val frames = ArrayList<ByteArray>(8)
-        var width = 0
-        var height = 0
-        for (sample in reader.samples()) {
-            currentCoroutineContext().ensureActive()
-            if (frames.size >= maxFrames) break
-            val color = runCatching { VpxNative.decode(colorHandle, sample.color) }.getOrNull()
-                ?: continue
-            if (color.rgba.isEmpty() || color.width == 0u || color.height == 0u) continue
-            val mask = sample.alpha?.let {
-                runCatching { VpxNative.decodeAlpha(alphaHandle, it) }.getOrNull()
-            }
-            val pixels = color.width.toInt() * color.height.toInt()
-            if (mask != null && (mask.width != color.width || mask.height != color.height || mask.alpha.size != pixels)) {
-                continue
-            }
-            val rgba = color.rgba
-            if (mask != null) {
-                for (i in mask.alpha.indices) rgba[i * 4 + 3] = mask.alpha[i]
-            } else {
-                for (i in rgba.indices step 4) rgba[i + 3] = 255.toByte()
-            }
-            val sourceWidth = color.width.toInt()
-            val sourceHeight = color.height.toInt()
-            val (scaledWidth, scaledHeight) = scaledSize(sourceWidth, sourceHeight, maxSide)
-            val scaled = scaleRgba(rgba, sourceWidth, sourceHeight, scaledWidth, scaledHeight)
-            if (scaled.size != scaledWidth * scaledHeight * 4) continue
-            width = scaledWidth
-            height = scaledHeight
-            frames += scaled
-        }
-        if (frames.isEmpty()) null else PanelFrameClip(width, height, 33, frames)
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        null
-    } finally {
-        if (alphaHandle != 0L) VpxNative.destroy(alphaHandle)
-        if (colorHandle != 0L) VpxNative.destroy(colorHandle)
-    }
-}
-
-private suspend fun decodeColorPanel(file: File, maxSide: Int, maxFrames: Int): PanelFrameClip? {
-    val extractor = MediaExtractor()
-    var handle = 0L
-    return try {
-        extractor.setDataSource(file.absolutePath)
-        val track = selectVpxTrack(extractor) ?: return null
-        extractor.selectTrack(track)
-        val format = extractor.getTrackFormat(track)
-        handle = VpxNative.create()
-        val packet = ByteBuffer.allocate(format.maxInputSizeOr(256 * 1024))
-        val frames = ArrayList<ByteArray>(8)
-        var width = 0
-        var height = 0
-        var badPackets = 0
-        while (frames.size < maxFrames) {
-            currentCoroutineContext().ensureActive()
-            packet.clear()
-            val size = extractor.readSampleData(packet, 0)
-            if (size < 0) break
-            extractor.advance()
-            val bytes = ByteArray(size)
-            packet.position(0)
-            packet.get(bytes)
-            val frame = runCatching { VpxNative.decode(handle, bytes) }.getOrNull()
-            if (frame == null || frame.rgba.isEmpty() || frame.width == 0u || frame.height == 0u) {
-                badPackets++
-                if (badPackets >= 120) break
-                continue
-            }
-            badPackets = 0
-            val sourceWidth = frame.width.toInt()
-            val sourceHeight = frame.height.toInt()
-            val (scaledWidth, scaledHeight) = scaledSize(sourceWidth, sourceHeight, maxSide)
-            val scaled = scaleRgba(frame.rgba, sourceWidth, sourceHeight, scaledWidth, scaledHeight)
-            if (scaled.size != scaledWidth * scaledHeight * 4) continue
-            width = scaledWidth
-            height = scaledHeight
-            frames += scaled
-        }
-        if (frames.isEmpty()) null else PanelFrameClip(
-            width,
-            height,
-            frameDelayMs(format).toInt(),
-            frames
-        )
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        null
-    } finally {
-        if (handle != 0L) VpxNative.destroy(handle)
-        extractor.release()
-    }
-}
-
-private suspend fun playVpxLoop(
+private suspend fun decodeAlphaPanel(
     file: File,
-    onFrame: (ImageBitmap) -> Boolean,
-) {
-    when (runCatching { MatroskaAlphaReader(file).hasAlpha }.getOrNull()) {
-        true -> playAlphaVpxLoop(file, onFrame)
-        false -> playExtractorVpxLoop(file, onFrame)
-        null -> return
+    maxSide: Int,
+    maxFrames: Int,
+    owner: VpxHandleOwner,
+): PanelFrameClip? {
+    return try {
+        currentCoroutineContext().ensureActive()
+        val reader = MatroskaAlphaReader(file)
+        withOwnedVpxHandles(owner, 2) { handles ->
+            val colorHandle = handles[0]
+            val alphaHandle = handles[1]
+            val frames = ArrayList<ByteArray>(8)
+            var width = 0
+            var height = 0
+            var sourceEnded = true
+            for (sample in reader.samples()) {
+                currentCoroutineContext().ensureActive()
+                if (frames.size >= maxFrames) {
+                    sourceEnded = false
+                    break
+                }
+                val color = decodeColorFrame(owner, colorHandle, sample.color) ?: continue
+                if (color.rgba.isEmpty() || color.width == 0 || color.height == 0) continue
+                val mask = sample.alpha?.let { decodeAlphaFrame(owner, alphaHandle, it) }
+                val pixels = color.width * color.height
+                if (mask != null && (mask.width != color.width || mask.height != color.height || mask.alpha.size != pixels)) {
+                    continue
+                }
+                val rgba = color.rgba
+                if (mask != null) {
+                    for (i in mask.alpha.indices) rgba[i * 4 + 3] = mask.alpha[i]
+                } else {
+                    for (i in rgba.indices step 4) rgba[i + 3] = 255.toByte()
+                }
+                val (scaledWidth, scaledHeight) = scaledSize(color.width, color.height, maxSide)
+                val scaled = scaleRgba(rgba, color.width, color.height, scaledWidth, scaledHeight)
+                if (scaled.size != scaledWidth * scaledHeight * 4) continue
+                width = scaledWidth
+                height = scaledHeight
+                frames += scaled
+            }
+            if (frames.isEmpty()) {
+                null
+            } else {
+                PanelFrameClip(
+                    width,
+                    height,
+                    33,
+                    frames,
+                    complete = sourceEnded,
+                    sourceDurationMs = frames.size.toLong() * 33L,
+                )
+            }
+        }
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
     }
 }
 
-private suspend fun playAlphaVpxLoop(file: File, onFrame: (ImageBitmap) -> Boolean) {
-    var colorHandle = 0L
-    var alphaHandle = 0L
+private suspend fun decodeColorPanel(
+    file: File,
+    maxSide: Int,
+    maxFrames: Int,
+    owner: VpxHandleOwner,
+): PanelFrameClip? {
+    return try {
+        currentCoroutineContext().ensureActive()
+        withOwnedVpxHandles(owner, 1) { handles ->
+            val handle = handles[0]
+            val extractor = MediaExtractor()
+            try {
+                extractor.setDataSource(file.absolutePath)
+                val track = selectVpxTrack(extractor)
+                if (track == null) {
+                    null
+                } else {
+                    extractor.selectTrack(track)
+                    val format = extractor.getTrackFormat(track)
+                    val packet = ByteBuffer.allocate(format.maxInputSizeOr(256 * 1024))
+                    val frames = ArrayList<ByteArray>(8)
+                    var width = 0
+                    var height = 0
+                    var badPackets = 0
+                    var sourceEnded = false
+                    while (frames.size < maxFrames) {
+                        currentCoroutineContext().ensureActive()
+                        packet.clear()
+                        val size = extractor.readSampleData(packet, 0)
+                        if (size < 0) {
+                            sourceEnded = true
+                            break
+                        }
+                        extractor.advance()
+                        val bytes = ByteArray(size)
+                        packet.position(0)
+                        packet.get(bytes)
+                        val frame = decodeColorFrame(owner, handle, bytes)
+                        if (frame == null || frame.rgba.isEmpty() || frame.width == 0 || frame.height == 0) {
+                            badPackets++
+                            if (badPackets >= 120) break
+                            continue
+                        }
+                        badPackets = 0
+                        val (scaledWidth, scaledHeight) = scaledSize(
+                            frame.width,
+                            frame.height,
+                            maxSide
+                        )
+                        val scaled =
+                            scaleRgba(
+                                frame.rgba,
+                                frame.width,
+                                frame.height,
+                                scaledWidth,
+                                scaledHeight
+                            )
+                        if (scaled.size != scaledWidth * scaledHeight * 4) continue
+                        width = scaledWidth
+                        height = scaledHeight
+                        frames += scaled
+                    }
+                    if (!sourceEnded && frames.size >= maxFrames) {
+                        packet.clear()
+                        sourceEnded = extractor.readSampleData(packet, 0) < 0
+                    }
+                    if (frames.isEmpty()) {
+                        null
+                    } else {
+                        val delayMs = frameDelayMs(format).toInt()
+                        PanelFrameClip(
+                            width,
+                            height,
+                            delayMs,
+                            frames,
+                            complete = sourceEnded,
+                            sourceDurationMs = vpxSourceDurationMs(format, frames.size, delayMs),
+                        )
+                    }
+                }
+            } finally {
+                extractor.release()
+            }
+        }
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
+}
+
+internal suspend fun playLegacyVpx(
+    file: File,
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    owner: VpxHandleOwner = NativeVpxHandleOwner,
+    onFrame: suspend (ImageBitmap) -> Boolean,
+) {
+    runLegacyVpxSlot(dispatcher) {
+        val alpha = try {
+            MatroskaAlphaReader(file).hasAlpha
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        when (alpha) {
+            true -> withOwnedVpxHandles(owner, 2) { handles ->
+                playAlphaVpxLoop(file, handles[0], handles[1], owner, onFrame)
+            }
+
+            false -> withOwnedVpxHandles(owner, 1) { handles ->
+                playExtractorVpxLoop(file, handles[0], owner, onFrame)
+            }
+
+            null -> Unit
+        }
+    }
+}
+
+private suspend fun playAlphaVpxLoop(
+    file: File,
+    colorHandle: Long,
+    alphaHandle: Long,
+    owner: VpxHandleOwner,
+    onFrame: suspend (ImageBitmap) -> Boolean,
+) {
     try {
         val reader = MatroskaAlphaReader(file)
-        colorHandle = VpxNative.create()
-        alphaHandle = VpxNative.create()
         while (true) {
             var rendered = false
             for (sample in reader.samples()) {
                 currentCoroutineContext().ensureActive()
-                val color = runCatching { VpxNative.decode(colorHandle, sample.color) }.getOrNull()
-                val alpha = sample.alpha?.let {
-                    runCatching {
-                        VpxNative.decodeAlpha(
-                            alphaHandle,
-                            it
-                        )
-                    }.getOrNull()
-                }
+                val color = decodeColorFrame(owner, colorHandle, sample.color)
+                val alpha = sample.alpha?.let { decodeAlphaFrame(owner, alphaHandle, it) }
                 if (color == null || color.rgba.isEmpty()) continue
-                if (alpha != null && (alpha.width != color.width || alpha.height != color.height || alpha.alpha.size != color.width.toInt() * color.height.toInt())) continue
+                if (alpha != null && (alpha.width != color.width || alpha.height != color.height || alpha.alpha.size != color.width * color.height)) continue
                 if (alpha != null) {
                     for (i in alpha.alpha.indices) color.rgba[i * 4 + 3] = alpha.alpha[i]
                 } else {
                     for (i in color.rgba.indices step 4) color.rgba[i + 3] = 255.toByte()
                 }
-                val bitmap = argbFrameBitmap(color.rgba, color.width.toInt(), color.height.toInt())
-                    ?: continue
+                val bitmap = argbFrameBitmap(color.rgba, color.width, color.height) ?: continue
                 rendered = true
                 if (!onFrame(bitmap.asImageBitmap())) return
                 delay(33L)
@@ -351,21 +430,21 @@ private suspend fun playAlphaVpxLoop(file: File, onFrame: (ImageBitmap) -> Boole
         throw cancelled
     } catch (_: Exception) {
         return
-    } finally {
-        if (alphaHandle != 0L) VpxNative.destroy(alphaHandle)
-        if (colorHandle != 0L) VpxNative.destroy(colorHandle)
     }
 }
 
-private suspend fun playExtractorVpxLoop(file: File, onFrame: (ImageBitmap) -> Boolean) {
+private suspend fun playExtractorVpxLoop(
+    file: File,
+    handle: Long,
+    owner: VpxHandleOwner,
+    onFrame: suspend (ImageBitmap) -> Boolean,
+) {
     val extractor = MediaExtractor()
-    var handle = 0L
     try {
         extractor.setDataSource(file.absolutePath)
         val track = selectVpxTrack(extractor) ?: return
         extractor.selectTrack(track)
         val format = extractor.getTrackFormat(track)
-        handle = VpxNative.create()
         val packet = ByteBuffer.allocate(format.maxInputSizeOr(256 * 1024))
         var badPackets = 0
         while (true) {
@@ -373,15 +452,18 @@ private suspend fun playExtractorVpxLoop(file: File, onFrame: (ImageBitmap) -> B
             packet.clear()
             val size = extractor.readSampleData(packet, 0)
             if (size < 0) {
-                extractor.seekTo(0L, MediaExtractor.SEEK_TO_CLOSEST_SYNC); badPackets = 0; continue
+                extractor.seekTo(0L, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+                badPackets = 0
+                continue
             }
             extractor.advance()
             val bytes = ByteArray(size)
-            packet.position(0); packet.get(bytes)
-            val frame = runCatching { VpxNative.decode(handle, bytes) }.getOrNull()
-            if (frame != null && frame.rgba.isNotEmpty() && frame.width > 0u && frame.height > 0u) {
+            packet.position(0)
+            packet.get(bytes)
+            val frame = decodeColorFrame(owner, handle, bytes)
+            if (frame != null && frame.rgba.isNotEmpty() && frame.width > 0 && frame.height > 0) {
                 badPackets = 0
-                val bitmap = argbFrameBitmap(frame.rgba, frame.width.toInt(), frame.height.toInt())
+                val bitmap = argbFrameBitmap(frame.rgba, frame.width, frame.height)
                 if (bitmap == null || !onFrame(bitmap.asImageBitmap())) return
                 delay(frameDelayMs(format))
             } else {
@@ -395,8 +477,32 @@ private suspend fun playExtractorVpxLoop(file: File, onFrame: (ImageBitmap) -> B
     } catch (_: Exception) {
         return
     } finally {
-        if (handle != 0L) VpxNative.destroy(handle); extractor.release()
+        extractor.release()
     }
+}
+
+private fun decodeColorFrame(
+    owner: VpxHandleOwner,
+    handle: Long,
+    packet: ByteArray,
+): VpxDecodedFrame? = try {
+    owner.decode(handle, packet)
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    null
+}
+
+private fun decodeAlphaFrame(
+    owner: VpxHandleOwner,
+    handle: Long,
+    packet: ByteArray,
+): VpxDecodedAlpha? = try {
+    owner.decodeAlpha(handle, packet)
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (_: Exception) {
+    null
 }
 
 data class AlphaSample(val color: ByteArray, val alpha: ByteArray?)
@@ -548,6 +654,16 @@ private fun MediaFormat.maxInputSizeOr(fallback: Int): Int {
         fallback
     }
     return requested.coerceIn(16 * 1024, 4 * 1024 * 1024)
+}
+
+private fun vpxSourceDurationMs(format: MediaFormat, frameCount: Int, delayMs: Int): Long {
+    val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) {
+        runCatching { format.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(-1L)
+    } else {
+        -1L
+    }
+    if (durationUs > 0L) return durationUs / 1000L
+    return frameCount.toLong() * delayMs.toLong()
 }
 
 private fun frameDelayMs(format: MediaFormat): Long {

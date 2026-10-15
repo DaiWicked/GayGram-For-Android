@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -54,6 +55,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,6 +68,7 @@ import org.monogram.core.ui.components.MonogramPlaceholder
 import org.monogram.core.ui.components.SheetPanelHost
 import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.EmojiPanelLayout
+import org.monogram.feature.dialog.GifItemContentType
 import org.monogram.feature.dialog.GridPlacement
 import org.monogram.feature.dialog.PanelBucket
 import org.monogram.feature.dialog.PickerDocumentCell
@@ -76,9 +81,12 @@ import org.monogram.feature.dialog.R
 import org.monogram.feature.dialog.SystemEmojiCatalog
 import org.monogram.feature.dialog.SystemEmojiCategory
 import org.monogram.feature.dialog.SystemEmojiCategoryKind
+import org.monogram.feature.dialog.activePickerSection
 import org.monogram.feature.dialog.emojiPanelLayout
-import org.monogram.feature.dialog.panelLoops
+import org.monogram.feature.dialog.panelEpoch
 import org.monogram.feature.dialog.panelPlaybackBand
+import org.monogram.feature.dialog.pickerGridContentType
+import org.monogram.feature.dialog.pickerSectionMarks
 import org.monogram.feature.dialog.stickerPanelCells
 import org.monogram.network.http.MediaRepository
 import java.io.File
@@ -110,7 +118,7 @@ internal fun EmojiStickerGifPanel(
     onOpenPack: (StickerPack) -> Unit,
     onSendDocument: (Long) -> Unit,
     onDismiss: () -> Unit,
-    onPickerDocumentsVisible: (List<Long>, Set<Long>) -> Unit = { _, _ -> },
+    onPickerDocumentsVisible: (List<Long>, Set<Long>, Boolean) -> Unit = { _, _, _ -> },
     onPickerGifsVisible: (List<SavedGif>, Set<Long>, Boolean) -> Unit = { _, _, _ -> },
     onPickerClosed: () -> Unit = {},
 ) {
@@ -152,6 +160,18 @@ internal fun EmojiStickerGifPanel(
             LaunchedEffect(sheetVisible) {
                 if (!sheetVisible) panelPool.clear()
             }
+            val animations = panelAnimationsEnabled()
+            val lifecycleStarted = LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+                .value
+                .isAtLeast(Lifecycle.State.STARTED)
+            val epoch = panelEpoch(
+                tab,
+                when (tab) {
+                    ComposerPanels.TAB_STICKERS -> stickerSets.joinToString(",") { it.id.toString() }
+                    ComposerPanels.TAB_GIFS -> gifs.joinToString(",") { it.documentId.toString() }
+                    else -> emojiSets.joinToString(",") { it.id.toString() }
+                },
+            )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -176,6 +196,10 @@ internal fun EmojiStickerGifPanel(
                                 onRetry = { onTab(ComposerPanels.TAB_STICKERS) },
                                 onDocumentsVisible = onPickerDocumentsVisible,
                                 modifier = Modifier.fillMaxSize(),
+                                panelEpoch = epoch,
+                                sheetVisible = sheetVisible,
+                                lifecycleStarted = lifecycleStarted,
+                                animations = animations,
                             )
 
                             ComposerPanels.TAB_GIFS -> SavedGifBrowser(
@@ -186,6 +210,10 @@ internal fun EmojiStickerGifPanel(
                                 onSendDocument = onSendDocument,
                                 onRetry = { onTab(ComposerPanels.TAB_GIFS) },
                                 onGifsVisible = onPickerGifsVisible,
+                                panelEpoch = epoch,
+                                sheetVisible = sheetVisible,
+                                lifecycleStarted = lifecycleStarted,
+                                animations = animations,
                             )
 
                             else -> SystemEmojiBrowser(
@@ -199,6 +227,10 @@ internal fun EmojiStickerGifPanel(
                                 onInsertCustomEmoji = onInsertCustomEmoji,
                                 onOpenPack = onOpenPack,
                                 onDocumentsVisible = onPickerDocumentsVisible,
+                                panelEpoch = epoch,
+                                sheetVisible = sheetVisible,
+                                lifecycleStarted = lifecycleStarted,
+                                animations = animations,
                             )
                         }
                     }
@@ -272,7 +304,11 @@ private fun SystemEmojiBrowser(
     onInsertEmoji: (String) -> Unit,
     onInsertCustomEmoji: (Long) -> Unit,
     onOpenPack: (StickerPack) -> Unit,
-    onDocumentsVisible: (List<Long>, Set<Long>) -> Unit = { _, _ -> },
+    onDocumentsVisible: (List<Long>, Set<Long>, Boolean) -> Unit = { _, _, _ -> },
+    panelEpoch: Any,
+    sheetVisible: Boolean,
+    lifecycleStarted: Boolean,
+    animations: Boolean,
 ) {
     val categories by produceState(
         initialValue = SystemEmojiCatalog.cachedCategories().orEmpty(),
@@ -282,7 +318,15 @@ private fun SystemEmojiBrowser(
         }
     }
     val gridState = rememberLazyGridState()
-    val scope = rememberCoroutineScope()
+    val rowState = rememberLazyListState()
+    val ready = rememberPanelReady(
+        panelEpoch = panelEpoch,
+        visible = sheetVisible,
+        started = lifecycleStarted,
+        gridScrolling = gridState.isScrollInProgress,
+        stripScrolling = rowState.isScrollInProgress,
+    )
+    val playback = rememberPanelGridPlayback(gridState, ready, animations)
     var recentJoined by rememberSaveable { mutableStateOf("") }
     var expandedJoined by rememberSaveable { mutableStateOf("") }
     val recent = remember(recentJoined) {
@@ -335,26 +379,18 @@ private fun SystemEmojiBrowser(
         scrollPackId = null
         scrollCategory = null
     }
-    val anchor by remember(layout, gridState) {
+    val sectionMarks = remember(layout) { pickerSectionMarks(layout.cells) }
+    val cellCount = layout.cells.size
+    val anchor by remember(sectionMarks, cellCount, gridState) {
         derivedStateOf {
-            var category: SystemEmojiCategoryKind? = null
-            var packId: Long? = null
-            val last = gridState.firstVisibleItemIndex.coerceAtMost(layout.cells.lastIndex)
-            for (index in 0..last) {
-                val cell = layout.cells.getOrNull(index) as? PickerHeaderCell ?: continue
-                if (cell.category != null) {
-                    category = cell.category
-                    packId = null
-                }
-                if (cell.packId != null) {
-                    packId = cell.packId
-                    category = null
-                }
-            }
-            category to packId
+            val mark = activePickerSection(
+                sectionMarks,
+                gridState.firstVisibleItemIndex,
+                cellCount - 1,
+            )
+            mark?.category to mark?.packId
         }
     }
-    val playback = rememberPanelGridPlayback(gridState)
     Column(modifier = Modifier.fillMaxSize()) {
         EmojiPreviewRow(
             categories = categories,
@@ -372,7 +408,9 @@ private fun SystemEmojiBrowser(
                 onOpenPack(pack)
             },
             onPrefetchPack = onOpenPack,
-            rowScrolling = playback.scrolling,
+            rowState = rowState,
+            ready = ready,
+            animations = animations,
         )
         if (categories.isEmpty() && packs.isEmpty()) {
             PickerSkeleton(kind = PickerSkeletonKind.Emoji)
@@ -394,6 +432,7 @@ private fun SystemEmojiBrowser(
                     if (packId !in expanded) packs.firstOrNull { it.id == packId }?.let(onOpenPack)
                 },
                 onDocumentsVisible = onDocumentsVisible,
+                ready = ready,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -411,9 +450,10 @@ private fun EmojiPreviewRow(
     onCategory: (SystemEmojiCategoryKind) -> Unit,
     onPack: (StickerPack) -> Unit,
     onPrefetchPack: (StickerPack) -> Unit,
-    rowScrolling: Boolean,
+    rowState: LazyListState,
+    ready: Boolean,
+    animations: Boolean,
 ) {
-    val rowState = rememberLazyListState()
     val packIndexOffset =
         categories.size + if (categories.isNotEmpty() && packs.isNotEmpty()) 1 else 0
     val visibleChipPacks by remember(packs, rowState, packIndexOffset) {
@@ -428,8 +468,6 @@ private fun EmojiPreviewRow(
     LaunchedEffect(visibleChipPacks) {
         visibleChipPacks.forEach(onPrefetchPack)
     }
-    val chipSettled = rememberSettledIdle(rowScrolling || rowState.isScrollInProgress)
-    val animations = panelAnimationsEnabled()
     LazyRow(
         state = rowState,
         modifier = Modifier
@@ -462,7 +500,7 @@ private fun EmojiPreviewRow(
                         selected = selected,
                         playback = chipPlayback(
                             selected = selected,
-                            settled = chipSettled,
+                            ready = ready,
                             animations = animations,
                             bucket = PanelBucket.TabStrip,
                         ),
@@ -493,13 +531,18 @@ private fun EmojiPanelGrid(
     onInsertCustomEmoji: (Long) -> Unit,
     onRetryPack: (Long) -> Unit,
     onTogglePack: (Long) -> Unit,
-    onDocumentsVisible: (List<Long>, Set<Long>) -> Unit,
+    onDocumentsVisible: (List<Long>, Set<Long>, Boolean) -> Unit,
+    ready: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val cells = layout.cells
     val documentIds = remember(cells) { cells.mapNotNull { it.documentId } }
-    ReportPickerVisible(itemsKey = documentIds, gridState = gridState) { min, max, _ ->
-        onDocumentsVisible(documentIds, visibleDocumentIds(cells, min, max))
+    ReportPickerVisible(
+        itemsKey = documentIds,
+        gridState = gridState,
+        idle = ready
+    ) { min, max, idle ->
+        onDocumentsVisible(documentIds, visibleDocumentIds(cells, min, max), idle)
     }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(PickerMetrics.EmojiCell.dp),
@@ -512,6 +555,7 @@ private fun EmojiPanelGrid(
         items(
             count = cells.size,
             key = { index -> cells[index].key },
+            contentType = { index -> pickerGridContentType(cells[index], stickers = false) },
             span = { index ->
                 if (cells[index].span) GridItemSpan(maxLineSpan) else GridItemSpan(1)
             },
@@ -595,8 +639,12 @@ internal fun PackBrowser(
     onOpenPack: (StickerPack) -> Unit,
     onSendDocument: (Long) -> Unit,
     onRetry: () -> Unit,
-    onDocumentsVisible: (List<Long>, Set<Long>) -> Unit = { _, _ -> },
+    onDocumentsVisible: (List<Long>, Set<Long>, Boolean) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
+    panelEpoch: Any,
+    sheetVisible: Boolean,
+    lifecycleStarted: Boolean,
+    animations: Boolean,
 ) {
     if (packs.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -617,6 +665,14 @@ internal fun PackBrowser(
     }
     val gridState = rememberLazyGridState()
     val previewState = rememberLazyListState()
+    val ready = rememberPanelReady(
+        panelEpoch = panelEpoch,
+        visible = sheetVisible,
+        started = lifecycleStarted,
+        gridScrolling = gridState.isScrollInProgress,
+        stripScrolling = previewState.isScrollInProgress,
+    )
+    val playback = rememberPanelGridPlayback(gridState, ready, animations)
     val scope = rememberCoroutineScope()
     val cells = remember(packs, loadedPacks, failedPackIds) {
         stickerPanelCells(packs, loadedPacks, failedPackIds)
@@ -626,18 +682,17 @@ internal fun PackBrowser(
             (cell as? PickerHeaderCell)?.packId?.let { it to index }
         }.toMap()
     }
-    val selectedId by remember(cells, gridState) {
+    val sectionMarks = remember(cells) { pickerSectionMarks(cells) }
+    val cellCount = cells.size
+    val selectedId by remember(sectionMarks, cellCount, gridState) {
         derivedStateOf {
-            val last = gridState.firstVisibleItemIndex.coerceAtMost(cells.lastIndex)
-            var packId: Long? = null
-            for (index in 0..last) {
-                val header = cells.getOrNull(index) as? PickerHeaderCell ?: continue
-                if (header.packId != null) packId = header.packId
-            }
-            packId
+            activePickerSection(
+                sectionMarks,
+                gridState.firstVisibleItemIndex,
+                cellCount - 1,
+            )?.packId
         }
     }
-    val playback = rememberPanelGridPlayback(gridState)
     val visiblePacks by remember(packs, cells, gridState) {
         derivedStateOf {
             val visible = gridState.layoutInfo.visibleItemsInfo
@@ -673,11 +728,10 @@ internal fun PackBrowser(
     ReportPickerVisible(
         itemsKey = documentIds,
         gridState = gridState,
-    ) { min, max, _ ->
-        onDocumentsVisible(documentIds, visibleDocumentIds(cells, min, max))
+        idle = ready,
+    ) { min, max, idle ->
+        onDocumentsVisible(documentIds, visibleDocumentIds(cells, min, max), idle)
     }
-    val chipSettled = rememberSettledIdle(playback.scrolling || previewState.isScrollInProgress)
-    val animations = panelAnimationsEnabled()
     Column(modifier = modifier) {
         LazyRow(
             state = previewState,
@@ -695,9 +749,9 @@ internal fun PackBrowser(
                     selected = selected,
                     playback = chipPlayback(
                         selected,
-                        chipSettled,
+                        ready,
                         animations,
-                        PanelBucket.TabStrip
+                        PanelBucket.TabStrip,
                     ),
                     onClick = {
                         onOpenPack(pack)
@@ -719,6 +773,7 @@ internal fun PackBrowser(
             items(
                 count = cells.size,
                 key = { index -> cells[index].key },
+                contentType = { index -> pickerGridContentType(cells[index], stickers = true) },
                 span = { index ->
                     if (cells[index].span) GridItemSpan(maxLineSpan) else GridItemSpan(1)
                 },
@@ -837,6 +892,10 @@ internal fun SavedGifBrowser(
     onSendDocument: (Long) -> Unit,
     onRetry: () -> Unit,
     onGifsVisible: (List<SavedGif>, Set<Long>, Boolean) -> Unit = { _, _, _ -> },
+    panelEpoch: Any,
+    sheetVisible: Boolean,
+    lifecycleStarted: Boolean,
+    animations: Boolean,
 ) {
     if (gifs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -856,11 +915,18 @@ internal fun SavedGifBrowser(
         return
     }
     val gridState = rememberLazyGridState()
-    val playback = rememberPanelGridPlayback(gridState)
+    val ready = rememberPanelReady(
+        panelEpoch = panelEpoch,
+        visible = sheetVisible,
+        started = lifecycleStarted,
+        gridScrolling = gridState.isScrollInProgress,
+        stripScrolling = false,
+    )
+    val playback = rememberPanelGridPlayback(gridState, ready, animations)
     ReportPickerVisible(
         itemsKey = gifs.map { it.documentId },
         gridState = gridState,
-        idle = playback.settled,
+        idle = ready,
     ) { min, max, settled ->
         val visible = gifs.subList(min.coerceAtLeast(0), (max + 1).coerceIn(0, gifs.size))
             .map { it.documentId }
@@ -875,13 +941,19 @@ internal fun SavedGifBrowser(
         horizontalArrangement = Arrangement.spacedBy(PickerMetrics.GridSpacing.dp),
         verticalArrangement = Arrangement.spacedBy(PickerMetrics.GridSpacing.dp),
     ) {
-        itemsIndexed(gifs, key = { _, gif -> gif.documentId }) { index, gif ->
+        itemsIndexed(
+            gifs,
+            key = { _, gif -> gif.documentId },
+            contentType = { _, _ -> GifItemContentType },
+        ) { index, gif ->
             SavedGifCell(
                 gif = gif,
                 mediaRepository = mediaRepository,
                 onClick = { onSendDocument(gif.documentId) },
                 thumbOnly = false,
                 panelLoop = playback.plays(index),
+                posterReady = playback.admitsPoster(index),
+                animationsEnabled = animations,
             )
         }
     }
@@ -926,31 +998,33 @@ private fun emojiCategoryLabel(kind: SystemEmojiCategoryKind): String = stringRe
 
 private data class PanelGridPlayback(
     val band: IntRange,
-    val scrolling: Boolean,
-    val settled: Boolean,
+    val ready: Boolean,
     val animations: Boolean,
 ) {
-    fun plays(index: Int): Boolean = panelLoops(index, band, scrolling, settled, animations)
+    fun admitsPoster(index: Int): Boolean = ready && index in band
+
+    fun plays(index: Int): Boolean = admitsPoster(index) && animations
 
     @Composable
     fun cell(index: Int, bucket: PanelBucket): PanelCellPlayback {
         val inBand = index in band
-        val latched = rememberBandLatch(inBand)
-        val moving = scrolling || !settled
+        val latched = rememberBandLatch(inBand && ready)
         return PanelCellPlayback(
-            vpxLoop = !moving && animations && inBand,
-            tgsLoop = !moving && animations && latched,
+            vpxLoop = ready && animations && inBand,
+            tgsLoop = ready && animations && latched,
             bucket = bucket,
-            decode = !moving && inBand,
+            decode = ready && inBand,
+            index = index,
         )
     }
 }
 
 @Composable
-private fun rememberPanelGridPlayback(gridState: LazyGridState): PanelGridPlayback {
-    val scrolling = gridState.isScrollInProgress
-    val settled = rememberSettledIdle(scrolling)
-    val animations = panelAnimationsEnabled()
+private fun rememberPanelGridPlayback(
+    gridState: LazyGridState,
+    ready: Boolean,
+    animations: Boolean,
+): PanelGridPlayback {
     val band by remember(gridState) {
         derivedStateOf {
             val info = gridState.layoutInfo
@@ -962,19 +1036,19 @@ private fun rememberPanelGridPlayback(gridState: LazyGridState): PanelGridPlayba
             )
         }
     }
-    return PanelGridPlayback(band, scrolling, settled, animations)
+    return PanelGridPlayback(band, ready, animations)
 }
 
 private fun chipPlayback(
     selected: Boolean,
-    settled: Boolean,
+    ready: Boolean,
     animations: Boolean,
     bucket: PanelBucket,
 ): PanelCellPlayback = PanelCellPlayback(
-    vpxLoop = selected && settled && animations,
-    tgsLoop = selected && settled && animations,
+    vpxLoop = selected && ready && animations,
+    tgsLoop = selected && ready && animations,
     bucket = bucket,
-    decode = selected && settled,
+    decode = selected && ready,
 )
 
 @Composable

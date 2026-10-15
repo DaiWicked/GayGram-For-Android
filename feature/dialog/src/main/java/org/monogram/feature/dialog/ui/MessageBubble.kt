@@ -108,7 +108,7 @@ fun MessageBubble(
     onShowPollVoters: (() -> Unit)? = null,
     onComments: (() -> Unit)? = null,
     onQuoteClick: (() -> Unit)? = null,
-    onOpenStickerPack: ((Long) -> Unit)? = null,
+    onOpenStickerPack: ((documentId: Long, emojiPack: Boolean) -> Unit)? = null,
     onInstantView: ((org.monogram.core.models.WebpagePreview) -> Unit)? = null,
     onMarkupButton: ((org.monogram.core.models.ReplyButton) -> Unit)? = null,
     onToggleChecklist: ((Int) -> Unit)? = null,
@@ -386,7 +386,14 @@ fun MessageBubble(
                             CustomEmojiGlyph(
                                 documentId = documentId,
                                 size = 16.dp,
-                                onClick = onOpenStickerPack?.let { open -> { open(documentId) } },
+                                onClick = onOpenStickerPack?.let { open ->
+                                    {
+                                        open(
+                                            documentId,
+                                            true
+                                        )
+                                    }
+                                },
                             )
                         }
                         senderTagLabel(senderTag)?.let { tag ->
@@ -504,7 +511,9 @@ fun MessageBubble(
                                     edgeToEdge = false,
                                     onStickerClick = onOpenStickerPack?.let { open ->
                                         {
-                                            stickerDocumentId(docMessage.mediaCacheKey)?.let(open)
+                                            stickerDocumentId(docMessage.mediaCacheKey)?.let { id ->
+                                                open(id, false)
+                                            }
                                         }
                                     },
                                     onInstantView = onInstantView,
@@ -539,7 +548,9 @@ fun MessageBubble(
                             edgeToEdge = singleVisualMedia,
                             onStickerClick = onOpenStickerPack?.let { open ->
                                 {
-                                    stickerDocumentId(message.mediaCacheKey)?.let(open)
+                                    stickerDocumentId(message.mediaCacheKey)?.let { id ->
+                                        open(id, false)
+                                    }
                                 }
                             },
                             onInstantView = onInstantView,

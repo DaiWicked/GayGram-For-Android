@@ -86,6 +86,14 @@ data class UserDownload(
     val totalBytes: Long? = null,
 )
 
+/** One owner's attachment to a deduplicated transfer. */
+class MediaConsumer internal constructor(
+    internal val id: Long,
+    internal val key: String,
+) {
+    internal val revision = AtomicInteger()
+}
+
 private val NO_SYNTHETIC_THUMB_KINDS = setOf("document", "audio", "voice")
 
 fun interface TelegramMediaFetcher {
@@ -161,6 +169,8 @@ class MediaRepository(
     private val thumbWake = Channel<Unit>(Channel.CONFLATED)
     private val telegramPending = PriorityQueue<QueuedTelegram>()
     private val telegramJobs = HashMap<String, TelegramJob>()
+    private val pendingConsumerPriority = HashMap<Long, Int>()
+    private val nextConsumerId = java.util.concurrent.atomic.AtomicLong()
     private val telegramWorkers = mutableListOf<Job>()
     private var telegramSequence = 0L
     @Volatile private var telegramStopped = false
@@ -638,6 +648,20 @@ class MediaRepository(
         }
     }
 
+    fun openDownloadConsumer(key: String): MediaConsumer =
+        MediaConsumer(nextConsumerId.incrementAndGet(), key)
+
+    /** Changes this consumer's priority on the existing transfer. Does not join another job. */
+    fun updateDownloadConsumer(consumer: MediaConsumer, priority: Int) {
+        val revision = consumer.revision.incrementAndGet()
+        scope.launch { applyDownloadConsumerPriority(consumer, priority, revision) }
+    }
+
+    internal suspend fun awaitDownloadConsumerPriority(consumer: MediaConsumer, priority: Int) {
+        val revision = consumer.revision.incrementAndGet()
+        applyDownloadConsumerPriority(consumer, priority, revision)
+    }
+
     suspend fun ensureIndexedMedia(
         peerId: PeerId,
         messageId: Int,
@@ -645,6 +669,7 @@ class MediaRepository(
         thumb: Boolean = false,
         priority: Int = MediaPriority.DEFAULT,
         mediaKind: String? = null,
+        consumer: MediaConsumer? = null,
     ): Outcome<File> = ensureLocalTelegramMedia(
         key = cacheKey,
         chatId = peerId,
@@ -652,15 +677,18 @@ class MediaRepository(
         kind = if (thumb) MediaFetchKind.Thumb else MediaFetchKind.Full,
         mediaKind = mediaKind,
         priority = priority,
+        consumer = consumer,
     )
 
     suspend fun ensureCustomEmoji(
         documentId: Long,
         priority: Int = MediaPriority.DEFAULT,
+        consumer: MediaConsumer? = null,
     ): Outcome<File> {
         val key = "emoji:$documentId"
         cache.get(key)?.let { return Outcome.Ok(it) }
-        val result = enqueueTelegram(key, priority, chatId = null) { activePriority ->
+        val result =
+            enqueueTelegram(key, priority, chatId = null, consumer = consumer) { activePriority ->
             cache.get(key)?.let { return@enqueueTelegram Outcome.Ok(it) }
             val dest = cache.fileFor(key)
             val fetcher = customEmojiFetcher
@@ -706,6 +734,7 @@ class MediaRepository(
         name: String? = null,
         totalBytes: Long? = null,
         retain: Boolean = false,
+        consumer: MediaConsumer? = null,
     ): Outcome<File> {
         val storedChatId = if (mediaKind == "gif") null else chatId.value
         if (mediaKind == "gif") cache.attribute(key, chatId = null, kind = FileCache.KIND_GIFS)
@@ -733,6 +762,7 @@ class MediaRepository(
             totalBytes = totalBytes,
             large = kind != MediaFetchKind.Thumb && isLargeDownload(totalBytes),
             thumbnail = kind == MediaFetchKind.Thumb,
+            consumer = consumer,
         ) { activePriority ->
             val waited = PerfLog.nowMs() - queuedAt
             PerfLog.mark("queue_wait:${kind.name.lowercase()}", waited)
@@ -904,6 +934,89 @@ class MediaRepository(
                     job.priority >= minPriority && (thumbnail == null || job.thumbnail == thumbnail)
         }
 
+    private suspend fun applyDownloadConsumerPriority(
+        consumer: MediaConsumer,
+        priority: Int,
+        revision: Int,
+    ) {
+        telegramMutex.withLock {
+            if (consumer.revision.get() != revision) return@withLock
+            val job = telegramJobs[consumer.key]
+            val slot = job?.slots?.get(consumer.id)
+            if (job == null || slot == null) {
+                pendingConsumerPriority[consumer.id] = priority
+                return@withLock
+            }
+            if (slot.priority == priority) return@withLock
+            slot.priority = priority
+            publishSlotPriorityLocked(job)
+        }
+        telegramWake.trySend(Unit)
+        thumbWake.trySend(Unit)
+    }
+
+    private fun attachSlotLocked(
+        job: TelegramJob,
+        consumer: MediaConsumer,
+        priority: Int,
+        name: String?,
+        totalBytes: Long?,
+    ) {
+        val requested = pendingConsumerPriority.remove(consumer.id) ?: priority
+        val slot = job.slots[consumer.id]
+        if (slot == null) {
+            job.slots[consumer.id] = ConsumerSlot(requested, holds = 1)
+        } else {
+            slot.holds += 1
+            slot.priority = requested
+        }
+        job.consumers++
+        WorkOwnership.acquire("media:${job.key}", requested)
+        if (requested >= MediaPriority.USER) {
+            trackUserDownloadLocked(job.key, name, totalBytes)
+        }
+        publishSlotPriorityLocked(job)
+    }
+
+    private fun detachSlotLocked(job: TelegramJob, consumer: MediaConsumer) {
+        val slot = job.slots[consumer.id] ?: return
+        slot.holds -= 1
+        job.consumers--
+        WorkOwnership.release("media:${job.key}")
+        if (slot.holds > 0) return
+        job.slots.remove(consumer.id)
+        pendingConsumerPriority.remove(consumer.id)
+        if (job.anonymousConsumers > 0 || job.running || job.deferred.isCompleted || job.cancelled) return
+        val next = job.slots.values.maxOfOrNull { it.priority } ?: return
+        if (next == job.priority) return
+        job.priority = next
+        job.generation += 1
+        job.sequence = telegramSequence++
+        telegramPending += QueuedTelegram(job)
+    }
+
+    /** Retargets the existing job. A queue refresh is the same [TelegramJob], not a second transfer. */
+    private fun publishSlotPriorityLocked(job: TelegramJob) {
+        val slotMax = job.slots.values.maxOfOrNull { it.priority } ?: return
+        val next = if (job.anonymousConsumers > 0) maxOf(job.priority, slotMax) else slotMax
+        if (next == job.priority) return
+        val increased = next > job.priority
+        job.priority = next
+        if (job.cancelled || job.deferred.isCompleted) return
+        if (!job.running) {
+            job.generation += 1
+            job.sequence = telegramSequence++
+            telegramPending += QueuedTelegram(job)
+        } else if (increased) {
+            val dest = cache.fileFor(job.key)
+            telegramFetcher?.promote(
+                File(dest.parentFile, "${dest.name}.part").absolutePath,
+                next,
+            )
+        }
+        if (increased) WorkOwnership.promote("media:${job.key}", next)
+    }
+
     private suspend fun enqueueTelegram(
         key: String,
         priority: Int,
@@ -912,33 +1025,42 @@ class MediaRepository(
         totalBytes: Long? = null,
         large: Boolean = false,
         thumbnail: Boolean = false,
+        consumer: MediaConsumer? = null,
         work: suspend (Int) -> Outcome<File>,
     ): Outcome<File> {
         cache.get(key)?.let { return Outcome.Ok(it) }
+        val bound = consumer?.takeIf { it.key == key }
         val job = telegramMutex.withLock {
             check(!telegramStopped) { "download queue is shut down" }
             val existing = telegramJobs[key]
-            if (existing != null) {
+            val attached = if (existing != null) {
                 if (existing.chatId == null && chatId != null) existing.chatId = chatId
                 if (large) existing.large = true
-                if (priority > existing.priority) {
-                    existing.priority = priority
-                    if (!existing.cancelled && !existing.running) {
-                        existing.generation += 1
-                        existing.sequence = telegramSequence++
-                        telegramPending += QueuedTelegram(existing)
-                    } else if (existing.running && !existing.cancelled) {
-                        val dest = cache.fileFor(key)
-                        telegramFetcher?.promote(
-                            File(
-                                dest.parentFile,
-                                "${dest.name}.part"
-                            ).absolutePath, priority
-                        )
+                if (bound == null) {
+                    if (priority > existing.priority) {
+                        existing.priority = priority
+                        if (!existing.cancelled && !existing.running) {
+                            existing.generation += 1
+                            existing.sequence = telegramSequence++
+                            telegramPending += QueuedTelegram(existing)
+                        } else if (existing.running && !existing.cancelled) {
+                            val dest = cache.fileFor(key)
+                            telegramFetcher?.promote(
+                                File(
+                                    dest.parentFile,
+                                    "${dest.name}.part"
+                                ).absolutePath, priority
+                            )
+                        }
                     }
-                }
-                if (priority >= MediaPriority.USER) {
-                    trackUserDownloadLocked(key, name, totalBytes)
+                    if (priority >= MediaPriority.USER) {
+                        trackUserDownloadLocked(key, name, totalBytes)
+                    }
+                    existing.anonymousConsumers++
+                    existing.consumers++
+                    WorkOwnership.acquire("media:${existing.key}", existing.priority)
+                } else {
+                    attachSlotLocked(existing, bound, priority, name, totalBytes)
                 }
                 existing
             } else {
@@ -954,15 +1076,20 @@ class MediaRepository(
                 )
                 telegramJobs[key] = created
                 telegramPending += QueuedTelegram(created)
-                if (priority >= MediaPriority.USER) {
-                    trackUserDownloadLocked(key, name, totalBytes)
+                if (bound == null) {
+                    if (priority >= MediaPriority.USER) {
+                        trackUserDownloadLocked(key, name, totalBytes)
+                    }
+                    created.anonymousConsumers++
+                    created.consumers++
+                    WorkOwnership.acquire("media:${created.key}", created.priority)
+                } else {
+                    attachSlotLocked(created, bound, priority, name, totalBytes)
                 }
                 created
-            }.also {
-                it.consumers++
-                WorkOwnership.acquire("media:${it.key}", it.priority)
-                ensureTelegramWorkerLocked()
             }
+            ensureTelegramWorkerLocked()
+            attached
         }
         telegramWake.trySend(Unit)
         thumbWake.trySend(Unit)
@@ -971,15 +1098,20 @@ class MediaRepository(
                 job.deferred.await()
                 return enqueueTelegram(
                     key, priority, chatId = chatId, name = name, totalBytes = totalBytes,
-                    large = large, thumbnail = thumbnail, work = work,
+                    large = large, thumbnail = thumbnail, consumer = bound, work = work,
                 )
             }
             return job.deferred.await()
         } finally {
             withContext(NonCancellable) {
                 telegramMutex.withLock {
-                    job.consumers--
-                    WorkOwnership.release("media:${job.key}")
+                    if (bound == null) {
+                        job.anonymousConsumers--
+                        job.consumers--
+                        WorkOwnership.release("media:${job.key}")
+                    } else {
+                        detachSlotLocked(job, bound)
+                    }
                     if (job.consumers == 0) {
                         WorkOwnership.finish("media:${job.key}")
                     }
@@ -1186,6 +1318,8 @@ class MediaRepository(
         }
     }
 
+    private class ConsumerSlot(var priority: Int, var holds: Int)
+
     private class TelegramJob(
         val key: String,
         var chatId: Long?,
@@ -1199,6 +1333,8 @@ class MediaRepository(
         var generation: Int = 0,
         var running: Boolean = false,
         var consumers: Int = 0,
+        var anonymousConsumers: Int = 0,
+        val slots: LinkedHashMap<Long, ConsumerSlot> = LinkedHashMap(),
         @Volatile var cancelled: Boolean = false,
         @Volatile var preempted: Boolean = false,
         @Volatile var runner: Job? = null,

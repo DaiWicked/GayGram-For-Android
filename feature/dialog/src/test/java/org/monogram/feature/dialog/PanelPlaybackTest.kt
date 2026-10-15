@@ -3,6 +3,7 @@ package org.monogram.feature.dialog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -172,7 +173,7 @@ class PanelPlaybackTest {
                 kind = if (id == 20L) PickerMediaPreload.DocKind.Webm else PickerMediaPreload.DocKind.Tgs,
             )
         }
-        val plan = PickerMediaPreload.plan(items, visibleDocumentIds = setOf(20L))
+        val plan = PickerMediaPreload.plan(items, visibleDocumentIds = setOf(20L), idle = true)
         assertEquals(0..40, plan.window)
         assertTrue(plan.tasks.any { it.item.documentId == 12L && it.fetch == PickerMediaPreload.Fetch.Document })
         assertTrue(plan.tasks.any { it.item.documentId == 30L && it.fetch == PickerMediaPreload.Fetch.Thumb })
@@ -185,7 +186,7 @@ class PanelPlaybackTest {
         assertTrue(plan.tasks.indexOf(webm) < plan.tasks.indexOf(idleTgs))
         assertEquals(MediaPriority.VISIBLE, webm.priority)
         assertEquals(MediaPriority.IDLE, idleTgs.priority)
-        val moved = PickerMediaPreload.plan(items, visibleDocumentIds = setOf(40L))
+        val moved = PickerMediaPreload.plan(items, visibleDocumentIds = setOf(40L), idle = true)
         assertFalse(moved.tasks.any { it.item.documentId == 12L })
         assertTrue(plan.keys.contains("emoji:12"))
     }
@@ -203,7 +204,7 @@ class PanelPlaybackTest {
             listOf(true, false).flatMap { mp4 ->
                 listOf(true, false).flatMap { gzip ->
                     listOf(true, false).map { playable ->
-                        gifCellPlayer(webm, mp4, gzip, playable)
+                        gifCellPlayer(webm, mp4, gzip, playable, lease = playable)
                     }
                 }
             }
@@ -211,19 +212,23 @@ class PanelPlaybackTest {
         assertEquals(16, players.size)
         assertEquals(
             GifCellPlayer.Video,
-            gifCellPlayer(webm = true, mp4 = false, gzip = false, playable = true)
+            gifCellPlayer(webm = true, mp4 = false, gzip = false, playable = true, lease = true)
         )
         assertEquals(
             GifCellPlayer.Tgs,
-            gifCellPlayer(webm = false, mp4 = false, gzip = true, playable = true)
+            gifCellPlayer(webm = false, mp4 = false, gzip = true, playable = true, lease = true)
         )
         assertEquals(
             GifCellPlayer.Still,
-            gifCellPlayer(webm = true, mp4 = false, gzip = false, playable = false)
+            gifCellPlayer(webm = true, mp4 = false, gzip = false, playable = false, lease = false)
         )
         assertEquals(
             GifCellPlayer.Image,
-            gifCellPlayer(webm = false, mp4 = false, gzip = false, playable = true)
+            gifCellPlayer(webm = false, mp4 = false, gzip = false, playable = true, lease = true)
+        )
+        assertEquals(
+            GifCellPlayer.Still,
+            gifCellPlayer(webm = false, mp4 = false, gzip = true, playable = true, lease = false)
         )
         assertTrue(players.none { player -> player.name == "Vpx" })
     }
@@ -277,5 +282,106 @@ class PanelPlaybackTest {
         val start = expanded.packStart.getValue(9L)
         assertEquals(expanded.categoryStart.getValue(SystemEmojiCategoryKind.Smileys) + 3, start)
         assertTrue(expanded.cells[start] is PickerHeaderCell)
+    }
+
+    @Test
+    fun contentTypeStaysStableAndNearestWaiterKeepsNewerGeneration() {
+        val document = PickerDocumentCell(packId = 1L, documentId = 4L)
+        assertEquals("doc:1:4", document.key)
+        assertEquals(
+            pickerGridContentType(document, stickers = false, animating = false),
+            pickerGridContentType(document, stickers = false, animating = true),
+        )
+        assertEquals(
+            "custom-emoji",
+            pickerGridContentType(document, stickers = false, animating = true)
+        )
+        assertEquals("gif", GifItemContentType)
+        assertEquals("sticker", pickerGridContentType(document, stickers = true, animating = false))
+        assertEquals(
+            "header",
+            pickerGridContentType(
+                PickerHeaderCell(key = "pack:1", packId = 1L),
+                stickers = true,
+                animating = true
+            ),
+        )
+        assertEquals(
+            "system-emoji",
+            pickerGridContentType(
+                PickerGlyphCell("\uD83D\uDE00", 0, section = "recent"),
+                stickers = false,
+                animating = true
+            ),
+        )
+        assertEquals(
+            "loading-error",
+            pickerGridContentType(
+                PickerPlaceholderCell(1L, 0, failed = false),
+                stickers = true,
+                animating = false
+            ),
+        )
+        assertEquals(
+            "loading-error",
+            pickerGridContentType(
+                PickerPlaceholderCell(1L, 0, failed = true),
+                stickers = true,
+                animating = true
+            ),
+        )
+        assertEquals(
+            "expansion",
+            pickerGridContentType(PickerExpandCell(1L), stickers = false, animating = true),
+        )
+        assertNotEquals(
+            PickerGlyphCell("\uD83D\uDE00", 0, section = "recent").key,
+            PickerGlyphCell("\uD83D\uDE00", 0, section = "Smileys").key,
+        )
+        assertEquals("doc:1:4:2", PickerDocumentCell(1L, 4L, occurrence = 2).key)
+
+        val cells = listOf(
+            PickerHeaderCell(key = "recent", recent = true),
+            PickerGlyphCell("\uD83D\uDE00", 0, section = "recent"),
+            PickerHeaderCell(key = "cat:Smileys", category = SystemEmojiCategoryKind.Smileys),
+            PickerGlyphCell("\uD83D\uDE01", 0, section = "Smileys"),
+            PickerHeaderCell(key = "pack:9", packId = 9L, title = "Cats"),
+            PickerDocumentCell(9L, 4L),
+        )
+        val marks = pickerSectionMarks(cells)
+        assertNull(activePickerSection(marks, 1, cells.lastIndex)?.category)
+        assertEquals(
+            SystemEmojiCategoryKind.Smileys,
+            activePickerSection(marks, 3, cells.lastIndex)?.category,
+        )
+        assertEquals(9L, activePickerSection(marks, 5, cells.lastIndex)?.packId)
+
+        val ledger = PanelBudgetLedger()
+        val tickets = (1L..6L).map { id -> ledger.tryAnimate(id, place = id.toInt() * 10) }
+        assertTrue(tickets.all { it != null })
+        assertEquals(6, ledger.liveLoops)
+        assertNull(ledger.tryAnimate(7L, place = 100))
+        ledger.watchAnimate(7L, place = 100)
+        ledger.watchAnimate(8L, place = 12)
+        ledger.watchAnimate(9L, place = 80)
+        assertEquals(8L, ledger.nearestAnimateWaiter(10))
+        val admitted = ledger.stopAnimate(1L, tickets.first()!!)
+        assertEquals(8L, admitted)
+        assertEquals(6, ledger.liveLoops)
+        assertNull(ledger.tryAnimate(10L))
+        val reserved = ledger.leaseGeneration(8L)
+        val newer = ledger.tryAnimate(8L, place = 12)
+        assertNotNull(reserved)
+        assertNotNull(newer)
+        assertNotEquals(reserved, newer)
+        assertEquals(newer, ledger.leaseGeneration(8L))
+        assertNull(ledger.stopAnimate(8L, reserved!!))
+        assertEquals(6, ledger.liveLoops)
+        assertEquals(newer, ledger.leaseGeneration(8L))
+        ledger.unwatchAnimate(7L)
+        ledger.unwatchAnimate(9L)
+        assertNull(ledger.stopAnimate(8L, newer!!))
+        assertEquals(5, ledger.liveLoops)
+        assertNull(ledger.leaseGeneration(8L))
     }
 }

@@ -39,7 +39,7 @@ internal fun DialogScreenDialogs(
     component: DialogComponent,
     state: DialogStore.State,
     composer: MutableState<TextFieldValue>,
-    packDocumentId: MutableState<Long?>,
+    openedPack: MutableState<OpenedPack?>,
     instantViewUrl: MutableState<String?>,
     instantViewHash: androidx.compose.runtime.MutableIntState,
     pendingDeleteIds: MutableState<List<Int>>,
@@ -50,7 +50,7 @@ internal fun DialogScreenDialogs(
     onLocation: () -> Unit,
     onCloseAttachAnimated: () -> Unit,
 ) {
-    var packDocumentId by packDocumentId
+    var openedPack by openedPack
     var instantViewUrl by instantViewUrl
     var instantViewHash by instantViewHash
     var pendingDeleteIds by pendingDeleteIds
@@ -148,14 +148,15 @@ internal fun DialogScreenDialogs(
             onDismiss = component::onClearForward,
         )
     }
-    packDocumentId?.let { documentId ->
+    openedPack?.let { pack ->
         CompositionLocalProvider(
             LocalDialogMedia provides component.mediaRepository,
         ) {
             StickerPackSheet(
-                documentId = documentId,
+                documentId = pack.documentId,
+                emojiPack = pack.emojiPack,
                 client = component.client,
-                onDismiss = { packDocumentId = null },
+                onDismiss = { openedPack = null },
             )
         }
     }

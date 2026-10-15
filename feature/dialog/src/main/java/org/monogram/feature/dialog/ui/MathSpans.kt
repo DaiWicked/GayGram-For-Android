@@ -41,7 +41,7 @@ internal fun MathAwareText(
     selectAllNonce: Int = 0,
     onSelectedText: (String) -> Unit = {},
     onTextLayout: (TextLayoutResult) -> Unit = {},
-    onOpenStickerPack: ((Long) -> Unit)? = null,
+    onOpenStickerPack: ((documentId: Long, emojiPack: Boolean) -> Unit)? = null,
     onSpoilerClick: (() -> Unit)? = null,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     scaleMessageText: Boolean = true,

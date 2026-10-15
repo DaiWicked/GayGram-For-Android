@@ -53,9 +53,7 @@ import org.monogram.core.models.poll
 import org.monogram.core.models.remapTextEntities
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
-import org.monogram.core.ui.components.OnlineLeaseExpiry
 import org.monogram.core.ui.components.SearchField
-import org.monogram.core.ui.components.rememberPeerStatusNow
 import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.DialogComponent
 import org.monogram.feature.dialog.R
@@ -100,7 +98,9 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
     val peerListId = rememberSaveable { mutableStateOf<Int?>(null) }
     val peerListKind = rememberSaveable { mutableStateOf<String?>(null) }
     val peerListFilter = rememberSaveable { mutableStateOf<String?>(null) }
-    val packDocumentId = rememberSaveable { mutableStateOf<Long?>(null) }
+    val openedPack = rememberSaveable(stateSaver = OpenedPackSaver) {
+        mutableStateOf<OpenedPack?>(null)
+    }
     val selectingMessageId = rememberSaveable { mutableStateOf<Int?>(null) }
     val selectedMessageIds =
         rememberSaveable(state.chatId.value) { mutableStateOf<List<Int>>(emptyList()) }
@@ -320,12 +320,6 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
         loadingNewer = state.loadingNewer,
         prefetchingOlder = state.prefetchingOlder,
     )
-    // Saved Messages has no presence, so it never shows a status or a live lease.
-    val presenceStatus = state.peerStatus.takeIf { !state.isSelf }
-    val presenceAt = state.peerStatusAt.takeIf { !state.isSelf }
-    val presenceNow = rememberPeerStatusNow(presenceStatus, presenceAt)
-    OnlineLeaseExpiry(presenceStatus, presenceAt) { component.onRefreshPresence() }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
@@ -337,9 +331,6 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                 state = state,
                 title = title,
                 syncStatus = syncStatus,
-                presenceStatus = presenceStatus,
-                presenceAt = presenceAt,
-                presenceNow = presenceNow,
                 showSearch = showSearch,
                 onToggleSearch = {
                     if (showSearch) {
@@ -349,7 +340,9 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                         showSearch = true
                     }
                 },
-                onOpenEmojiStatus = { packDocumentId.value = it },
+                onOpenEmojiStatus = {
+                    openedPack.value = OpenedPack(it, emojiPack = true)
+                },
                 selectedMessageCount = selectedMessageIds.value.size,
                 canForwardSelected = forwardableSelectedMessages.isNotEmpty() && forwardableSelectedMessages.size == selectedMessageIds.value.size,
                 canDeleteSelected = deleteOffer(
@@ -599,7 +592,7 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                             composer = composer,
                             selectingMessageId = selectingMessageId,
                             selectedMessageIds = selectedMessageIds,
-                            packDocumentId = packDocumentId,
+                            openedPack = openedPack,
                             instantViewUrl = instantViewUrl,
                             instantViewHash = instantViewHash,
                             pendingDeleteIds = pendingDeleteIds,
@@ -614,7 +607,7 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                             component = component,
                             state = state,
                             composer = composer,
-                            packDocumentId = packDocumentId,
+                            openedPack = openedPack,
                             instantViewUrl = instantViewUrl,
                             instantViewHash = instantViewHash,
                             pendingDeleteIds = pendingDeleteIds,

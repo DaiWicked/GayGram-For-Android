@@ -118,7 +118,7 @@ internal fun ColumnScope.DialogHistoryPane(
     composer: MutableState<TextFieldValue>,
     selectingMessageId: MutableState<Int?>,
     selectedMessageIds: MutableState<List<Int>>,
-    packDocumentId: MutableState<Long?>,
+    openedPack: MutableState<OpenedPack?>,
     instantViewUrl: MutableState<String?>,
     instantViewHash: MutableIntState,
     pendingDeleteIds: MutableState<List<Int>>,
@@ -144,7 +144,7 @@ internal fun ColumnScope.DialogHistoryPane(
     var menuTouch by remember { mutableStateOf<Offset?>(null) }
     var selectingMessageId by selectingMessageId
     var selectedIds by selectedMessageIds
-    var packDocumentId by packDocumentId
+    var openedPack by openedPack
     var instantViewUrl by instantViewUrl
     var instantViewHash by instantViewHash
     var pendingDeleteIds by pendingDeleteIds
@@ -584,7 +584,10 @@ internal fun ColumnScope.DialogHistoryPane(
                                                     )
                                                 }
                                             },
-                                            onOpenStickerPack = { packDocumentId = it },
+                                            onOpenStickerPack = { documentId, emojiPack ->
+                                                openedPack =
+                                                    OpenedPack(documentId, emojiPack = emojiPack)
+                                            },
                                             onInstantView = { preview ->
                                                 instantViewUrl = preview.url
                                                 instantViewHash = preview.hash

@@ -41,6 +41,9 @@ import org.monogram.core.models.TextEntity
 import org.monogram.core.ui.components.LocalMediaAnimationEnabled
 import org.monogram.core.ui.loading.MonogramLoading
 import org.monogram.core.ui.rememberEnsuredFile
+import org.monogram.feature.dialog.PickerPoster
+import org.monogram.feature.dialog.PosterLoadGate
+import org.monogram.feature.dialog.posterRequestKey
 import org.monogram.network.http.MediaRepository
 import java.io.File
 
@@ -153,12 +156,14 @@ internal fun CustomEmojiGlyph(
     playback: PanelCellPlayback? = null,
 ) {
     val repo = LocalDialogMedia.current
-    val animationEnabled = LocalMediaAnimationEnabled.current
+    val animationEnabled = if (playback == null) LocalMediaAnimationEnabled.current else false
     val (mediaVisible, visibilityModifier) = rememberViewportVisible(documentId)
     val mediaAnimationEnabled = playback == null && animationEnabled && mediaVisible
     val placedVisibility = if (playback == null) visibilityModifier else Modifier
-    val cacheGeneration = repo?.cacheGeneration("emoji:$documentId")
-        ?.collectAsState(initial = 0L)?.value ?: 0L
+    val cacheChanges = remember(repo, documentId) {
+        repo?.cacheGeneration("emoji:$documentId")
+    }
+    val cacheGeneration = cacheChanges?.collectAsState(initial = 0L)?.value ?: 0L
     val file = rememberEnsuredFile(
         generation = cacheGeneration,
         identity = documentId,
@@ -170,9 +175,13 @@ internal fun CustomEmojiGlyph(
                 is Outcome.Err -> null
             }
         },
+        demand = playback?.decode != false,
     )
     val click = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     val local = file?.takeIf { it.exists() && it.length() > 0L }
+    val kind = remember(cacheGeneration, local?.absolutePath, local?.length()) {
+        local?.let(::glyphFileKind)
+    }
     Box(
         modifier = Modifier
             .size(size)
@@ -189,14 +198,14 @@ internal fun CustomEmojiGlyph(
             return@Box
         }
         when {
-            playback != null && (gzipFile(local) || webmFile(local)) -> PanelPooledGlyph(
+            playback != null && (kind == GlyphFileKind.Gzip || kind == GlyphFileKind.Webm) -> PanelPooledGlyph(
                 documentId = documentId,
                 file = local,
                 playback = playback,
                 modifier = Modifier.fillMaxSize(),
             )
 
-            gzipFile(local) -> {
+            kind == GlyphFileKind.Gzip -> {
                 val bytes by produceState<ByteArray?>(initialValue = null, local) {
                     value = withContext(Dispatchers.IO) {
                         runCatching { local.readBytes() }.getOrNull()
@@ -214,7 +223,7 @@ internal fun CustomEmojiGlyph(
                 }
             }
 
-            webmFile(local) -> {
+            kind == GlyphFileKind.Webm -> {
                 VpxStickerPlayer(
                     file = local,
                     active = mediaAnimationEnabled,
@@ -234,16 +243,27 @@ internal fun CustomEmojiGlyph(
     }
 }
 
+internal val PanelVideoPosterGate = PosterLoadGate<Bitmap>()
+
 @Composable
 internal fun VideoStill(
     file: File,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Fit,
     maxSizePx: Int = 720,
+    extract: Boolean = true,
+    requestKey: String? = null,
 ) {
-    val thumbnail by produceState<Bitmap?>(initialValue = null, file, maxSizePx) {
-        val decoded = withContext(Dispatchers.IO) { videoThumbnail(file, maxSizePx) }
-        if (decoded != null) value = decoded
+    val maxSide = maxSizePx.coerceAtLeast(1)
+    val key = requestKey ?: posterRequestKey(file.absolutePath, maxSide)
+    var thumbnail by remember(key) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(key, file, maxSide, extract) {
+        PanelVideoPosterGate.cached(key)?.let { thumbnail = it }
+        if (!extract || thumbnail != null || gzipFile(file)) return@LaunchedEffect
+        val decoded = PanelVideoPosterGate.load(key) {
+            withContext(Dispatchers.IO) { videoThumbnail(file, maxSide) }
+        }
+        if (decoded != null) thumbnail = decoded
     }
     if (thumbnail != null) {
         Image(
@@ -254,3 +274,5 @@ internal fun VideoStill(
         )
     }
 }
+
+internal fun coldPosterAdmitted(choice: PickerPoster): Boolean = choice == PickerPoster.ColdStill

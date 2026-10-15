@@ -173,12 +173,16 @@ class DialogComponent(
         }
     }
 
-    fun onPickerDocumentsVisible(documentIds: List<Long>, visibleIds: Set<Long>) {
+    fun onPickerDocumentsVisible(
+        documentIds: List<Long>,
+        visibleIds: Set<Long>,
+        idle: Boolean,
+    ) {
         preloadScope.launch {
             val items = PickerMediaPreload.documents(documentIds).map { item ->
                 item.copy(kind = pickerDocKind(mediaRepository?.cachedFile(item.cacheKey)))
             }
-            pickerPreloader.onPlan(PickerMediaPreload.plan(items, visibleIds))
+            pickerPreloader.onPlan(PickerMediaPreload.plan(items, visibleIds, idle = idle))
         }
     }
 

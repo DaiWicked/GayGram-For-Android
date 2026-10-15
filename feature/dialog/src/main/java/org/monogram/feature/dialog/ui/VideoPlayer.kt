@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -115,18 +116,9 @@ fun VideoPlayer(
     val lifecycleOwner = LocalLifecycleOwner.current
     val animationEnabled = LocalMediaAnimationEnabled.current
     val playable = active && animationEnabled
-    var engaged by remember(file) { mutableStateOf(playable) }
-    LaunchedEffect(playable) {
-        if (playable) engaged = true
-    }
-    if (compact && !engaged) {
-        VideoStill(
-            file = file,
-            modifier = modifier,
-            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-        )
-        return
-    }
+    val currentActive = rememberUpdatedState(active)
+    val currentAnimation = rememberUpdatedState(animationEnabled)
+    if (compact && isGif && !playable) return
     val uri = remember(file) { Uri.fromFile(file) }
     var muted by remember(file, isGif) { mutableStateOf(isGif) }
     var fullscreen by rememberSaveable(file.absolutePath) { mutableStateOf(false) }
@@ -193,7 +185,14 @@ fun VideoPlayer(
     DisposableEffect(player, lifecycleOwner, isGif) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) player.pause()
-            if (event == Lifecycle.Event.ON_START && isGif && active && animationEnabled) player.play()
+            if (
+                event == Lifecycle.Event.ON_START &&
+                isGif &&
+                currentActive.value &&
+                currentAnimation.value
+            ) {
+                player.play()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) player.pause()

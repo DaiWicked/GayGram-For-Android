@@ -24,6 +24,7 @@ import org.monogram.core.models.UploadItem
 import org.monogram.core.models.isPlaceholderPeerTitle
 import org.monogram.core.models.preferredPeerTitle
 import org.monogram.core.models.replaceComposedDialogSeed
+import org.monogram.core.ui.components.PeerPresence
 import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.DialogStore
 import org.monogram.feature.dialog.HISTORY_CACHE_LIMIT
@@ -46,6 +47,17 @@ import org.monogram.feature.dialog.unreadDividerIndex
 import org.monogram.network.bridge.MtprotoClient
 import org.monogram.network.bridge.MtprotoUpdate
 import kotlin.coroutines.CoroutineContext
+
+private fun presenceLabelChanged(
+    previousStatus: String?,
+    previousAt: Long?,
+    nextStatus: String?,
+    nextAt: Long?,
+): Boolean {
+    val now = System.currentTimeMillis()
+    return LastSeen.resolve(previousStatus, previousAt, now) !=
+            LastSeen.resolve(nextStatus, nextAt, now)
+}
 
 internal class DialogExecutor(
     internal val client: MtprotoClient,
@@ -208,7 +220,20 @@ internal class DialogExecutor(
                         ) {
                             return@onEach
                         }
-                        dispatch(Msg.PeerStatus(update.status, update.statusAt))
+                        PeerPresence.record(
+                            update.userId.value,
+                            update.status,
+                            update.statusAt,
+                        )
+                        if (presenceLabelChanged(
+                                current.peerStatus,
+                                current.peerStatusAt,
+                                update.status,
+                                update.statusAt,
+                            )
+                        ) {
+                            dispatch(Msg.PeerStatus(update.status, update.statusAt))
+                        }
                         scope.launch {
                             sessionStore?.updatePeerStatus(
                                 update.userId.value,
@@ -232,8 +257,17 @@ internal class DialogExecutor(
                         if (current.readOutboxMaxId != chat.readOutboxMaxId) {
                             dispatch(Msg.ReadOutbox(chat.readOutboxMaxId))
                         }
-                        if (current.peerStatus != chat.peerStatus ||
-                            current.peerStatusAt != chat.peerStatusAt
+                        PeerPresence.record(
+                            chat.id.value,
+                            chat.peerStatus,
+                            chat.peerStatusAt,
+                        )
+                        if (presenceLabelChanged(
+                                current.peerStatus,
+                                current.peerStatusAt,
+                                chat.peerStatus,
+                                chat.peerStatusAt,
+                            )
                         ) {
                             dispatch(Msg.PeerStatus(chat.peerStatus, chat.peerStatusAt))
                         }

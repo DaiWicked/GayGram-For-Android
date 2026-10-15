@@ -103,11 +103,10 @@ object PickerMediaPreload {
         val visibleIndices = items.mapIndexedNotNull { index, item ->
             index.takeIf { item.documentId in visibleDocumentIds }
         }
-        val visibleRange = if (visibleIndices.isEmpty()) {
-            0..0
-        } else {
-            visibleIndices.min()..visibleIndices.max()
+        if (visibleIndices.isEmpty()) {
+            return Plan(IntRange.EMPTY, IntRange.EMPTY, emptyList())
         }
+        val visibleRange = visibleIndices.min()..visibleIndices.max()
         val window = expanded(visibleRange, thumbRadius, items.lastIndex)
         val documents = expanded(visibleRange, documentRadius, items.lastIndex)
         val tasks = ArrayList<Task>()
@@ -115,19 +114,30 @@ object PickerMediaPreload {
             val item = items[index]
             val visible = index in visibleRange
             if (item.gif) {
-                val thumbKey = item.thumbCacheKey ?: mediaThumbCacheKey(item.cacheKey)
-                tasks += Task(
-                    item = item,
-                    fetch = Fetch.Thumb,
-                    priority = if (visible) MediaPriority.DEFAULT else MediaPriority.IDLE,
-                    cacheKey = thumbKey,
-                )
+                if (visible || idle) {
+                    val thumbKey = item.thumbCacheKey ?: mediaThumbCacheKey(item.cacheKey)
+                    tasks += Task(
+                        item = item,
+                        fetch = Fetch.Thumb,
+                        priority = if (visible) MediaPriority.DEFAULT else MediaPriority.IDLE,
+                        cacheKey = thumbKey,
+                    )
+                }
                 if (idle && visible) {
                     tasks += Task(
                         item = item,
                         fetch = Fetch.Document,
                         priority = MediaPriority.DEFAULT,
                         cacheKey = item.cacheKey,
+                    )
+                }
+            } else if (!idle) {
+                if (visible && item.thumbCacheKey != null) {
+                    tasks += Task(
+                        item = item,
+                        fetch = Fetch.Thumb,
+                        priority = MediaPriority.DEFAULT,
+                        cacheKey = item.thumbCacheKey,
                     )
                 }
             } else if (index in documents) {

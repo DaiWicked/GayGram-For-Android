@@ -35,8 +35,14 @@ import org.monogram.core.ui.loading.MonogramLoadingInlineSize
 import org.monogram.core.ui.mp4File
 import org.monogram.core.ui.webmFile
 import org.monogram.feature.dialog.GifCellPlayer
+import org.monogram.feature.dialog.PanelBucket
+import org.monogram.feature.dialog.PanelTag
+import org.monogram.feature.dialog.PickerPoster
 import org.monogram.feature.dialog.R
 import org.monogram.feature.dialog.gifCellPlayer
+import org.monogram.feature.dialog.panelBucketSide
+import org.monogram.feature.dialog.posterRequestKey
+import org.monogram.feature.dialog.savedGifPoster
 import org.monogram.network.http.MediaPriority
 import org.monogram.network.http.MediaRepository
 import org.monogram.network.http.mediaThumbCacheKey
@@ -49,8 +55,10 @@ internal fun SavedGifCell(
     onClick: () -> Unit,
     thumbOnly: Boolean = false,
     panelLoop: Boolean? = null,
+    posterReady: Boolean? = null,
+    animationsEnabled: Boolean? = null,
 ) {
-    val animationEnabled = LocalMediaAnimationEnabled.current
+    val animationEnabled = animationsEnabled ?: LocalMediaAnimationEnabled.current
     val (measuredVisible, visibilityModifier) = rememberViewportVisible("gif:${gif.documentId}")
     val visible = if (panelLoop == null) measuredVisible else panelLoop
     val thumbKey = gif.thumbCacheKey ?: mediaThumbCacheKey(gif.cacheKey)
@@ -63,9 +71,12 @@ internal fun SavedGifCell(
     var failed by remember(gif.documentId) { mutableStateOf(false) }
     var unavailable by remember(gif.documentId) { mutableStateOf(false) }
     var retry by remember(gif.documentId) { mutableStateOf(0) }
+    var poster by remember(gif.documentId) { mutableStateOf<File?>(null) }
     val animate = animationEnabled && visible && !thumbOnly
+    val lease = panelLoop ?: animate
+    val admitPoster = posterReady ?: (visible && !thumbOnly)
 
-    LaunchedEffect(cacheGeneration, animate) {
+    LaunchedEffect(cacheGeneration, animate, admitPoster) {
         val repo = mediaRepository ?: return@LaunchedEffect
         val full = repo.cachedFile(gif.cacheKey)?.takeIf { it.exists() && it.length() > 0L }
         if (full != null) {
@@ -74,6 +85,9 @@ internal fun SavedGifCell(
         } else if (file == null) {
             repo.cachedFile(thumbKey)?.takeIf { it.exists() && it.length() > 0L }?.let { file = it }
         }
+        repo.cachedFile(thumbKey)?.takeIf {
+            it.exists() && it.length() > 0L && stillImageFile(it) && !gzipFile(it)
+        }?.let { poster = it }
     }
 
     LaunchedEffect(mediaRepository, gif.cacheKey, thumbKey, visible, retry) {
@@ -145,13 +159,35 @@ internal fun SavedGifCell(
                     mediaRepository?.cachedFile(gif.cacheKey)?.let { cached ->
                         cached.exists() && cached.absolutePath == local.absolutePath
                     } == true
-            when (gifCellPlayer(webmFile(local), mp4File(local), gzipFile(local), playableFile)) {
+            val webm = webmFile(local)
+            val gzip = gzipFile(local)
+            var knownAlpha by remember(local.absolutePath) { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(local.absolutePath, admitPoster, webm) {
+                if (!webm) {
+                    knownAlpha = false
+                    return@LaunchedEffect
+                }
+                if (!admitPoster) return@LaunchedEffect
+                knownAlpha = withContext(Dispatchers.IO) {
+                    sniffStickerTag(local) == PanelTag.WebmAlpha
+                }
+            }
+            val alphaVideo = webm && knownAlpha == true
+            val choice = savedGifPoster(
+                tgs = gzip,
+                webm = webm,
+                knownAlpha = knownAlpha,
+                hasCachedPoster = poster != null,
+                posterIsPng = alphaVideo && pngFile(poster),
+                admitPoster = admitPoster,
+            )
+            when (gifCellPlayer(webm, mp4File(local), gzip, playableFile, lease)) {
                 GifCellPlayer.Video -> VideoPlayer(
                     file = local,
                     isGif = true,
                     durationSeconds = null,
                     compact = true,
-                    active = animate,
+                    active = true,
                     onClick = onClick,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -167,23 +203,44 @@ internal fun SavedGifCell(
                             lottieBytes = bytes!!,
                             modifier = Modifier.fillMaxSize(),
                             displaySize = PickerMetrics.GifCell.dp,
-                            active = animate,
+                            active = true,
                         )
                     }
                 }
 
-                GifCellPlayer.Still -> VideoStill(
-                    file = local,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
+                GifCellPlayer.Still -> {
+                    val posterSide = panelBucketSide(PanelBucket.KeyboardSticker)
+                    if (
+                        (choice == PickerPoster.CachedTransparent || choice == PickerPoster.CachedStill) &&
+                        poster != null
+                    ) {
+                        AsyncImage(
+                            model = poster,
+                            contentDescription = stringResource(R.string.dialog_saved_gifs),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
+                    if (!gzip && !alphaVideo) {
+                        VideoStill(
+                            file = local,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                            maxSizePx = posterSide,
+                            extract = choice == PickerPoster.ColdStill,
+                            requestKey = posterRequestKey("gif:${gif.documentId}", posterSide),
+                        )
+                    }
+                }
 
-                GifCellPlayer.Image -> AsyncImage(
-                    model = local,
-                    contentDescription = stringResource(R.string.dialog_saved_gifs),
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
+                GifCellPlayer.Image -> if (stillImageFile(local) && !gzip) {
+                    AsyncImage(
+                        model = local,
+                        contentDescription = stringResource(R.string.dialog_saved_gifs),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                    )
+                }
             }
         }
     }

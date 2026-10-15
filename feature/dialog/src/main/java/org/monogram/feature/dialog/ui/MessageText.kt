@@ -51,7 +51,7 @@ internal fun MessageText(
     selectAllNonce: Int = 0,
     onSelectedText: (String) -> Unit = {},
     onTextLayout: (TextLayoutResult) -> Unit = {},
-    onOpenStickerPack: ((Long) -> Unit)? = null,
+    onOpenStickerPack: ((documentId: Long, emojiPack: Boolean) -> Unit)? = null,
     mathSpans: List<MathSpan> = emptyList(),
 ) {
     val density = LocalDensity.current
@@ -119,7 +119,11 @@ internal fun MessageText(
         }
     }
     val emojiInline = remember(text, entities, onOpenStickerPack) {
-        customEmojiInlineMap(text, entities, onOpenStickerPack)
+        customEmojiInlineMap(
+            text,
+            entities,
+            onOpenStickerPack?.let { open -> { documentId -> open(documentId, true) } },
+        )
     }
     val formulaInline = remember(formulaImages, density) {
         formulaImages.entries.associate { (span, bitmap) ->
