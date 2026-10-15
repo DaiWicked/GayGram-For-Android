@@ -19,9 +19,12 @@ class ProtectedFileCacheTest {
         cache.setProtectedKeys("list", listOf("avatar:1"))
         cache.setProtectedKeys("dialog", listOf("avatar:1"))
         cache.setProtectedKeys("dialog", emptyList())
-        cache.put("doc:2", byteArrayOf(4, 5, 6, 7))
+        org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+            cache.put("doc:2", byteArrayOf(4, 5, 6, 7))
+        }
         assertNotNull(cache.get("avatar:1"))
         assertNull(cache.get("doc:2"))
+        cache.flushIndex()
         val restored = FileCache(root, maxBytes = 6)
         assertNotNull(restored.get("avatar:1"))
         assertNull(restored.get("doc:2"))

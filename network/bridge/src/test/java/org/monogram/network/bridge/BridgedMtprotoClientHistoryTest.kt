@@ -700,6 +700,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                    senderPhotoCacheKey = null,
                 ),
             ),
             UpdateEventDto.MessagesDeleted(chatId = 42L, messageIds = listOf(7)),
@@ -867,6 +868,9 @@ class BridgedMtprotoClientHistoryTest {
         private val historyHeight: Int? = null,
         private val chatLeft: Boolean = false,
     ) : MtprotoNative by MtprotoNative.Stub {
+        override fun drainUpdateBatches(handle: Long) =
+            uniffi.monogram_mtproto.UpdateDrainDto(emptyList(), drainUpdates(handle), false)
+
         var getChatsCalls = 0
         var getHistoryCalls = 0
         var downloadCalls = 0
@@ -985,6 +989,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                    senderPhotoCacheKey = null,
                 ),
             )
         }
@@ -1030,6 +1035,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                    senderPhotoCacheKey = null,
                 ),
             )
         }
@@ -1125,6 +1131,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                        senderPhotoCacheKey = null,
                     ),
                 ),
             )
@@ -1187,6 +1194,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                senderPhotoCacheKey = null,
             )
         }
 
@@ -1237,6 +1245,7 @@ class BridgedMtprotoClientHistoryTest {
                     discussionPeerId = null,
                     replyMarkupJson = null,
                     forumTopic = false,
+                    senderPhotoCacheKey = null,
                 ),
             )
         }

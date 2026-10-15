@@ -17,7 +17,7 @@ fn logout_clears_unauthorized_local_session_without_network() {
         user_id: None,
         peers: HashMap::new(),
         updates: None,
-        media: MediaIndex::new(),
+        media: MediaIndex::default(),
         updates_started: false,
         channel_pts: HashMap::new(),
         channel_recovery: VecDeque::new(),
@@ -32,8 +32,10 @@ fn logout_clears_unauthorized_local_session_without_network() {
         perm_salt: 0,
         perm_session_id: 0,
         dc_auth_keys: HashMap::new(),
+        journal: Default::default(),
     };
-    persist(&state).expect("seed session");
+    let mut state = state;
+    persist(&mut state).expect("seed session");
     assert!(path.exists());
 
     logout(handle).expect("local logout");
@@ -99,7 +101,7 @@ fn cached_foreign_dc_key_skips_export_until_the_key_is_unusable() {
         user_id: Some(1),
         peers: HashMap::new(),
         updates: None,
-        media: MediaIndex::new(),
+        media: MediaIndex::default(),
         updates_started: false,
         channel_pts: HashMap::new(),
         channel_recovery: VecDeque::new(),
@@ -114,6 +116,7 @@ fn cached_foreign_dc_key_skips_export_until_the_key_is_unusable() {
         perm_salt: 0,
         perm_session_id: 0,
         dc_auth_keys,
+        journal: Default::default(),
     };
     let foreign = copy_authorization_to_dc(&mut state, 4).unwrap();
     assert_eq!(foreign.dc_id, 4);
@@ -185,7 +188,7 @@ fn identity_changes_drop_dc_auth_and_a_later_save_cannot_restore_them() {
     assert!(client.data.lock().dc_auth_keys.is_empty());
     assert!(client.data.lock().dc_temp_auth.is_empty());
     let snapshot = client.main.lock().snapshot.clone();
-    let state = ClientState {
+    let mut state = ClientState {
         api_id: 1,
         api_hash: "hash".into(),
         session_path: path.clone(),
@@ -193,7 +196,7 @@ fn identity_changes_drop_dc_auth_and_a_later_save_cannot_restore_them() {
         user_id: None,
         peers: HashMap::new(),
         updates: None,
-        media: MediaIndex::new(),
+        media: MediaIndex::default(),
         updates_started: false,
         channel_pts: HashMap::new(),
         channel_recovery: VecDeque::new(),
@@ -208,8 +211,9 @@ fn identity_changes_drop_dc_auth_and_a_later_save_cannot_restore_them() {
         perm_salt: 0,
         perm_session_id: 0,
         dc_auth_keys: client.data.lock().dc_auth_keys.clone(),
+        journal: Default::default(),
     };
-    persist(&state).unwrap();
+    persist(&mut state).unwrap();
     let loaded = FileSessionStore::new(&path).load().unwrap().unwrap();
     assert!(loaded.dc_auth_keys.is_empty());
     destroy_client(handle);
@@ -388,7 +392,7 @@ fn empty_update_poll_skips_cache_clone() {
     }
     let _ = take_update_cache_clones();
     let events = drain_updates(handle).unwrap();
-    assert!(events.is_empty());
+    assert!(events.batches.is_empty() && events.live_events.is_empty());
     assert_eq!(take_update_cache_clones(), 0);
     destroy_client(handle);
     let _ = std::fs::remove_file(path);

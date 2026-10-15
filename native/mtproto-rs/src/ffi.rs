@@ -1,4 +1,5 @@
 use crate::client;
+use crate::{UpdateBatchDto, UpdateDrainDto};
 
 #[cfg(target_os = "android")]
 #[allow(unsafe_code)]
@@ -76,6 +77,19 @@ pub fn release_request_control(id: u64) {
     request_control::release(id);
 }
 
+#[uniffi::export]
+pub fn promote_request_control(id: u64, class: i32) {
+    let class = match class {
+        0 => scheduler::RequestClass::InteractiveRead,
+        1 => scheduler::RequestClass::BackgroundRead,
+        2 | 5 | 6 | 7 => scheduler::RequestClass::InteractiveMedia,
+        3 => scheduler::RequestClass::BackgroundMedia,
+        4 => scheduler::RequestClass::InteractiveWrite,
+        _ => return,
+    };
+    request_control::promote(id, class);
+}
+
 /// 0 interactive read, 1 background read, 2 interactive media, 3 background media,
 /// 4 interactive write, 5 ordinary media, 6 visible media, 7 user media.
 #[uniffi::export]
@@ -112,7 +126,7 @@ pub fn set_file_part_kib(kib: i32) {
 
 #[uniffi::export]
 pub fn set_download_chunk_kib(kib: i32) {
-    crate::media::set_chunk_size(kib * 1024);
+    crate::media::set_chunk_size(kib.checked_mul(1024).unwrap_or(0));
 }
 
 #[uniffi::export(callback_interface)]
@@ -858,8 +872,22 @@ pub fn clear_active_dialog(handle: u64) -> Result<(), MtprotoError> {
 }
 
 #[uniffi::export]
-pub fn drain_updates(handle: u64) -> Result<Vec<UpdateEventDto>, MtprotoError> {
+pub fn drain_updates(handle: u64) -> Result<UpdateDrainDto, MtprotoError> {
     client::drain_updates(handle)
+}
+
+#[uniffi::export]
+pub fn pending_update_batches(handle: u64) -> Result<Vec<UpdateBatchDto>, MtprotoError> {
+    client::pending_update_batches(handle)
+}
+
+#[uniffi::export]
+pub fn acknowledge_update_batch(
+    handle: u64,
+    account_generation: i64,
+    batch_id: i64,
+) -> Result<(), MtprotoError> {
+    client::acknowledge_update_batch(handle, account_generation, batch_id)
 }
 
 #[uniffi::export]

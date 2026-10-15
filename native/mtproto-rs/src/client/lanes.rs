@@ -286,6 +286,28 @@ pub(crate) fn try_lock_second_media_lane(client: &Client) -> Option<LaneLease<'_
     None
 }
 
+static VISIBLE_TRANSFER_WAITERS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+pub(crate) fn visible_transfer_waiters() -> usize {
+    VISIBLE_TRANSFER_WAITERS.load(std::sync::atomic::Ordering::Acquire)
+}
+
+#[cfg(test)]
+pub(crate) fn set_visible_transfer_waiters_for_test(count: usize) {
+    VISIBLE_TRANSFER_WAITERS.store(count, std::sync::atomic::Ordering::Release);
+}
+
+struct VisibleWaitGuard(bool);
+
+impl Drop for VisibleWaitGuard {
+    fn drop(&mut self) {
+        if self.0 {
+            VISIBLE_TRANSFER_WAITERS.fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+        }
+    }
+}
+
 pub(crate) fn acquire_lane_family<'a>(
     order: impl Iterator<Item = usize> + Clone,
     class: scheduler::RequestClass,
@@ -293,12 +315,31 @@ pub(crate) fn acquire_lane_family<'a>(
     wait_counter: &'static str,
     lane_at: impl Fn(usize) -> &'a Lane,
 ) -> Result<LaneLease<'a>, MtprotoError> {
+    let _visible = if class == scheduler::RequestClass::InteractiveMedia {
+        VISIBLE_TRANSFER_WAITERS.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        VisibleWaitGuard(true)
+    } else {
+        VisibleWaitGuard(false)
+    };
     let wait = crate::perf::span(span);
+    let waiters: Vec<_> = order.clone().map(|index| {
+        let lane = lane_at(index);
+        (lane, lane.gate.enqueue(class))
+    }).collect();
+    if waiters.is_empty() {
+        return Err(MtprotoError::Message("no authorized request lane".into()));
+    }
     let mut counted = false;
     loop {
         crate::request_control::check().map_err(|e| MtprotoError::Message(e.to_string()))?;
-        for index in order.clone() {
-            if let Some(lease) = lane_at(index).try_lease(class) {
+        if let Some(promoted) = crate::request_control::promoted_class() {
+            for (_, waiter) in &waiters {
+                waiter.promote(promoted);
+            }
+        }
+        for (lane, waiter) in &waiters {
+            if let Some(gate) = waiter.try_acquire() {
+                let lease = LaneLease { _gate: gate, io: lane.io.lock() };
                 drop(wait);
                 return Ok(lease);
             }
@@ -307,9 +348,6 @@ pub(crate) fn acquire_lane_family<'a>(
             counted = true;
             crate::perf::count(wait_counter);
         }
-        let index = order.clone().last().unwrap_or(0);
-        let lease = lane_at(index).lease(class)?;
-        drop(wait);
-        return Ok(lease);
+        waiters[0].1.wait();
     }
 }

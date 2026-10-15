@@ -60,7 +60,7 @@ fn nonempty(value: String, fallback: &str) -> String {
     }
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct ChatDto {
     pub id: i64,
     pub title: String,
@@ -140,7 +140,7 @@ pub struct ProfileDto {
     pub extra_json: Option<String>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 pub struct MessageDto {
     pub chat_id: i64,
     pub id: i32,
@@ -177,6 +177,9 @@ pub struct MessageDto {
     /// Compact JSON for reply/inline keyboards. Never log.
     pub reply_markup_json: Option<String>,
     pub forum_topic: bool,
+    /// Avatar already indexed at `(sender_id, 0)` when its key starts with `avatar:`.
+    #[serde(default)]
+    pub sender_photo_cache_key: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -232,7 +235,7 @@ pub struct ReactionChoiceDto {
     pub document_id: i64,
 }
 
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Enum)]
 pub enum UpdateEventDto {
     ChatsChanged,
     FoldersChanged,
@@ -292,6 +295,28 @@ pub enum UpdateEventDto {
     Ignored {
         kind: String,
     },
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ChannelCursorDto {
+    pub chat_id: i64,
+    pub pts: i32,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct UpdateBatchDto {
+    pub account_generation: i64,
+    pub batch_id: i64,
+    pub events: Vec<UpdateEventDto>,
+    pub cursor_after: Option<UpdatesStateDto>,
+    pub channel_pts_after: Vec<ChannelCursorDto>,
+}
+
+#[derive(Debug, Clone, Default, uniffi::Record)]
+pub struct UpdateDrainDto {
+    pub batches: Vec<UpdateBatchDto>,
+    pub live_events: Vec<UpdateEventDto>,
+    pub replay_required: bool,
 }
 
 #[derive(Debug, Clone, Default, uniffi::Record)]

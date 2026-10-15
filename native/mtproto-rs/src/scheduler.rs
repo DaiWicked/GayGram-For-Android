@@ -3,6 +3,7 @@
 //! https://core.telegram.org/api/invoking
 
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::Duration;
 
 use parking_lot::{Condvar, Mutex};
@@ -40,7 +41,7 @@ impl RequestClass {
         }
     }
 
-    fn from_bits(bits: u8) -> Option<RequestClass> {
+    pub(crate) fn from_bits(bits: u8) -> Option<RequestClass> {
         match bits {
             0 => Some(RequestClass::InteractiveRead),
             1 => Some(RequestClass::BackgroundRead),
@@ -211,7 +212,32 @@ pub fn media_lane_order() -> std::ops::Range<usize> {
 pub struct LaneGate {
     state: Mutex<GateState>,
     wake: Condvar,
+    clock: Arc<dyn SchedulerClock>,
 }
+
+pub trait SchedulerClock: Send + Sync {
+    fn now_ms(&self) -> u64;
+}
+
+pub struct SystemSchedulerClock {
+    origin: std::time::Instant,
+}
+
+impl Default for SystemSchedulerClock {
+    fn default() -> Self {
+        Self {
+            origin: std::time::Instant::now(),
+        }
+    }
+}
+
+impl SchedulerClock for SystemSchedulerClock {
+    fn now_ms(&self) -> u64 {
+        self.origin.elapsed().as_millis() as u64
+    }
+}
+
+const AGING_INTERVAL_MS: u64 = 5_000;
 
 #[derive(Default)]
 struct GateState {
@@ -223,6 +249,15 @@ struct GateState {
 struct Waiter {
     ticket: u64,
     priority: u8,
+    queued_at: u64,
+}
+
+impl Waiter {
+    fn order_at(&self, now: u64) -> (u8, u64) {
+        let promotion = (now.saturating_sub(self.queued_at) / AGING_INTERVAL_MS).min(4) as u8;
+        let priority = if self.priority > 2 { self.priority.saturating_sub(promotion).max(1) } else { self.priority };
+        (priority, self.ticket)
+    }
 }
 
 /// Holds a lane; releases it (and wakes the best waiter) on drop.
@@ -235,15 +270,31 @@ pub(crate) struct LaneWaiter<'a> {
     ticket: u64,
 }
 
-impl LaneWaiter<'_> {
+impl<'a> LaneWaiter<'a> {
+    pub(crate) fn try_acquire(&self) -> Option<LaneGuard<'a>> {
+        let mut state = self.gate.state.lock();
+        let now = self.gate.clock.now_ms();
+        let best = state.waiters.iter().min_by_key(|waiter| waiter.order_at(now));
+        if state.busy || !best.is_some_and(|waiter| waiter.ticket == self.ticket) {
+            return None;
+        }
+        state.busy = true;
+        state.waiters.retain(|waiter| waiter.ticket != self.ticket);
+        Some(LaneGuard { gate: self.gate })
+    }
+
     pub(crate) fn is_next(&self) -> bool {
         self.gate
             .state
             .lock()
             .waiters
             .iter()
-            .min_by_key(|waiter| (waiter.priority, waiter.ticket))
+            .min_by_key(|waiter| waiter.order_at(self.gate.clock.now_ms()))
             .is_some_and(|waiter| waiter.ticket == self.ticket)
+    }
+
+    pub(crate) fn promote(&self, class: RequestClass) {
+        self.gate.promote(self.ticket, class);
     }
 
     pub(crate) fn wait(&self) {
@@ -269,6 +320,7 @@ impl Default for LaneGate {
         Self {
             state: Mutex::new(GateState::default()),
             wake: Condvar::new(),
+            clock: Arc::new(SystemSchedulerClock::default()),
         }
     }
 }
@@ -278,6 +330,23 @@ impl LaneGate {
         Self::default()
     }
 
+    pub fn with_clock(clock: Arc<dyn SchedulerClock>) -> Self {
+        Self {
+            state: Mutex::new(GateState::default()),
+            wake: Condvar::new(),
+            clock,
+        }
+    }
+
+    pub(crate) fn promote(&self, ticket: u64, class: RequestClass) {
+        let mut state = self.state.lock();
+        if let Some(waiter) = state.waiters.iter_mut().find(|w| w.ticket == ticket) {
+            waiter.priority = waiter.priority.min(class.priority());
+        }
+        drop(state);
+        self.wake.notify_all();
+    }
+
     pub(crate) fn enqueue(&self, class: RequestClass) -> LaneWaiter<'_> {
         let mut state = self.state.lock();
         let ticket = state.next_ticket;
@@ -285,6 +354,7 @@ impl LaneGate {
         state.waiters.push_back(Waiter {
             ticket,
             priority: class.priority(),
+            queued_at: self.clock.now_ms(),
         });
         self.wake.notify_all();
         LaneWaiter { gate: self, ticket }
@@ -304,7 +374,7 @@ impl LaneGate {
             || state
                 .waiters
                 .iter()
-                .any(|waiter| waiter.priority < priority)
+                .any(|waiter| waiter.order_at(self.clock.now_ms()).0 <= priority)
         {
             return None;
         }
@@ -319,7 +389,7 @@ impl LaneGate {
             let mut state = self.state.lock();
             let ticket = state.next_ticket;
             state.next_ticket += 1;
-            state.waiters.push_back(Waiter { ticket, priority });
+            state.waiters.push_back(Waiter { ticket, priority, queued_at: self.clock.now_ms() });
             ticket
         };
         loop {
@@ -335,7 +405,7 @@ impl LaneGate {
             let best = state
                 .waiters
                 .iter()
-                .min_by_key(|waiter| (waiter.priority, waiter.ticket))
+                .min_by_key(|waiter| waiter.order_at(self.clock.now_ms()))
                 .map(|waiter| waiter.ticket);
             if !state.busy && best == Some(ticket) {
                 state.busy = true;
