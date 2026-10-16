@@ -248,6 +248,10 @@ internal class ChatApi(private val core: SessionCore) : ChatOps {
         }
     }
 
+    override suspend fun noteLocalChat(chat: Chat) {
+        core.localUpdates.emit(MtprotoUpdate.ChatsChanged(listOf(chat)))
+    }
+
     override suspend fun unblockUser(chatId: PeerId): Outcome<Unit> {
         when (val connected = core.ensureConnected()) {
             is Outcome.Err -> return connected

@@ -3,10 +3,10 @@ package org.monogram.feature.chats
 import org.monogram.core.database.dao.ChatReadState
 import org.monogram.core.models.Chat
 import org.monogram.core.models.Message
-import org.monogram.core.models.mergeIncomingMessage
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.chatListPreviewSource
 import org.monogram.core.models.isMigratedServicePlaceholder
+import org.monogram.core.models.mergeIncomingMessage
 import org.monogram.core.models.mergeLocalCache
 import org.monogram.core.models.preferredPeerTitle
 
@@ -73,13 +73,16 @@ internal fun mergeChats(current: List<Chat>, extra: List<Chat>): List<Chat> {
             else -> Int.MAX_VALUE
         }
         val live = typing[incoming.id.value]
-        byId[incoming.id.value] = incoming.mergeLocalCache(prev).copy(
+        val stale =
+            prev != null && incoming.lastMessageId > 0 && prev.lastMessageId > incoming.lastMessageId
+        val merged = incoming.mergeLocalCache(prev)
+        byId[incoming.id.value] = merged.copy(
             title = preferredPeerTitle(incoming.title, prev?.title, incoming.id.value),
             typing = live != null,
             typingName = live?.typingName,
             typingAction = live?.typingAction,
-            pinned = incoming.pinned,
-            pinnedOrder = pinnedOrder,
+            pinned = if (stale) prev.pinned else incoming.pinned,
+            pinnedOrder = if (stale) prev.pinnedOrder else pinnedOrder,
             photoCacheKey = incoming.photoCacheKey ?: prev?.photoCacheKey,
             dialogScrollMessageId = incoming.dialogScrollMessageId ?: prev?.dialogScrollMessageId,
         )
@@ -90,11 +93,12 @@ internal fun mergeChats(current: List<Chat>, extra: List<Chat>): List<Chat> {
 /** Network `getDialogs` pin++ wins over a Room row that only had date order. */
 internal fun withNetworkPinOrder(merged: List<Chat>, network: List<Chat>): List<Chat> {
     if (network.isEmpty() || merged.isEmpty()) return merged
-    val pins = HashMap<Long, Pair<Boolean, Int>>(network.size)
-    network.forEach { pins[it.id.value] = it.pinned to it.pinnedOrder }
+    val pins = HashMap<Long, Triple<Boolean, Int, Int>>(network.size)
+    network.forEach { pins[it.id.value] = Triple(it.pinned, it.pinnedOrder, it.lastMessageId) }
     var changed: MutableList<Chat>? = null
     merged.forEachIndexed { index, chat ->
         val pin = pins[chat.id.value] ?: return@forEachIndexed
+        if (chat.lastMessageId > pin.third && pin.third > 0) return@forEachIndexed
         if (chat.pinned == pin.first && chat.pinnedOrder == pin.second) return@forEachIndexed
         val target = changed ?: merged.toMutableList().also { changed = it }
         target[index] = chat.copy(pinned = pin.first, pinnedOrder = pin.second)

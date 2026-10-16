@@ -122,6 +122,7 @@ private fun ignoredUpdates(kind: String): List<MtprotoUpdate> {
                         chatId = PeerId(chatId),
                         muteUntil = muteUntil,
                         topicId = parts.getOrNull(4)?.toIntOrNull()?.takeIf { it > 0 },
+                        muteSpecified = parts.getOrNull(5)?.let { it == "1" } ?: true,
                     ),
                 )
             }

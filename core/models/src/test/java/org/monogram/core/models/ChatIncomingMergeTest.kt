@@ -1,6 +1,8 @@
 package org.monogram.core.models
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatIncomingMergeTest {
@@ -60,5 +62,34 @@ class ChatIncomingMergeTest {
     fun outgoingAndAlreadyReadMessagesDoNotAddUnread() {
         assertEquals(2, chat.mergeIncomingMessage(message(11, outgoing = true)).unreadCount)
         assertEquals(2, chat.mergeIncomingMessage(message(4)).unreadCount)
+    }
+
+    @Test
+    fun mergeLocalCacheKeepsHigherReadCursorWhenStoredLastMessageIsNewer() {
+        val stored = Chat(
+            id = chatId,
+            title = "c",
+            lastMessageId = 30,
+            readInboxMaxId = 10,
+            readOutboxMaxId = 8,
+        )
+        val incoming = stored.copy(lastMessageId = 20, readInboxMaxId = 25, readOutboxMaxId = 4)
+        val merged = incoming.mergeLocalCache(stored)
+        assertEquals(25, merged.readInboxMaxId)
+        assertEquals(8, merged.readOutboxMaxId)
+    }
+
+    @Test
+    fun explicitUnmuteSurvivesAnInheritedDialogsRow() {
+        val stored = Chat(
+            id = chatId,
+            title = "c",
+            muted = false,
+            muteOverride = true,
+            lastMessageId = 12,
+        )
+        val merged = stored.copy(muteOverride = false).mergeLocalCache(stored)
+        assertFalse(merged.muted)
+        assertTrue(merged.muteOverride)
     }
 }

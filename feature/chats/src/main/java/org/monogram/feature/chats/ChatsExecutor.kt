@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
@@ -43,7 +44,9 @@ import org.monogram.core.ui.components.PeerPresence
 import org.monogram.network.bridge.MtprotoClient
 import org.monogram.network.bridge.MtprotoUpdate
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 internal class ChatsExecutor(
     private val client: MtprotoClient,
@@ -86,6 +89,7 @@ internal class ChatsExecutor(
     private var cachedTail: List<Chat> = emptyList()
     private var roomMainCount = 0
     private var titleRecoveryJob: Job? = null
+    private var catalogGeneration = 0
     private val attemptedTitleRecovery = mutableSetOf<PeerId>()
     private var searchJob: Job? = null
     private var searchMoreJob: Job? = null
@@ -349,7 +353,7 @@ internal class ChatsExecutor(
                     is MtprotoUpdate.NotifySettingsChanged -> scope.launch {
                         if (update.topicId != null) return@launch
                         if (update.peerKind == PEER_NOTIFY_KIND && update.chatId.value != 0L) {
-                            applyPeerMute(update.chatId, update.muteUntil)
+                            applyPeerMute(update.chatId, update.muteUntil, update.muteSpecified)
                         } else {
                             loadNotifyDefaults(force = true)
                         }
@@ -474,10 +478,16 @@ internal class ChatsExecutor(
      * `account.updateNotifySettings` for one peer: the row and the cache show the new bell
      * straight away instead of waiting for the next dialog page.
      */
-    private suspend fun applyPeerMute(chatId: PeerId, muteUntil: Int) {
+    private suspend fun applyPeerMute(chatId: PeerId, muteUntil: Int, specified: Boolean) {
         val updated = listPublicationMutex.withLock {
             val current = state().chats.firstOrNull { it.id == chatId } ?: return
-            val next = current.withOwnMute(muteUntil, nowEpochSeconds())
+            val next = if (specified) {
+                current.withOwnMute(muteUntil, nowEpochSeconds())
+            } else if (current.muteOverride || !notifyDefaultsLoaded) {
+                current
+            } else {
+                withEffectiveMutes(listOf(current), notifyDefaults, true).single()
+            }
             if (next == current) return
             dispatch(Msg.Chats(listOf(next), fromCache = false, replace = false))
             next
@@ -578,7 +588,9 @@ internal class ChatsExecutor(
         val hasMemory = state().chats.isNotEmpty()
         if (!hasMemory) dispatch(Msg.Loading(true))
         dispatch(Msg.Error(null))
+        val generation = ++catalogGeneration
         scope.launch {
+            var catalogSeed: List<Chat>? = null
             try {
                 val snapshot = if (!force) warmup?.takeStartupSnapshot() else null
                 val cached = snapshot?.chats ?: warmup?.chatsWindow(DIALOGS_NETWORK_PAGE).orEmpty()
@@ -702,6 +714,7 @@ internal class ChatsExecutor(
                         val hidden = mapped.filter { !it.isShownInChatList() }
                         warmup?.upsertChats(if (hidden.isEmpty()) persisted else persisted + hidden)
                         sessionStore?.upsertPeersFromChats(persisted)
+                        catalogSeed = mapped
                         if (!isFolderScopedStream(activeFolderId) &&
                             cachedTail.any { it.isMainListRow() }
                         ) {
@@ -734,6 +747,13 @@ internal class ChatsExecutor(
                 }
                 if (state().loading) dispatch(Msg.Loading(false))
                 if (state().syncing) dispatch(Msg.Syncing(false))
+                catalogSeed?.let { seed ->
+                    refreshInFlight.set(false)
+                    if (generation == catalogGeneration) {
+                        fillDialogCatalog(generation, archived = false, seed = seed)
+                        fillDialogCatalog(generation, archived = true, seed = emptyList())
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Throwable) {
@@ -1323,6 +1343,83 @@ internal class ChatsExecutor(
             }
         }
     }
+
+    private suspend fun fillDialogCatalog(
+        generation: Int,
+        archived: Boolean,
+        seed: List<Chat>,
+    ) {
+        var cursor = catalogCursor(archived, seed) ?: return
+        var pages = 0
+        while (pages < 500 && generation == catalogGeneration) {
+            coroutineContext.ensureActive()
+            val (date, offsetId, peerId) = cursor
+            val result = if (archived) {
+                client.loadMoreFolderChats(ARCHIVE_FOLDER_WIRE_ID, date, offsetId, peerId)
+            } else {
+                client.loadMoreChats(date, offsetId, peerId)
+            }
+            when (result) {
+                is Outcome.Err -> {
+                    val wait = result.telegramError.retryAfterSeconds
+                    if (result.telegramError.kind == TelegramError.Kind.Flood &&
+                        wait != null &&
+                        wait > 0
+                    ) {
+                        delay(wait.seconds)
+                        continue
+                    }
+                    AppLog.warn("chats", result.telegramError.logLine())
+                    return
+                }
+
+                is Outcome.Ok -> {
+                    val mapped = muteChats(result.value)
+                    if (mapped.isNotEmpty()) warmup?.upsertChats(mapped)
+                    if (!dialogsHasMore(mapped.size)) {
+                        if (!archived) {
+                            mainNetworkHasMore = false
+                            roomMainCount = warmup?.mainListCount() ?: roomMainCount
+                        }
+                        return
+                    }
+                    val next = dialogsPageCursor(mapped, skipArchived = !archived) ?: return
+                    if (next == cursor) return
+                    cursor = next
+                    pages += 1
+                }
+            }
+        }
+    }
+
+    private suspend fun catalogCursor(
+        archived: Boolean,
+        seed: List<Chat>,
+    ): Triple<Int, Int, Long>? {
+        val seedCursor = dialogsPageCursor(seed, skipArchived = !archived)
+        val saved = warmup?.oldestListed(archived)?.let { dialogsPageOffset(it) }
+        if (!archived && seed.isNotEmpty() && !dialogsHasMore(seed.size)) {
+            if (saved != null && seedCursor != null && offsetIsOlder(
+                    saved,
+                    seedCursor
+                )
+            ) return saved
+            return null
+        }
+        if (saved != null && (seedCursor == null || offsetIsOlder(saved, seedCursor))) return saved
+        if (!archived) return seedCursor
+        // A real database can keep the archive catalog. In-memory tests have nothing to store,
+        // and a zero-offset probe would consume the page the visible archive loader still owns.
+        return if (warmup?.usesIoDispatcher == true) Triple(0, 0, 0L) else null
+    }
+
+    private fun offsetIsOlder(
+        left: Triple<Int, Int, Long>,
+        right: Triple<Int, Int, Long>
+    ): Boolean =
+        left.first < right.first ||
+                (left.first == right.first && left.second < right.second) ||
+                (left.first == right.first && left.second == right.second && left.third < right.third)
 
     private suspend fun muteChats(chats: List<Chat>): List<Chat> {
         val apply = {

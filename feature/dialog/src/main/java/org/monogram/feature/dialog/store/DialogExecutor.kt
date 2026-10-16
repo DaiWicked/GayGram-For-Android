@@ -17,6 +17,7 @@ import org.monogram.core.models.Chat
 import org.monogram.core.models.ForumIo
 import org.monogram.core.models.LastSeen
 import org.monogram.core.models.Message
+import org.monogram.core.models.NotifyDefaults
 import org.monogram.core.models.NotifySettings
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.Profile
@@ -118,6 +119,12 @@ internal class DialogExecutor(
     internal var pendingJump = jumpToMessageId
     internal var inFlightSends = 0
     internal var draftPreviewJob: Job? = null
+    private var notifyDefaults: NotifyDefaults? = null
+    private var rawMuted = false
+    private var muteOverride = false
+    private var sourceLastMessageId = 0
+    private var peerIsChannel = false
+    private var peerIsGroup = false
     internal val typingJobs = HashMap<Long, Job>()
     internal val viewersInFlight = mutableSetOf<Int>()
     internal val readDatesInFlight = mutableSetOf<Int>()
@@ -242,6 +249,17 @@ internal class DialogExecutor(
                             )
                         }
                     }
+                    is MtprotoUpdate.NotifySettingsChanged -> {
+                        if (update.topicId != null) return@onEach
+                        if (update.peerKind == "peer" && update.chatId == chatId) {
+                            applyPeerNotify(update.muteUntil, update.muteSpecified)
+                        } else if (update.peerKind == "users" ||
+                            update.peerKind == "chats" ||
+                            update.peerKind == "broadcasts"
+                        ) {
+                            loadDialogNotifyDefaults()
+                        }
+                    }
                     is MtprotoUpdate.ChatsChanged -> {
                         val chat = update.chats.firstOrNull { it.id == chatId } ?: return@onEach
                         val current = state()
@@ -278,8 +296,16 @@ internal class DialogExecutor(
                             dispatch(Msg.PhotoCacheKey(chat.photoCacheKey))
                         }
                         val rights = rightsMsg(chat)
-                        if (current.left != chat.left || current.muted != chat.muted) {
-                            dispatch(Msg.Membership(left = chat.left, muted = chat.muted))
+                        val stale =
+                            chat.lastMessageId > 0 && sourceLastMessageId > chat.lastMessageId
+                        if (!stale && !(muteOverride && !chat.muteOverride)) {
+                            rawMuted = chat.muted
+                            muteOverride = chat.muteOverride
+                            sourceLastMessageId = chat.lastMessageId
+                        }
+                        val shown = shownMuted()
+                        if (current.left != chat.left || current.muted != shown) {
+                            dispatch(Msg.Membership(left = chat.left, muted = shown))
                         }
                         if (current.canView != rights.canView ||
                             current.canSendPlain != rights.canSendPlain ||
@@ -327,6 +353,7 @@ internal class DialogExecutor(
             }
             .launchIn(scope)
         refresh()
+        loadDialogNotifyDefaults()
         loadRecentReactions()
         warmPickerCatalogs()
     }
@@ -626,12 +653,19 @@ internal class DialogExecutor(
                 dispatch(Msg.Title(chatTitle))
             }
             dispatch(Msg.IsSelf(sessionStore?.readAuthorizedUserId() == chatId))
+            peerIsGroup = isGroup
+            peerIsChannel = isChannel
             dispatch(Msg.IsGroup(isGroup))
             dispatch(Msg.IsChannel(isChannel))
             cachedChat?.let { dispatch(Msg.IsBot(it.isBot)) }
             dispatch(Msg.IsForum(forum))
             cachedChat?.let { dispatch(rightsMsg(it)) }
-            cachedChat?.let { dispatch(Msg.Membership(left = it.left, muted = it.muted)) }
+            cachedChat?.let { chat ->
+                rawMuted = chat.muted
+                muteOverride = chat.muteOverride
+                sourceLastMessageId = chat.lastMessageId
+                dispatch(Msg.Membership(left = chat.left, muted = shownMuted()))
+            }
             cachedChat?.unreadCount?.let { dispatch(Msg.UnreadCount(it)) }
             cachedChat?.let { applyUnreadCountersFromChat(it.unreadMentionsCount, it.unreadReactionsCount) }
             cachedChat?.readInboxMaxId?.let { dispatch(Msg.ReadInbox(it)) }
@@ -874,15 +908,21 @@ internal class DialogExecutor(
                     }
                     when (profile.kind) {
                         "channel" -> {
+                            peerIsChannel = true
+                            peerIsGroup = false
                             dispatch(Msg.IsChannel(true))
                             dispatch(Msg.IsGroup(false))
                         }
                         "group", "chat" -> {
+                            peerIsGroup = true
+                            peerIsChannel = false
                             dispatch(Msg.IsGroup(true))
-                            dispatch(Msg.IsChannel(profile.kind == "channel"))
+                            dispatch(Msg.IsChannel(false))
                         }
                         else -> Unit
                     }
+                    val shown = shownMuted()
+                    if (state().muted != shown) dispatch(Msg.Membership(muted = shown))
                     dispatch(
                         Msg.ChatProfile(
                             members = profile.membersCount,
@@ -932,6 +972,56 @@ internal class DialogExecutor(
         }
     }
 
+    private fun shownMuted(): Boolean {
+        val defaults = notifyDefaults ?: return rawMuted
+        return defaults.mutes(
+            Chat(
+                id = chatId,
+                title = state().title,
+                isChannel = peerIsChannel,
+                isGroup = peerIsGroup,
+                muted = rawMuted,
+                muteOverride = muteOverride,
+            ),
+        )
+    }
+
+    private fun loadDialogNotifyDefaults() {
+        scope.launch {
+            warmup?.chat(chatId)?.let { chat ->
+                peerIsChannel = chat.isChannel
+                peerIsGroup = chat.isGroup
+            }
+            val users = (client.getNotifySettings("users") as? Outcome.Ok)?.value ?: return@launch
+            val chats = (client.getNotifySettings("chats") as? Outcome.Ok)?.value ?: return@launch
+            val broadcasts =
+                (client.getNotifySettings("broadcasts") as? Outcome.Ok)?.value ?: return@launch
+            notifyDefaults = NotifyDefaults(users = users, chats = chats, broadcasts = broadcasts)
+            val shown = shownMuted()
+            if (state().muted != shown) dispatch(Msg.Membership(muted = shown))
+        }
+    }
+
+    private fun applyPeerNotify(muteUntil: Int, specified: Boolean) {
+        if (!specified) {
+            if (muteOverride) return
+            val shown = shownMuted()
+            if (state().muted != shown) dispatch(Msg.Membership(muted = shown))
+            scope.launch {
+                rememberChat { it.copy(muted = shown, muteOverride = false) }
+            }
+            return
+        }
+        val now = (System.currentTimeMillis() / 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val muted = NotifySettings(muteUntil = muteUntil).isMuted(now)
+        rawMuted = muted
+        muteOverride = true
+        dispatch(Msg.Membership(muted = muted))
+        scope.launch {
+            rememberChat { it.copy(muted = muted, muteOverride = true) }
+        }
+    }
+
     internal fun readOnlyBar() {
         val current = state()
         when (
@@ -961,6 +1051,8 @@ internal class DialogExecutor(
                 )
             ) {
                 is Outcome.Ok -> {
+                    rawMuted = muted
+                    muteOverride = true
                     dispatch(Msg.Membership(muted = muted))
                     rememberChat { it.copy(muted = muted, muteOverride = true) }
                 }
@@ -1022,7 +1114,9 @@ internal class DialogExecutor(
             canSendPlain = state().canSendPlain,
             canSendPhotos = state().canSendPhotos,
         )
-        warmup?.upsertChats(listOf(transform(current)))
+        val next = transform(current)
+        warmup?.upsertChats(listOf(next))
+        client.noteLocalChat(next)
     }
 
     internal fun rightsMsg(chat: Chat) = Msg.Rights(

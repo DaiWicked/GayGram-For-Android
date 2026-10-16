@@ -81,6 +81,168 @@ class ChatsStoreCacheTest {
     }
 
     @Test
+    fun backgroundCatalogKeepsTheSmallWindowAndUpsertsLaterPages() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val first = List(DIALOGS_NETWORK_PAGE) { index ->
+            val id = index + 1
+            Chat(
+                PeerId(id.toLong()),
+                "C$id",
+                lastMessageDate = (1_000 - index).toLong(),
+                lastMessageId = id,
+            )
+        }
+        val later = Chat(PeerId(900), "Later", lastMessageDate = 10, lastMessageId = 900)
+        val upserted = mutableListOf<Chat>()
+        val warmup = object : OfflineWarmup() {
+            override suspend fun upsertChats(chats: List<Chat>) {
+                upserted += chats
+            }
+        }
+        val client = StubClient(chats = Outcome.Ok(first))
+        client.mainPages.add(listOf(later))
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertFalse(store.state.chats.any { it.id == later.id })
+            assertTrue(
+                "offsets=${client.mainOffsets} upserted=${upserted.map { it.id.value }}",
+                upserted.any { it.id == later.id },
+            )
+            assertTrue(client.mainOffsets.none { it.first == 0 && it.second == 0 })
+            assertTrue(client.historyCalls == 0)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun restartResumesCatalogFromTheOldestSavedRow() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val top = Chat(PeerId(5), "Top", lastMessageDate = 50, lastMessageId = 5)
+        val oldest = Chat(PeerId(1), "Old", lastMessageDate = 9, lastMessageId = 1)
+        val warmup = object : OfflineWarmup() {
+            override suspend fun oldestListed(archived: Boolean): Chat? =
+                if (archived) null else oldest
+        }
+        val client = StubClient(chats = Outcome.Ok(listOf(top)))
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertEquals(listOf(Triple(9, 1, 1L)), client.mainOffsets)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun persistedWarmupStartsTheArchiveCatalogAtOffsetZero() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val warmup = object : OfflineWarmup() {
+            override val usesIoDispatcher = true
+            override suspend fun oldestListed(archived: Boolean): Chat? = null
+            override suspend fun upsertChats(chats: List<Chat>) = Unit
+        }
+        val client = StubClient(
+            chats = Outcome.Ok(
+                listOf(
+                    Chat(
+                        PeerId(1),
+                        "Top",
+                        lastMessageDate = 1,
+                        lastMessageId = 1
+                    )
+                )
+            ),
+        )
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertEquals(listOf(ARCHIVE_FOLDER_WIRE_ID), client.folderCalls)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun catalogFloodWaitRetriesTheSamePage() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val first = List(DIALOGS_NETWORK_PAGE) { index ->
+            val id = index + 1
+            Chat(
+                PeerId(id.toLong()),
+                "C$id",
+                lastMessageDate = (1_000 - index).toLong(),
+                lastMessageId = id
+            )
+        }
+        val later = Chat(PeerId(900), "Later", lastMessageDate = 10, lastMessageId = 900)
+        val upserted = mutableListOf<Chat>()
+        val warmup = object : OfflineWarmup() {
+            override suspend fun upsertChats(chats: List<Chat>) {
+                upserted += chats
+            }
+        }
+        val client = StubClient(chats = Outcome.Ok(first)).apply {
+            mainFlood = "FLOOD_WAIT_1"
+            mainPages.add(listOf(later))
+        }
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            advanceTimeBy(1_000)
+            advanceUntilIdle()
+            assertTrue(upserted.any { it.id == later.id })
+            assertEquals(2, client.mainOffsets.size)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun scrollServesCachedRowsBeforeTheNetwork() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val first = Chat(PeerId(5), "Newer", lastMessageDate = 50, lastMessageId = 1)
+        val older = Chat(PeerId(4), "Older", lastMessageDate = 40, lastMessageId = 1)
+        val warmup = object : OfflineWarmup() {
+            override suspend fun chatsWindow(limit: Int, archiveLimit: Int) = listOf(first)
+            override suspend fun mainListCount() = 2
+            override suspend fun chatsAfter(cursor: ChatCacheCursor, limit: Int) = listOf(older)
+        }
+        val client = StubClient(chats = Outcome.Ok(listOf(first)))
+        client.mainPages.add(
+            listOf(
+                Chat(
+                    PeerId(3),
+                    "Network",
+                    lastMessageDate = 3,
+                    lastMessageId = 3
+                )
+            )
+        )
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(), client, warmup, sessionStore = null,
+        ).create()
+        try {
+            advanceUntilIdle()
+            val offsetsBeforeScroll = client.mainOffsets.size
+            store.accept(ChatsStore.Intent.LoadMore)
+            advanceUntilIdle()
+            assertTrue(store.state.chats.any { it.id == older.id })
+            assertEquals(offsetsBeforeScroll, client.mainOffsets.size)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
     fun loadMoreUsesKeysetCursor() = runTest {
         var seen: ChatCacheCursor? = null
         val first = Chat(PeerId(5), "Newer", lastMessageDate = 50, lastMessageId = 1)
@@ -775,6 +937,73 @@ class ChatsStoreCacheTest {
     }
 
     @Test
+    fun explicitUnmuteStaysUnmutedAfterDefaultsAndAnotherDialogsPage() = runTest {
+        val channel = Chat(
+            PeerId(-100),
+            "News",
+            isChannel = true,
+            muted = false,
+            muteOverride = true,
+            lastMessageId = 8,
+        )
+        val client = StubClient(
+            chats = Outcome.Ok(listOf(channel)),
+            defaults = NotifySettings(muteUntil = Int.MAX_VALUE),
+        )
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup = null,
+            sessionStore = null,
+        ).create()
+        try {
+            assertFalse(store.state.chats.single().muted)
+            client.events.emit(
+                MtprotoUpdate.ChatsChanged(
+                    listOf(channel.copy(muted = false, muteOverride = false)),
+                ),
+            )
+            val row = store.state.chats.single()
+            assertFalse(row.muted)
+            assertTrue(row.muteOverride)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun inheritedNotifyUpdateDoesNotUnmuteAMutedChannel() = runTest {
+        val channel = Chat(
+            PeerId(-100),
+            "News",
+            isChannel = true,
+            muted = true,
+            muteOverride = true,
+        )
+        val client = StubClient(chats = Outcome.Ok(listOf(channel)))
+        val store = ChatsStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup = null,
+            sessionStore = null,
+        ).create()
+        try {
+            client.events.emit(
+                MtprotoUpdate.NotifySettingsChanged(
+                    peerKind = "peer",
+                    chatId = channel.id,
+                    muteUntil = 0,
+                    muteSpecified = false,
+                ),
+            )
+            assertTrue(store.state.chats.single().muted)
+            assertTrue(store.state.chats.single().muteOverride)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
     fun peerNotifyChangeUpdatesTheRowAndTheCache() = runTest {
         val upserted = mutableListOf<Chat>()
         val warmup = object : OfflineWarmup() {
@@ -1293,7 +1522,9 @@ class ChatsStoreCacheTest {
     ) : MtprotoClient {
         val reads = mutableListOf<Pair<PeerId, Int>>()
         val folderCalls = mutableListOf<Int>()
+        val mainOffsets = mutableListOf<Triple<Int, Int, Long>>()
         val mainPages = ArrayDeque<List<Chat>>()
+        var mainFlood: String? = null
         val chatResponses = ArrayDeque<Outcome<List<Chat>>>()
         val archivePages = ArrayDeque<List<Chat>>()
         var blockedFolderId: Int? = null
@@ -1320,8 +1551,18 @@ class ChatsStoreCacheTest {
             chatsGate?.await()
             return if (chatResponses.isEmpty()) chats else chatResponses.removeFirst()
         }
-        override suspend fun loadMoreChats(offsetDate: Int, offsetId: Int, offsetPeerId: Long): Outcome<List<Chat>> =
-            Outcome.Ok(if (mainPages.isEmpty()) emptyList() else mainPages.removeFirst())
+        override suspend fun loadMoreChats(
+            offsetDate: Int,
+            offsetId: Int,
+            offsetPeerId: Long
+        ): Outcome<List<Chat>> {
+            mainOffsets += Triple(offsetDate, offsetId, offsetPeerId)
+            mainFlood?.let { flood ->
+                mainFlood = null
+                return Outcome.Err(flood)
+            }
+            return Outcome.Ok(if (mainPages.isEmpty()) emptyList() else mainPages.removeFirst())
+        }
         override suspend fun loadMoreFolderChats(
             folderId: Int,
             offsetDate: Int,
@@ -1338,7 +1579,11 @@ class ChatsStoreCacheTest {
             return Outcome.Ok(if (archivePages.isEmpty()) emptyList() else archivePages.removeFirst())
         }
         override suspend fun getFolders() = Outcome.Ok(emptyList<Folder>())
-        override suspend fun getHistory(chatId: PeerId, limit: Int) = Outcome.Ok(emptyList<Message>())
+        var historyCalls = 0
+        override suspend fun getHistory(chatId: PeerId, limit: Int): Outcome<List<Message>> {
+            historyCalls++
+            return Outcome.Ok(emptyList())
+        }
         override suspend fun getHistoryPage(
             chatId: PeerId,
             limit: Int,

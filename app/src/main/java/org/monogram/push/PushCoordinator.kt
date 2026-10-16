@@ -147,6 +147,7 @@ class PushCoordinator(
             client.updates().collect { update ->
                 when (update) {
                     is MtprotoUpdate.NotifySettingsChanged -> notifySettingsMutex.withLock {
+                        if (!update.muteSpecified) return@withLock
                         val current = if (update.peerKind == "peer") {
                             store.notifyExceptions.orEmpty().firstOrNull {
                                 it.chatId == update.chatId && it.topicId == update.topicId

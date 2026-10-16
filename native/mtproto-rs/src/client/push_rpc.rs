@@ -117,6 +117,17 @@ fn settings_dto(settings: &PeerNotifySettings) -> NotifySettingsDto {
     }
 }
 
+/// `mute_until` omitted means the peer still inherits its type default.
+pub(crate) fn update_mute_specified(update: &Update) -> bool {
+    let Update::UpdateNotifySettings(body) = update else {
+        return false;
+    };
+    let PeerNotifySettings::PeerNotifySettings(settings) = body.notify_settings.as_ref() else {
+        return false;
+    };
+    settings.mute_until.is_some()
+}
+
 pub(crate) fn exception_from_update(update: &Update) -> Option<NotifyExceptionDto> {
     let Update::UpdateNotifySettings(body) = update else {
         return None;

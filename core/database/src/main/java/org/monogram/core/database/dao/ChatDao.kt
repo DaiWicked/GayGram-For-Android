@@ -71,6 +71,16 @@ interface ChatDao {
     @Query(
         """
         SELECT * FROM chats
+        WHERE `left` = 0 AND archived = :archived
+        ORDER BY pinned ASC, pinnedOrder DESC, lastMessageDate ASC, id ASC
+        LIMIT 1
+        """,
+    )
+    suspend fun oldestListed(archived: Boolean): ChatEntity?
+
+    @Query(
+        """
+        SELECT * FROM chats
         WHERE `left` = 0 AND archived = :archived AND (
             pinned < :pinned OR
             (pinned = :pinned AND pinnedOrder > :pinnedOrder) OR

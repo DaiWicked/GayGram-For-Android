@@ -38,6 +38,7 @@ import org.monogram.core.models.ForumTopicsPage
 import org.monogram.core.models.GENERAL_FORUM_TOPIC_ID
 import org.monogram.core.models.Message
 import org.monogram.core.models.MessageId
+import org.monogram.core.models.NotifySettings
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.Profile
 import org.monogram.core.models.ProfileMember
@@ -50,6 +51,7 @@ import org.monogram.feature.dialog.store.contactTypingNeeded
 import org.monogram.network.bridge.MtprotoClient
 import org.monogram.network.bridge.MtprotoUpdate
 import org.monogram.network.bridge.UpdatesCursor
+import org.monogram.network.bridge.chat.JoinMembership
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DialogForumStoreTest {
@@ -3376,6 +3378,194 @@ class DialogForumStoreTest {
         }
     }
 
+    @Test
+    fun inheritedMutedChannelShowsUnmuteAndMuteWritesTheCache() = runTest {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val chatId = PeerId(-100)
+        val warmup = FakeWarmup()
+        warmup.storedChats[chatId.value] = Chat(
+            id = chatId,
+            title = "News",
+            isChannel = true,
+            muted = false,
+            muteOverride = false,
+        )
+        val client = FakeClient().apply {
+            notifyByKind = mapOf(
+                "users" to NotifySettings(),
+                "chats" to NotifySettings(),
+                "broadcasts" to NotifySettings(muteUntil = Int.MAX_VALUE),
+            )
+            notifyOk = true
+            profileKindOverride = "channel"
+        }
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup,
+            sessionStore = null,
+            chatId = chatId,
+            seedIsForum = false,
+            mainContext = dispatcher,
+            markupContext = dispatcher,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertTrue(store.state.muted)
+            assertEquals(
+                ReadOnlyBarAction.Unmute,
+                readOnlyBarAction(
+                    isChannel = true,
+                    isGroup = false,
+                    left = false,
+                    muted = store.state.muted,
+                    blockedByMe = false,
+                ),
+            )
+            store.accept(DialogStore.Intent.ReadOnlyBar)
+            advanceUntilIdle()
+            assertFalse(store.state.muted)
+            val saved = warmup.upsertedChats.last()
+            assertEquals(chatId, saved.id)
+            assertFalse(saved.muted)
+            assertTrue(saved.muteOverride)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun joinPublishesTheChatListRow() = runTest {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val chatId = PeerId(-100)
+        val warmup = FakeWarmup()
+        warmup.storedChats[chatId.value] = Chat(
+            id = chatId,
+            title = "News",
+            isChannel = true,
+            left = true,
+        )
+        val client = FakeClient().apply {
+            joinOk = true
+            profileKindOverride = "channel"
+        }
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup,
+            sessionStore = null,
+            chatId = chatId,
+            seedIsForum = false,
+            mainContext = dispatcher,
+            markupContext = dispatcher,
+        ).create()
+        try {
+            advanceUntilIdle()
+            store.accept(DialogStore.Intent.ReadOnlyBar)
+            advanceUntilIdle()
+            assertFalse(store.state.left)
+            val noted = client.notedChats.last()
+            assertEquals(chatId, noted.id)
+            assertFalse(noted.left)
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun explicitUnmuteStaysUnmutedWhenBroadcastsAreMuted() = runTest {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val chatId = PeerId(-100)
+        val warmup = FakeWarmup()
+        warmup.storedChats[chatId.value] = Chat(
+            id = chatId,
+            title = "News",
+            isChannel = true,
+            muted = false,
+            muteOverride = true,
+        )
+        val client = FakeClient().apply {
+            notifyByKind = mapOf(
+                "broadcasts" to NotifySettings(muteUntil = Int.MAX_VALUE),
+                "users" to NotifySettings(),
+                "chats" to NotifySettings(),
+            )
+            profileKindOverride = "channel"
+        }
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup,
+            sessionStore = null,
+            chatId = chatId,
+            seedIsForum = false,
+            mainContext = dispatcher,
+            markupContext = dispatcher,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertFalse(store.state.muted)
+            assertEquals(
+                ReadOnlyBarAction.Mute,
+                readOnlyBarAction(
+                    isChannel = true,
+                    isGroup = false,
+                    left = false,
+                    muted = store.state.muted,
+                    blockedByMe = false,
+                ),
+            )
+        } finally {
+            store.dispose()
+        }
+    }
+
+    @Test
+    fun unspecifiedNotifyUpdateDoesNotUnmuteAnExplicitMute() = runTest {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val chatId = PeerId(-100)
+        val warmup = FakeWarmup()
+        warmup.storedChats[chatId.value] = Chat(
+            id = chatId,
+            title = "News",
+            isChannel = true,
+            muted = true,
+            muteOverride = true,
+        )
+        val client = FakeClient()
+        val store = DialogStoreFactory(
+            DefaultStoreFactory(),
+            client,
+            warmup,
+            sessionStore = null,
+            chatId = chatId,
+            seedIsForum = false,
+            mainContext = dispatcher,
+            markupContext = dispatcher,
+        ).create()
+        try {
+            advanceUntilIdle()
+            assertTrue(store.state.muted)
+            client.events.emit(
+                MtprotoUpdate.NotifySettingsChanged(
+                    peerKind = "peer",
+                    chatId = chatId,
+                    muteUntil = 0,
+                    muteSpecified = false,
+                ),
+            )
+            advanceUntilIdle()
+            assertTrue(store.state.muted)
+            assertTrue(warmup.upsertedChats.isEmpty() || warmup.upsertedChats.last().muted)
+        } finally {
+            store.dispose()
+        }
+    }
+
     private class FakeMeta : SessionMetadataStore() {
         val values = mutableMapOf<String, String>()
         override suspend fun readMeta(key: String): String? = values[key]
@@ -4237,10 +4427,45 @@ class DialogForumStoreTest {
             stickerSetError?.let { return Outcome.Err(it) }
             return Outcome.Ok(loadedPack)
         }
+        var notifyByKind: Map<String, NotifySettings> = emptyMap()
+        var notifyOk = false
+        var joinOk = false
+        val notedChats = mutableListOf<Chat>()
+        override suspend fun noteLocalChat(chat: Chat) {
+            notedChats += chat
+        }
+
+        override suspend fun joinChat(chatId: PeerId): Outcome<JoinMembership> =
+            if (joinOk) {
+                Outcome.Ok(
+                    JoinMembership(
+                        joined = true,
+                        canSendPlain = false,
+                        canSendPhotos = false
+                    )
+                )
+            } else {
+                Outcome.Err("unsupported")
+            }
+
+        var profileKindOverride: String? = null
+        override suspend fun getNotifySettings(
+            peerKind: String,
+            chatId: PeerId,
+        ): Outcome<NotifySettings> {
+            val settings = notifyByKind[peerKind] ?: return Outcome.Err("unsupported")
+            return Outcome.Ok(settings)
+        }
+
+        override suspend fun updateNotifySettings(
+            peerKind: String,
+            settings: NotifySettings,
+            chatId: PeerId,
+        ): Outcome<Unit> = if (notifyOk) Outcome.Ok(Unit) else Outcome.Err("unsupported")
         override suspend fun getProfile(peerId: PeerId): Outcome<Profile> = Outcome.Ok(
             Profile(
                 id = peerId,
-                kind = if (profileUsername == null) "group" else "bot",
+                kind = profileKindOverride ?: if (profileUsername == null) "group" else "bot",
                 title = profileUsername ?: "Group Name",
                 username = profileUsername,
                 isBot = profileUsername != null,

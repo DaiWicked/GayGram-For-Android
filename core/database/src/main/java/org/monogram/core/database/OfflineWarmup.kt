@@ -104,6 +104,10 @@ open class OfflineWarmup(
         )?.map { it.toModel() }.orEmpty()
     }
 
+    open suspend fun oldestListed(archived: Boolean): Chat? = roomIo {
+        db?.chatDao()?.oldestListed(archived)?.toModel()
+    }
+
     /** Callers use this to skip redundant dispatcher hops for in-memory cache adapters. */
     open val usesIoDispatcher: Boolean get() = db != null
 

@@ -84,6 +84,8 @@ sealed class MtprotoUpdate {
         val chatId: PeerId,
         val muteUntil: Int,
         val topicId: Int? = null,
+        /** False when `mute_until` was absent, so the dialog still inherits its type default. */
+        val muteSpecified: Boolean = true,
     ) : MtprotoUpdate()
 
     data class ReadOutbox(

@@ -73,5 +73,7 @@ interface ChatOps {
 
     suspend fun joinChat(chatId: PeerId): Outcome<JoinMembership> = Outcome.Err("unsupported")
 
+    suspend fun noteLocalChat(chat: Chat) = Unit
+
     suspend fun unblockUser(chatId: PeerId): Outcome<Unit> = Outcome.Err("unsupported")
 }

@@ -101,13 +101,18 @@ fun Chat.mergeLocalCache(stored: Chat?): Chat {
     // A live NewMessage or a fresher Room row must not lose its tail when an
     // older getDialogs snapshot arrives after cache paint.
     val newerStored = stored?.takeIf { lastMessageId > 0 && it.lastMessageId > lastMessageId }
+    // An explicit dialog mute is newer than a page that only carries the inherited flag.
+    val keptMute = stored?.takeIf { newerStored != null || (it.muteOverride && !muteOverride) }
     return copy(
         title = preferredPeerTitle(title, stored?.title, id.value),
         dialogScrollMessageId = dialogScrollMessageId ?: stored?.dialogScrollMessageId,
-        pinnedOrder = if (pinned && stored?.pinned == true && pinnedOrder == Int.MAX_VALUE) {
-            stored.pinnedOrder
-        } else {
-            pinnedOrder
+        muted = keptMute?.muted ?: muted,
+        muteOverride = keptMute?.muteOverride ?: muteOverride,
+        pinned = if (newerStored != null) newerStored.pinned else pinned,
+        pinnedOrder = when {
+            newerStored != null -> newerStored.pinnedOrder
+            pinned && stored?.pinned == true && pinnedOrder == Int.MAX_VALUE -> stored.pinnedOrder
+            else -> pinnedOrder
         },
         photoCacheKey = photoCacheKey ?: stored?.photoCacheKey,
         emojiStatusDocumentId = emojiStatusDocumentId ?: stored?.emojiStatusDocumentId,
