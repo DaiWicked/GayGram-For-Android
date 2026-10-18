@@ -239,6 +239,12 @@ impl FakeTlsStream {
         for _ in 0..8 {
             let mut header = [0_u8; 5];
             self.inner.read_exact(&mut header)?;
+            if header[1..3] != [3, 3] {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "invalid TLS record version",
+                ));
+            }
             let length = u16::from_be_bytes([header[3], header[4]]) as usize;
             if length > MAX_RECORD {
                 return Err(std::io::Error::new(
@@ -249,7 +255,8 @@ impl FakeTlsStream {
             let mut payload = vec![0_u8; length];
             self.inner.read_exact(&mut payload)?;
             match header[0] {
-                RECORD_CHANGE_CIPHER_SPEC => {}
+                RECORD_CHANGE_CIPHER_SPEC if payload == [1] => {}
+                RECORD_APPLICATION_DATA if payload.is_empty() => {}
                 RECORD_APPLICATION_DATA => {
                     self.pending = payload;
                     return Ok(());

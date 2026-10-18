@@ -28,6 +28,7 @@ pub struct CdnRedirect {
     pub encryption_key: Vec<u8>,
     pub encryption_iv: Vec<u8>,
     pub offset: i64,
+    pub file_hashes: Vec<FileHash>,
 }
 
 pub fn cdn_supported() -> bool {
@@ -59,6 +60,9 @@ pub fn store_cdn_redirect(redirect: &UploadFileCdnRedirectConstructor, offset: i
             encryption_key: redirect.encryption_key.clone(),
             encryption_iv: redirect.encryption_iv.clone(),
             offset,
+            file_hashes: crate::peers::vector_boxed_items(redirect.file_hashes.as_ref())
+                .cloned()
+                .collect(),
         });
     });
 }
@@ -152,8 +156,29 @@ pub fn hash_matches(file_hash: &FileHash, offset: i64, data: &[u8]) -> bool {
     if hash.offset != offset {
         return false;
     }
-    let take = hash.limit.max(0) as usize;
-    verify_cdn_hash(&data[..data.len().min(take)], &hash.hash)
+    let Ok(take) = usize::try_from(hash.limit) else {
+        return false;
+    };
+    take > 0 && data.len() >= take && verify_cdn_hash(&data[..take], &hash.hash)
+}
+
+pub(crate) fn verify_cdn_part(hashes: &[FileHash], offset: i64, data: &[u8]) -> bool {
+    if offset < 0 || data.is_empty() {
+        return false;
+    }
+    let mut consumed = 0;
+    while consumed < data.len() {
+        let Some(at) = offset.checked_add(consumed as i64) else { return false };
+        let Some(hash) = hashes.iter().find(|entry| matches!(entry,
+            FileHash::FileHash(hash) if hash.offset == at
+        )) else { return false };
+        if !hash_matches(hash, at, &data[consumed..]) {
+            return false;
+        }
+        let FileHash::FileHash(hash) = hash else { return false };
+        consumed += hash.limit as usize;
+    }
+    true
 }
 
 #[cfg(test)]

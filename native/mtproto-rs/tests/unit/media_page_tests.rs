@@ -32,6 +32,22 @@ fn paragraph(text: &str) -> PageBlock {
 }
 
 #[test]
+fn layer_230_ton_address_preserves_text_and_formatting() {
+    let rich = RichText::TextTonAddress(
+        tellers_mtproto::latest::api::TextTonAddressConstructor {
+            text: plain("EQ_example"),
+        },
+    );
+    let json = crate::instant_view::rich_json(&rich);
+    assert_eq!(json["t"], "EQ_example");
+    assert_eq!(json["e"][0]["k"], "code");
+    let block = paragraph_of(rich);
+    let formatted = page_blocks_formatted(std::iter::once(&block));
+    assert_eq!(formatted.text, "EQ_example");
+    assert!(formatted.entities.iter().any(|entity| entity.kind == "code" && entity.offset == 0 && entity.length == 10));
+}
+
+#[test]
 fn nested_blockquote_blocks_overlap() {
     let inner = PageBlock::PageBlockBlockquoteBlocks(
         tellers_mtproto::latest::api::PageBlockBlockquoteBlocksConstructor {

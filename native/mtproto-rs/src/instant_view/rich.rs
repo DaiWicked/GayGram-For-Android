@@ -72,6 +72,10 @@ pub(crate) fn append_rich(text: &RichText, out: &mut media::FormattedText) {
             append_rich(&t.text, out);
             mark(out, start, "code", None);
         }
+        RichText::TextTonAddress(t) => {
+            append_rich(&t.text, out);
+            mark(out, start, "code", None);
+        }
         RichText::TextBankCard(t) => {
             append_rich(&t.text, out);
             mark(out, start, "code", None);

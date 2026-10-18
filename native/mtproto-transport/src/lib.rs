@@ -6,13 +6,11 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use crate::proxy::tls::TlsStream;
+use crate::proxy::{http::http_connect, socks5::socks5_connect, tls::TlsStream};
 use tellers_mtproto_transport::{
     Connection, Error as TransportError, ObfuscatedProtocol, ObfuscatedStream,
 };
 use thiserror::Error;
-
-const MAX_PROXY_REPLY: usize = 16 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProxyKind {
@@ -217,10 +215,7 @@ impl TcpConnection {
         mut register: impl FnMut(&std::sync::Arc<TcpStream>) -> Result<(), ProxyError>,
         mut check: impl FnMut() -> Result<(), ProxyError>,
     ) -> Result<Self, ProxyError> {
-        check()?;
-        let connection = Self::connect(target, timeout, proxy)?;
-        let stream = connection.socket.clone();
-        register(&stream)?;
+        let connection = Self::connect_registered(target, timeout, proxy, &mut register, &mut check)?;
         check()?;
         Ok(connection)
     }
@@ -370,6 +365,17 @@ impl TcpConnection {
         timeout: Duration,
         proxy: Option<&ProxyConfig>,
     ) -> Result<Self, ProxyError> {
+        Self::connect_controlled(target, timeout, proxy, |_| Ok(()), || Ok(()))
+    }
+
+    fn connect_registered(
+        target: &str,
+        timeout: Duration,
+        proxy: Option<&ProxyConfig>,
+        register: &mut impl FnMut(&std::sync::Arc<TcpStream>) -> Result<(), ProxyError>,
+        check: &mut impl FnMut() -> Result<(), ProxyError>,
+    ) -> Result<Self, ProxyError> {
+        check()?;
         if let Some(proxy) = proxy {
             proxy.validate()?;
         }
@@ -380,11 +386,14 @@ impl TcpConnection {
             .to_socket_addrs()?
             .next()
             .ok_or_else(|| ProxyError::Handshake("proxy address did not resolve".into()))?;
+        check()?;
         let mut stream = TcpStream::connect_timeout(&socket, timeout)?;
         stream.set_read_timeout(Some(timeout))?;
         stream.set_write_timeout(Some(timeout))?;
         stream.set_nodelay(true)?;
         let socket = std::sync::Arc::new(stream.try_clone()?);
+        register(&socket)?;
+        check()?;
         let stream = match proxy {
             Some(proxy) => match proxy.kind {
                 ProxyKind::Socks5 => {
@@ -534,118 +543,9 @@ impl Connection for ObfuscatedTcp {
     }
 }
 
-fn socks5_connect(
-    stream: &mut TcpStream,
-    target: &str,
-    proxy: &ProxyConfig,
-) -> Result<(), ProxyError> {
-    let authenticated = proxy.username.is_some();
-    stream.write_all(if authenticated {
-        &[5, 2, 0, 2]
-    } else {
-        &[5, 1, 0]
-    })?;
-    let mut response = [0_u8; 2];
-    stream.read_exact(&mut response)?;
-    if response[0] != 5 || response[1] == 0xff {
-        return Err(ProxyError::Handshake(
-            "SOCKS5 authentication rejected".into(),
-        ));
-    }
-    if response[1] == 2 {
-        let username = proxy.username.as_deref().unwrap_or_default().as_bytes();
-        let password = proxy.password.as_deref().unwrap_or_default().as_bytes();
-        if username.len() > 255 || password.len() > 255 {
-            return Err(ProxyError::InvalidConfig("SOCKS5 credentials are too long"));
-        }
-        stream.write_all(&[1, username.len() as u8])?;
-        stream.write_all(username)?;
-        stream.write_all(&[password.len() as u8])?;
-        stream.write_all(password)?;
-        let mut auth = [0_u8; 2];
-        stream.read_exact(&mut auth)?;
-        if auth != [1, 0] {
-            return Err(ProxyError::Handshake("SOCKS5 credentials rejected".into()));
-        }
-    }
-    let target = target
-        .rsplit_once(':')
-        .ok_or(ProxyError::InvalidConfig("target must contain a port"))?;
-    let host = target.0.as_bytes();
-    if host.len() > 255 {
-        return Err(ProxyError::InvalidConfig("target host is too long"));
-    }
-    let port: u16 = target
-        .1
-        .parse()
-        .map_err(|_| ProxyError::InvalidConfig("target port is invalid"))?;
-    stream.write_all(&[5, 1, 0, 3, host.len() as u8])?;
-    stream.write_all(host)?;
-    stream.write_all(&port.to_be_bytes())?;
-    let mut head = [0_u8; 4];
-    stream.read_exact(&mut head)?;
-    if head[1] != 0 {
-        return Err(ProxyError::Handshake("SOCKS5 CONNECT rejected".into()));
-    }
-    let length = match head[3] {
-        1 => 4,
-        4 => 16,
-        3 => {
-            let mut size = [0_u8; 1];
-            stream.read_exact(&mut size)?;
-            size[0] as usize
-        }
-        _ => return Err(ProxyError::Handshake("SOCKS5 address type invalid".into())),
-    };
-    let mut discard = vec![0_u8; length + 2];
-    stream.read_exact(&mut discard)?;
-    Ok(())
-}
-
-fn http_connect(
-    stream: &mut TcpStream,
-    target: &str,
-    proxy: &ProxyConfig,
-) -> Result<(), ProxyError> {
-    let mut request =
-        format!("CONNECT {target} HTTP/1.1\\r\\nHost: {target}\\r\\nConnection: keep-alive\\r\\n");
-    if let (Some(username), Some(password)) = (&proxy.username, &proxy.password) {
-        use base64::Engine;
-        request.push_str("Proxy-Authorization: Basic ");
-        request.push_str(
-            &base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}")),
-        );
-        request.push_str("\\r\\n");
-    }
-    request.push_str("\\r\\n");
-    stream.write_all(request.as_bytes())?;
-    let mut response = Vec::new();
-    let mut byte = [0_u8; 1];
-    while response.len() < MAX_PROXY_REPLY {
-        stream.read_exact(&mut byte)?;
-        response.push(byte[0]);
-        if response.ends_with(b"\\r\\n\\r\\n") {
-            break;
-        }
-    }
-    let line = response
-        .split(|byte| *byte == b'\n')
-        .next()
-        .ok_or_else(|| ProxyError::Handshake("HTTP proxy response missing status".into()))?;
-    let text = std::str::from_utf8(line)
-        .map_err(|_| ProxyError::Handshake("HTTP proxy response is not UTF-8".into()))?;
-    let status = text
-        .split_whitespace()
-        .nth(1)
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| ProxyError::Handshake("HTTP proxy status is invalid".into()))?;
-    if !(200..300).contains(&status) {
-        return Err(ProxyError::Handshake(format!(
-            "HTTP proxy returned status {status}"
-        )));
-    }
-    Ok(())
-}
+#[cfg(test)]
+#[path = "../tests/unit/mtproxy_wire_tests.rs"]
+mod mtproxy_wire_tests;
 
 #[cfg(test)]
 #[path = "../tests/unit/proxy_config_tests.rs"]

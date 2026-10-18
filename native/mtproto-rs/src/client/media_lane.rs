@@ -464,6 +464,11 @@ fn follow_cdn_redirect(
     dest: &Path,
     job: &media::CdnRedirect,
 ) -> Result<String, MtprotoError> {
+    if job.offset != 0 {
+        return Err(MtprotoError::Message("CDN resume requires origin download".into()));
+    }
+    let client = get_client(handle)?;
+    let session_id = client.data.lock().home_session_id;
     let pem = with_client_mut(handle, |state| {
         let cfg: CdnConfig =
             api_invoke::invoke_api(&mut state.snapshot, api_id, media::get_cdn_config_request())?;
@@ -503,63 +508,85 @@ fn follow_cdn_redirect(
         last_io: std::time::Instant::now(),
     });
     let staged = media::StagedDownload::new(dest)?;
-    let path = crate::rpc::with_live_transport(&mut slot, || {
+    crate::rpc::with_live_transport(&mut slot, || {
         crate::rpc::with_rpc_timeout_secs(45, || {
-            use std::io::{Seek, SeekFrom, Write};
-            let mut out = std::fs::File::create(staged.path())
-                .map_err(|e| MtprotoError::Message(e.to_string()))?;
-            let mut offset = job.offset;
-            loop {
-                if media::download_cancelled(dest) || crate::request_control::check().is_err() {
-                    return Err(MtprotoError::Message("cancelled".into()));
-                }
-                let mut part = loop {
-                    let response: UploadCdnFile = api_invoke::invoke_api_without_updates(
-                        &mut snap,
-                        api_id,
-                        media::get_cdn_file_request(job.file_token.clone(), offset, media::CHUNK),
-                    )?;
-                    match media::cdn_file_bytes(response)? {
-                        Ok(bytes) => break bytes,
-                        Err(request_token) => {
-                            let _ = with_client_mut(handle, |state| {
-                                api_invoke::invoke_api::<_, Vector<Box<FileHash>>>(
-                                    &mut state.snapshot,
-                                    api_id,
-                                    media::reupload_cdn_file_request(
-                                        job.file_token.clone(),
-                                        request_token,
-                                    ),
-                                )
-                            })?;
-                        }
-                    }
-                };
-                media::decrypt_cdn_part(
-                    &job.encryption_key,
-                    &job.encryption_iv,
-                    offset,
-                    &mut part,
+            receive_cdn_parts(job, dest, &staged, |offset| {
+                let response: UploadCdnFile = api_invoke::invoke_api_without_updates(
+                    &mut snap, api_id,
+                    media::get_cdn_file_request(job.file_token.clone(), offset, media::CHUNK),
                 )?;
-                out.seek(SeekFrom::Start(offset as u64))
-                    .map_err(|e| MtprotoError::Message(e.to_string()))?;
-                out.write_all(&part)
-                    .map_err(|e| MtprotoError::Message(e.to_string()))?;
-                if (part.len() as i32) < media::CHUNK {
-                    break;
-                }
-                offset += part.len() as i64;
-                media::notify_progress(&dest.display().to_string(), offset, 0);
-            }
-            out.flush()
-                .map_err(|e| MtprotoError::Message(e.to_string()))?;
-            Ok(staged.path().display().to_string())
+                media::cdn_file_bytes(response)
+            }, |request_token| {
+                with_client_mut(handle, |state| {
+                    api_invoke::invoke_api::<_, Vector<Box<FileHash>>>(
+                        &mut state.snapshot, api_id,
+                        media::reupload_cdn_file_request(job.file_token.clone(), request_token),
+                    )
+                }).map(|_| ())
+            })
         })
     })?;
-    let client = get_client(handle)?;
-    let session_id = client.data.lock().home_session_id;
     publish_media(&client, session_id, staged, dest)?;
-    let _ = path;
     Ok(dest.display().to_string())
+}
+
+fn cdn_or_origin<T>(
+    cdn: impl FnOnce() -> Result<T, MtprotoError>,
+    origin: impl FnOnce() -> Result<T, MtprotoError>,
+) -> Result<T, MtprotoError> {
+    match cdn() {
+        Ok(result) => Ok(result),
+        Err(_) => media::with_cdn_supported(false, origin),
+    }
+}
+
+fn receive_cdn_parts(
+    job: &media::CdnRedirect,
+    dest: &Path,
+    staged: &media::StagedDownload,
+    mut fetch: impl FnMut(i64) -> Result<Result<Vec<u8>, Vec<u8>>, MtprotoError>,
+    mut reupload: impl FnMut(Vec<u8>) -> Result<(), MtprotoError>,
+) -> Result<(), MtprotoError> {
+    use std::io::{Seek, SeekFrom, Write};
+    let mut out = std::fs::File::create(staged.path())
+        .map_err(|e| MtprotoError::Message(e.to_string()))?;
+    let mut offset = job.offset;
+    loop {
+        if media::download_cancelled(dest) || crate::request_control::check().is_err() {
+            return Err(MtprotoError::Message("cancelled".into()));
+        }
+        let mut reuploads = 0;
+        let mut part = loop {
+            if media::download_cancelled(dest) || crate::request_control::check().is_err() {
+                return Err(MtprotoError::Message("cancelled".into()));
+            }
+            match fetch(offset)? {
+                Ok(bytes) => break bytes,
+                Err(token) => {
+                    if reuploads >= 3 {
+                        return Err(MtprotoError::Message("CDN reupload limit exceeded".into()));
+                    }
+                    reuploads += 1;
+                    reupload(token)?;
+                }
+            }
+        };
+        if media::download_cancelled(dest) || crate::request_control::check().is_err() {
+            return Err(MtprotoError::Message("cancelled".into()));
+        }
+        media::decrypt_cdn_part(&job.encryption_key, &job.encryption_iv, offset, &mut part)?;
+        if part.len() > media::CHUNK as usize
+            || !media::verify_cdn_part(&job.file_hashes, offset, &part)
+        {
+            return Err(MtprotoError::Message("CDN hash verification failed".into()));
+        }
+        out.seek(SeekFrom::Start(offset as u64))
+            .map_err(|e| MtprotoError::Message(e.to_string()))?;
+        out.write_all(&part).map_err(|e| MtprotoError::Message(e.to_string()))?;
+        if part.len() < media::CHUNK as usize { break; }
+        offset += part.len() as i64;
+        media::notify_progress(&dest.display().to_string(), offset, 0);
+    }
+    out.flush().map_err(|e| MtprotoError::Message(e.to_string()))
 }
 

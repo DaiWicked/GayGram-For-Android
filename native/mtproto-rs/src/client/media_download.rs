@@ -19,6 +19,10 @@ mod peer_avatar;
 
 use peer_avatar::reindex_peer_avatar;
 
+#[cfg(test)]
+#[path = "../../tests/unit/cdn_transfer_tests.rs"]
+mod cdn_transfer_tests;
+
 include!("media_lane.rs");
 
 
@@ -984,19 +988,15 @@ pub(crate) fn download_media_range_on_lane(
             Err(err) if media::is_cdn_redirect(&err) => {
                 let job = media::take_cdn_redirect().ok_or(err)?;
                 drop(admission);
-                let cdn_result = {
+                cdn_or_origin(|| {
                     let _cdn_admission = client.policy.admit_download(job.dc_id, large)?;
                     follow_cdn_redirect(handle, api_id, dest, &job)
-                };
-                match cdn_result {
-                    Ok(path) => Ok(path),
-                    Err(_) => media::with_cdn_supported(false, || {
-                        let _admission = client.policy.admit_download(target_dc, large)?;
-                        download_media_range_on_lane_dc(
-                            handle, client, home, api_id, media, dest, offset, target_dc,
-                        )
-                    }),
-                }
+                }, || {
+                    let _admission = client.policy.admit_download(target_dc, large)?;
+                    download_media_range_on_lane_dc(
+                        handle, client, home, api_id, media, dest, offset, target_dc,
+                    )
+                })
             }
             other => other,
         };

@@ -522,6 +522,10 @@ fn push_rich(text: &RichText, out: &mut FormattedText) {
             push_rich(&t.text, out);
             mark(out, start, "code", None);
         }
+        RichText::TextTonAddress(t) => {
+            push_rich(&t.text, out);
+            mark(out, start, "code", None);
+        }
         RichText::TextBankCard(t) => {
             push_rich(&t.text, out);
             mark(out, start, "code", None);
