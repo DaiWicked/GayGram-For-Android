@@ -176,8 +176,8 @@ the pages this library implements or depends on, grouped by area.
 | Auth-key test vectors | https://core.telegram.org/mtproto/samples-auth_key |
 | TL schema | https://core.telegram.org/schema |
 | TL schema explorer | https://schema.jppgr.am/ |
-| Pinned layer 230 | https://schema.jppgr.am/layers/230.tl |
-| Layer 229 -> 230 diff | https://schema.jppgr.am/diff/229-230 |
+| Pinned layer 231 | https://schema.jppgr.am/layers/231.tl |
+| Layer 230 -> 231 diff | https://schema.jppgr.am/diff/230-231 |
 | Layer changelog feed | https://schema.jppgr.am/api/feed |
 | TL layers | https://core.telegram.org/api/layers |
 | Invoking methods | https://core.telegram.org/api/invoking |

@@ -772,12 +772,12 @@ signatures from different layers must never be mixed. Specs:
 
 ### Pinned layer
 
-This checkout is pinned to layer 230:
+This checkout is pinned to layer 231:
 
-- `tellers-mtproto` is `0.2.0+layer.230`
-- the default Cargo feature is `layer-230` and `LATEST_API_LAYER` is 230
-- generated modules for `layer-223`, `layer-229`, and `layer-230` exist side by
-  side
+- `tellers-mtproto` is `0.2.0+layer.231`
+- the default Cargo feature is `layer-231` and `LATEST_API_LAYER` is 231
+- generated modules for `layer-223`, `layer-229`, `layer-230`, and `layer-231`
+  exist side by side
 - `libraryVersion()` reports the crate version and runtime layer
 
 The runtime decodes and encodes with the generated constructor IDs of the
@@ -797,12 +797,12 @@ in the error.
 diagnosing wire mismatches and planning a bump: search constructors, methods, and
 types, diff layers, look up errors, and decode payloads.
 
-- Raw pinned layer: https://schema.jppgr.am/layers/230.tl
-- Layer 229 to 230 diff: https://schema.jppgr.am/diff/229-230
+- Raw pinned layer: https://schema.jppgr.am/layers/231.tl
+- Layer 230 to 231 diff: https://schema.jppgr.am/diff/230-231
 - Changelog feed: https://schema.jppgr.am/api/feed
 
 It archives layers newer than this checkout. A constructor found there is not
-usable until the schema is regenerated, so check the ID in `layers/230.tl` first.
+usable until the schema is regenerated, so check the ID in `layers/231.tl` first.
 
 ### Upgrading a layer
 
@@ -943,8 +943,8 @@ wrapper tests.
 | Invoking | https://core.telegram.org/api/invoking |
 | Layers | https://core.telegram.org/api/layers |
 | TL schema explorer | https://schema.jppgr.am/ |
-| Pinned layer 230 | https://schema.jppgr.am/layers/230.tl |
-| Layer 229 -> 230 diff | https://schema.jppgr.am/diff/229-230 |
+| Pinned layer 231 | https://schema.jppgr.am/layers/231.tl |
+| Layer 230 -> 231 diff | https://schema.jppgr.am/diff/230-231 |
 | Layer changelog feed | https://schema.jppgr.am/api/feed |
 | Updates | https://core.telegram.org/api/updates |
 | Files | https://core.telegram.org/api/files |
