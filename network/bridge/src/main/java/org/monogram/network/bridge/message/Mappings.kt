@@ -22,6 +22,7 @@ internal fun MessageDto.toModel(): Message = Message(
     date = date,
     editDate = editDate,
     outgoing = outgoing,
+    mediaPreviewRestricted = mediaPreviewRestricted != false,
     mediaCacheKey = mediaCacheKey,
     mediaKind = mediaKind,
     thumbCacheKey = thumbCacheKey,

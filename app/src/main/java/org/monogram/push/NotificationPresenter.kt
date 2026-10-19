@@ -38,6 +38,7 @@ import org.monogram.core.common.push.NotificationLocalStore
 import org.monogram.core.common.push.NotificationMessage
 import org.monogram.core.common.push.PeerNotificationMode
 import org.monogram.core.common.push.PushPayload
+import org.monogram.core.common.push.bubbleFromShortcut
 import org.monogram.core.common.push.callNotice
 import org.monogram.core.common.push.conversationStyle
 import org.monogram.core.common.push.evictedShareChatIds
@@ -45,7 +46,6 @@ import org.monogram.core.common.push.mayPostNotifications
 import org.monogram.core.common.push.notificationHttpUrl
 import org.monogram.core.common.push.rankedShareChatIds
 import org.monogram.core.common.push.shadeText
-import org.monogram.core.common.push.bubbleFromShortcut
 import org.monogram.core.common.push.shouldAttachBubble
 import org.monogram.core.common.push.shouldAutoExpandBubble
 import org.monogram.core.common.push.shouldRetryPostWithoutBubble
@@ -73,6 +73,7 @@ object NotificationPresenter {
 
     private const val MAX_SUMMARY_LINES = 5
     private const val EXTRA_BATCH_MESSAGE_ID = "org.monogram.push.batch_msg_id"
+    private const val EXTRA_BATCH_EDITED = "org.monogram.push.batch_edited"
     private const val EXTRA_BATCH_TOPIC_ID = "org.monogram.push.batch_topic_id"
 
     private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
@@ -87,6 +88,13 @@ object NotificationPresenter {
     /** Marks a notification that only counts hidden messages instead of listing their bodies. */
     private const val HIDDEN_MESSAGE_ID = -1
 
+    private const val EXTRA_CHILD = "org.monogram.push.child"
+    private var summaryPosted = false
+    private const val EXTRA_UNREAD_COUNT = "org.monogram.push.unread_count"
+    private const val EXTRA_REVISION = "org.monogram.push.revision"
+    private val pendingPosts = mutableMapOf<Int, Pair<Notification, Long>>()
+
+    @Synchronized
     fun show(
         context: Context,
         payload: PushPayload,
@@ -110,10 +118,20 @@ object NotificationPresenter {
         val chatId = payload.chatId ?: 0L
         val id = notificationIdFor(payload)
         val active = activeBatch(context, id)
+        val local = NotificationLocalStore(context)
+        var ledger = local.notificationLedger(chatId)
+        if (!quiet && active == null && ledger.pending.isNotEmpty()) ledger = ledger.dismiss()
+        val messageId = payload.messageId ?: 0
+        if (!quiet && chatId != 0L && !ledger.accepts(messageId)) return
+        val previousLedger = ledger
+        if (!quiet && messageId in ledger.pending && active?.messages?.none { it.messageId == messageId } == true) return
+        if (!quiet && chatId != 0L) ledger = ledger.append(messageId, payload.topicId)
+        val preview = decision.preview && (!quiet || active?.preview != false)
         // A quiet repaint only refreshes a notification that is still in the shade.
-        if (quiet && active == null) return
-        val title = if (decision.preview) payload.title else context.getString(R.string.push_hidden_title)
-        val body = shadeText(decision.preview, payload.body, context.getString(R.string.push_hidden_body))
+        if (quiet && (active == null || active.messages.none { it.messageId == payload.messageId } ||
+                    (messageId > 0 && messageId !in ledger.pending))) return
+        val title = if (preview) payload.title else context.getString(R.string.push_hidden_title)
+        val body = shadeText(preview, payload.body, context.getString(R.string.push_hidden_body))
         val channel = NotificationChannels.channelFor(
             context = context,
             kind = decision.channelKind,
@@ -124,10 +142,17 @@ object NotificationPresenter {
             sound = decision.sound,
             popup = decision.popup,
         )
-        val avatarBitmap = avatarBitmap(avatarFile)
+        val avatarBitmap = if (preview) avatarBitmap(avatarFile) else null
         val avatar = avatarBitmap?.let { IconCompat.createWithBitmap(it) }
         val now = System.currentTimeMillis()
-        val style = conversationStyle(payload, quiet, lastAlertAt[id] ?: 0L, now)
+        val repeated = payload.messageId?.takeIf { it > 0 }?.let { messageId ->
+            messageId in previousLedger.pending || active?.messages?.any { it.messageId == messageId } == true
+        } == true
+        val rawStyle = conversationStyle(payload, quiet || repeated, lastAlertAt[id] ?: 0L, now)
+        val style = if (preview) rawStyle else rawStyle.copy(
+            personName = title, conversationTitle = null, shortcutLabel = title,
+            messageSenderName = null,
+        )
         val call = callNotice(payload.locKey, canAnswer = false, fullScreenAllowed = false)
         val person = senderPerson(
             style.personName.ifBlank { title },
@@ -160,36 +185,35 @@ object NotificationPresenter {
         val incoming = NotificationMessage(
             payload.messageId ?: 0, body, System.currentTimeMillis(),
             outgoing = payload.scheduled, senderName = style.messageSenderName,
-            senderKey = style.messagePersonKey, topicId = payload.topicId
+            senderKey = style.messagePersonKey, topicId = payload.topicId,
+            pictureUri = if (preview) pictureUri(context, pictureFile)?.toString() else null,
+            pictureMimeType = pictureFile?.let { file ->
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, options)
+                options.outMimeType
+            } ?: "image/jpeg",
         )
-        val previous = active?.messages.orEmpty().filter { it.messageId != HIDDEN_MESSAGE_ID }
+        val previous = active?.messages.orEmpty().filter {
+            it.messageId != HIDDEN_MESSAGE_ID && (chatId == 0L || it.messageId <= 0 || it.messageId in ledger.pending)
+        }
+        val hidden = !preview
         val batch = if (quiet) {
-            previous.ifEmpty { listOf(incoming) }
+            incoming.pictureUri?.let { uri ->
+                NotificationBatch.attachPicture(
+                    previous,
+                    incoming.messageId,
+                    uri,
+                    incoming.pictureMimeType
+                )
+            } ?: previous
         } else {
             NotificationBatch.append(previous, incoming)
         }
-        // Hidden previews keep counting messages without listing the placeholder bodies.
-        val hidden = !decision.preview
-        val count = if (hidden) NotificationBatch.countHidden(active?.count ?: 0, !quiet) else batch.size
-        val shown = if (hidden) {
-            val total = count.coerceAtLeast(1)
-            listOf(
-                NotificationMessage(
-                    messageId = HIDDEN_MESSAGE_ID,
-                    text = context.resources.getQuantityString(R.plurals.push_new_messages, total, total),
-                    timestamp = active?.messages?.lastOrNull()?.timestamp ?: incoming.timestamp,
-                    topicId = payload.topicId,
-                ),
-            )
-        } else {
-            batch
-        }
-        val uri = pictureUri(context, pictureFile)
-        val bigPicture = if (!style.messagingStyle && uri != null && shown.size == 1) {
-            pictureFile?.let { decodePicture(it) }
-        } else {
-            null
-        }
+        val count = maxOf(batch.size, ledger.pending.size)
+        val shown = if (hidden) batch.map {
+            it.copy(text = body, senderName = null, senderKey = null, pictureUri = null)
+        } else batch
+        if (shown.isEmpty()) return
         val silent = !style.countsAsNewAlert || payload.silent || (!decision.sound && mode?.sound != false)
         if (style.countsAsNewAlert && !payload.silent && (decision.sound || mode?.sound == false)) {
             lastAlertAt[id] = now
@@ -203,14 +227,15 @@ object NotificationPresenter {
             person = person,
             messages = shown,
             count = if (decision.badge) {
-                NotificationBadgePlan.number(if (hidden) count.coerceAtLeast(1) else batch.size, badge)
+                NotificationBadgePlan.number(count, badge)
             } else {
                 0
             },
+            unreadCount = count,
             shortcutId = shortcutId,
             largeIcon = avatarBitmap?.let { Icon.createWithBitmap(it) },
-            pictureUri = if (bigPicture == null) uri else null,
-            pictureBitmap = bigPicture,
+            pictureUri = null,
+            pictureBitmap = null,
             conversationTitle = style.conversationTitle,
             messageSenderName = style.messageSenderName,
             allowReply = style.reply,
@@ -226,6 +251,7 @@ object NotificationPresenter {
             },
             stayUntilOpened = call.staysUntilOpened,
         )
+        builder.extras.putBoolean("org.monogram.push.preview", preview)
         val bubbleShortcut = shortcutId?.takeIf {
             bubbleFromShortcut(Build.VERSION.SDK_INT, it) && shortcutPublished && bubbleIcon != null
         }
@@ -250,10 +276,9 @@ object NotificationPresenter {
         if (posted.isFailure) {
             org.monogram.core.common.AppLog.warn("notify", "post failed")
         } else {
-            if (!quiet) {
-                org.monogram.core.common.AppLog.api("notify", "posted loc=${payload.locKey}")
-                refreshSummary(context, badge)
-            }
+            pendingPosts[id] = builder.build() to android.os.SystemClock.elapsedRealtime()
+            if (chatId != 0L && !quiet) local.saveNotificationLedger(chatId, ledger)
+            refreshSummary(context, badge, id, builder.build())
         }
     }
 
@@ -315,7 +340,11 @@ object NotificationPresenter {
      * Drops every notification and conversation shortcut. Called on logout/session revoke so a
      * signed-out account leaves no chat names, avatars or reply actions behind in the shade.
      */
+    @Synchronized
     fun clear(context: Context) {
+        pendingPosts.clear()
+        summaryPosted = false
+        NotificationLocalStore(context).clearNotificationLedgers()
         runCatching { NotificationManagerCompat.from(context).cancelAll() }
         runCatching {
             if (Build.VERSION.SDK_INT >= 30) {
@@ -327,9 +356,13 @@ object NotificationPresenter {
         }
     }
 
+    @Synchronized
     fun cancel(context: Context, chatId: Long, badge: BadgeSettings = BadgeSettings()) {
+        pendingPosts.remove(notificationId(chatId))
+        val local = NotificationLocalStore(context)
+        local.saveNotificationLedger(chatId, local.notificationLedger(chatId).dismiss())
         NotificationManagerCompat.from(context).cancel(notificationId(chatId))
-        refreshSummary(context, badge)
+        refreshSummary(context, badge, notificationId(chatId), null)
     }
 
     fun suppressVisibleBubble(context: Context, chatId: Long, bubblesEnabled: Boolean): Boolean {
@@ -361,11 +394,11 @@ object NotificationPresenter {
      * Re-posts the collapsed chat batch so the repeat timer alerts again. Returns false when the
      * notification is no longer in the shade.
      */
+    @Synchronized
     fun realert(context: Context, chatId: Long): Boolean {
         val manager = NotificationManagerCompat.from(context)
         val id = notificationId(chatId)
-        val active = manager.activeNotifications.firstOrNull { it.id == id } ?: return false
-        val post = active.notification
+        val post = activeNotification(context, id) ?: return false
         val title = post.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString().orEmpty()
         val messages = batchMessages(post).ifEmpty { return false }
         val icon = post.getLargeIcon()
@@ -383,7 +416,11 @@ object NotificationPresenter {
             chatId = chatId,
             person = person,
             messages = messages,
-            count = post.number.takeIf { it > messages.size } ?: messages.size,
+            count = NotificationBadgePlan.number(
+                post.extras.getInt(EXTRA_UNREAD_COUNT, messages.size),
+                NotificationLocalStore(context).badgeSettings(),
+            ),
+            unreadCount = post.extras.getInt(EXTRA_UNREAD_COUNT, messages.size),
             shortcutId = if (chatId != 0L) "chat:$chatId" else null,
             largeIcon = icon,
             pictureUri = null,
@@ -398,10 +435,17 @@ object NotificationPresenter {
             category = NotificationCompat.CATEGORY_MESSAGE,
             stayUntilOpened = false,
         )
+        builder.extras.putBoolean(
+            "org.monogram.push.preview",
+            post.extras.getBoolean("org.monogram.push.preview", true)
+        )
         if (!(Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED)) return false
-        return runCatching { manager.notify(id, builder.build()) }.isSuccess
+        val replacement = builder.build()
+        return runCatching { manager.notify(id, replacement) }.isSuccess.also { success ->
+            if (success) pendingPosts[id] = replacement to android.os.SystemClock.elapsedRealtime()
+        }
     }
 
     fun notificationId(chatId: Long): Int = (chatId xor (chatId ushr 32)).toInt() and Int.MAX_VALUE
@@ -435,12 +479,13 @@ object NotificationPresenter {
         maxId: Int,
         category: String,
         stayUntilOpened: Boolean,
+        unreadCount: Int = count,
     ): NotificationCompat.Builder {
         val last = messages.last()
         val messageId = last.messageId.takeIf { it > 0 } ?: 0
         val self = selfPerson(context)
         val style = NotificationCompat.MessagingStyle(self)
-        messages.forEachIndexed { index, message ->
+        messages.forEach { message ->
             val senderName = message.senderName
             val author = when {
                 message.outgoing -> self
@@ -458,11 +503,10 @@ object NotificationPresenter {
             }
             val entry = NotificationCompat.MessagingStyle.Message(message.text, message.timestamp, author)
             if (message.messageId != 0) entry.extras.putInt(EXTRA_BATCH_MESSAGE_ID, message.messageId)
+            if (message.edited) entry.extras.putBoolean(EXTRA_BATCH_EDITED, true)
             message.topicId?.let { entry.extras.putInt(EXTRA_BATCH_TOPIC_ID, it) }
-            // Attach the picture to the newest message so the shade renders it inside the
-            // conversation instead of replacing MessagingStyle (Telegram serves it the same way,
-            // through its NotificationImageProvider).
-            if (pictureUri != null && index == messages.lastIndex) entry.setData("image/*", pictureUri)
+            // Keep attachments with their message across thumbnail and avatar refreshes.
+            message.pictureUri?.let { entry.setData(message.pictureMimeType, Uri.parse(it)) }
             style.addMessage(entry)
         }
         conversationTitle?.let { style.setConversationTitle(it) }
@@ -470,16 +514,24 @@ object NotificationPresenter {
             NotificationCompat.BigPictureStyle().bigPicture(it).setSummaryText(last.text)
         }
         val builder = NotificationCompat.Builder(context, channel)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NOTIFICATION_COLOR)
             .setContentTitle(title)
+            .setWhen(last.timestamp)
             .setContentText(last.text)
             .setStyle(pictureStyle ?: style)
             .setNumber(count)
             // Telegram shows the unread count for a collapsed chat (NotificationsController:5657).
             .apply {
-                if (count > 1) {
-                    setSubText(context.resources.getQuantityString(R.plurals.push_new_messages, count, count))
+                if (unreadCount > 1) {
+                    setSubText(
+                        context.resources.getQuantityString(
+                            R.plurals.push_new_messages,
+                            unreadCount,
+                            unreadCount
+                        )
+                    )
                 }
             }
             .setCategory(category)
@@ -494,7 +546,7 @@ object NotificationPresenter {
         if (shortcutId != null) builder.setShortcutId(shortcutId)
         builder.addPerson(person)
         if (largeIcon != null) builder.setLargeIcon(largeIcon)
-        builder.setDeleteIntent(dismissIntent(context, id))
+        builder.setDeleteIntent(dismissIntent(context, id, chatId, messages.maxOf { it.messageId }))
         if (allowReply && chatId != 0L) {
             openLinkAction(context, id, last.text)?.let { builder.addAction(it) }
             builder.addAction(replyAction(context, id, chatId, messageId, maxId))
@@ -503,16 +555,41 @@ object NotificationPresenter {
                 .addAction(notificationSettingsAction(context, id))
         }
         if (silent) builder.setSilent(true)
+        builder.extras.putBoolean(EXTRA_CHILD, true)
+        builder.extras.putInt(EXTRA_UNREAD_COUNT, unreadCount)
+        builder.extras.putLong(EXTRA_REVISION, android.os.SystemClock.elapsedRealtimeNanos())
         return builder
     }
 
-    private class ActiveBatch(val messages: List<NotificationMessage>, val count: Int)
+    private class ActiveBatch(
+        val messages: List<NotificationMessage>,
+        val count: Int,
+        val preview: Boolean
+    )
+
+    private fun activeNotification(context: Context, id: Int): Notification? {
+        val active =
+            NotificationManagerCompat.from(context).activeNotifications.firstOrNull { it.id == id }?.notification
+        val cached = pendingPosts[id] ?: return active
+        if (active == null) {
+            if (android.os.SystemClock.elapsedRealtime() - cached.second < 500) return cached.first
+        } else if (cached.first.extras.getLong(EXTRA_REVISION) > active.extras.getLong(
+                EXTRA_REVISION
+            )
+        ) {
+            return cached.first
+        }
+        pendingPosts.remove(id)
+        return active
+    }
 
     private fun activeBatch(context: Context, id: Int): ActiveBatch? {
-        val active = NotificationManagerCompat.from(context).activeNotifications
-            .firstOrNull { it.id == id }
-            ?: return null
-        return ActiveBatch(batchMessages(active.notification), active.notification.number.coerceAtLeast(0))
+        val active = activeNotification(context, id) ?: return null
+        return ActiveBatch(
+            batchMessages(active),
+            active.extras.getInt(EXTRA_UNREAD_COUNT, active.number.coerceAtLeast(0)),
+            active.extras.getBoolean("org.monogram.push.preview", true)
+        )
     }
 
     private fun batchMessages(notification: Notification): List<NotificationMessage> {
@@ -527,7 +604,10 @@ object NotificationPresenter {
                 outgoing = NotificationConversation.isOutgoing(message.person?.key, userKey),
                 senderName = message.person?.name?.toString(),
                 senderKey = message.person?.key,
+                edited = message.extras.getBoolean(EXTRA_BATCH_EDITED),
                 topicId = message.extras.getInt(EXTRA_BATCH_TOPIC_ID, 0).takeIf { it > 0 },
+                pictureUri = message.dataUri?.toString(),
+                pictureMimeType = message.dataMimeType ?: "image/jpeg",
             )
         }
     }
@@ -546,30 +626,81 @@ object NotificationPresenter {
             .build()
 
     /** Re-posts the collapsed batch summary, or clears it when a chat notification left the shade. */
-    fun refreshSummary(context: Context, badge: BadgeSettings = BadgeSettings()) {
+    @Synchronized
+    fun refreshSummary(context: Context, badge: BadgeSettings = BadgeSettings()) =
+        refreshSummary(context, badge, null, null)
+
+    private fun refreshSummary(
+        context: Context,
+        badge: BadgeSettings,
+        changedId: Int?,
+        replacement: Notification?
+    ) {
         val manager = NotificationManagerCompat.from(context)
         val active = manager.activeNotifications
-        val children = active
-            .filter {
-                it.notification.group == GROUP_KEY &&
-                    it.notification.flags and Notification.FLAG_GROUP_SUMMARY == 0
+        val posts = active.associate { it.id to (it.notification to it.postTime) }.toMutableMap()
+        pendingPosts.keys.toList().forEach { id ->
+            val current = activeNotification(context, id)
+            if (current == null) posts.remove(id)
+            else posts[id] = current to current.`when`
+        }
+        val children = (posts.filterKeys { it != changedId }
+            .map { (id, value) -> Triple(id, value.first, value.second) } +
+                listOfNotNull(replacement?.let {
+                    Triple(
+                        requireNotNull(changedId),
+                        it,
+                        System.currentTimeMillis()
+                    )
+                }))
+            .filter { (_, notification, _) ->
+                (notification.group == GROUP_KEY || notification.extras.getBoolean(EXTRA_CHILD)) &&
+                        notification.flags and Notification.FLAG_GROUP_SUMMARY == 0
             }
-            .sortedByDescending { it.postTime }
+            .sortedByDescending { it.third }
         if (children.size < 2) {
+            val hadSummary = summaryPosted || active.any { it.id == SUMMARY_ID }
+            summaryPosted = false
             manager.cancel(SUMMARY_ID)
+            if (hadSummary) children.singleOrNull()?.let { child ->
+                val detached = NotificationCompat.Builder(context, child.second)
+                    .setGroup(null).setSilent(true).setOnlyAlertOnce(true).build()
+                detached.extras.putLong(
+                    EXTRA_REVISION,
+                    android.os.SystemClock.elapsedRealtimeNanos()
+                )
+                if (runCatching { manager.notify(child.first, detached) }.isSuccess) {
+                    pendingPosts[child.first] = detached to android.os.SystemClock.elapsedRealtime()
+                }
+            }
             return
+        }
+        children.filter { it.second.group != GROUP_KEY }.forEach { child ->
+            val grouped = NotificationCompat.Builder(context, child.second)
+                .setGroup(GROUP_KEY).setSilent(true).setOnlyAlertOnce(true).build()
+            grouped.extras.putLong(EXTRA_REVISION, android.os.SystemClock.elapsedRealtimeNanos())
+            if (runCatching { manager.notify(child.first, grouped) }.isSuccess) {
+                pendingPosts[child.first] = grouped to android.os.SystemClock.elapsedRealtime()
+            }
         }
         val channel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             active.firstOrNull { it.id == SUMMARY_ID }?.notification?.channelId
-                ?: children.first().notification.channelId
+                ?: children.first().second.channelId
         } else {
             NotificationChannels.OTHER
         }
-        val total = children.sumOf { it.notification.number.coerceAtLeast(1) }
+        val total = children.sumOf {
+            it.second.extras.getInt(
+                EXTRA_UNREAD_COUNT,
+                it.second.number.coerceAtLeast(1)
+            )
+        }
         val lines = NotificationCompat.InboxStyle()
         children.take(MAX_SUMMARY_LINES).forEach { child ->
-            val title = child.notification.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString()
-            val text = child.notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString()
+            val title =
+                child.second.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString()
+            val text =
+                child.second.extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString()
             val line = listOfNotNull(title?.takeIf { it.isNotBlank() }, text?.takeIf { it.isNotBlank() })
                 .joinToString(": ")
             if (line.isNotBlank()) lines.addLine(line)
@@ -578,6 +709,7 @@ object NotificationPresenter {
             lines.setSummaryText(context.getString(R.string.push_more_chats, children.size - MAX_SUMMARY_LINES))
         }
         val summary = NotificationCompat.Builder(context, channel)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NOTIFICATION_COLOR)
             .setContentTitle(context.getString(R.string.app_name))
@@ -596,7 +728,7 @@ object NotificationPresenter {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            runCatching { manager.notify(SUMMARY_ID, summary) }
+            if (runCatching { manager.notify(SUMMARY_ID, summary) }.isSuccess) summaryPosted = true
         }
     }
 
@@ -707,14 +839,49 @@ object NotificationPresenter {
         ).build()
     }
 
+    @Synchronized
     fun showNotSent(context: Context, chatId: Long) {
         val id = notificationId(chatId)
-        val active = NotificationManagerCompat.from(context).activeNotifications.firstOrNull { it.id == id } ?: return
-        val messages = batchMessages(active.notification) +
+        val post = activeNotification(context, id) ?: return
+        val messages = batchMessages(post) +
             NotificationMessage(0, context.getString(R.string.push_not_sent), System.currentTimeMillis())
-        repost(context, chatId, active.notification, messages, silent = true, onlyAlertOnce = true)
+        repost(context, chatId, post, messages, silent = true, onlyAlertOnce = true)
     }
 
+    @Synchronized
+    fun editMessage(
+        context: Context,
+        chatId: Long,
+        messageId: Int,
+        text: String,
+        badge: BadgeSettings,
+        hideMedia: Boolean = false
+    ) {
+        val post = activeNotification(context, notificationId(chatId)) ?: return
+        if (!post.extras.getBoolean("org.monogram.push.preview", true)) return
+        val messages = batchMessages(post)
+        if (messages.none { it.messageId == messageId }) return
+        repost(context, chatId, post, messages.map {
+            if (it.messageId == messageId) it.copy(
+                text = text,
+                edited = true,
+                pictureUri = if (hideMedia) null else it.pictureUri
+            ) else it
+        }, silent = true, onlyAlertOnce = true, badge = badge)
+    }
+
+    @Synchronized
+    fun dropUnscopedMessages(context: Context, ids: Set<Int>, badge: BadgeSettings) {
+        val local = NotificationLocalStore(context)
+        val activeChats = NotificationManagerCompat.from(context).activeNotifications.mapNotNull {
+            it.notification.shortcutId?.removePrefix("chat:")?.toLongOrNull()
+        }
+        (local.notificationChatIds() + activeChats).filter {
+            it != 0L && it > -org.monogram.core.models.CHANNEL_PEER_OFFSET
+        }.forEach { dropMessages(context, it, ids, null, badge) }
+    }
+
+    @Synchronized
     fun dropMessages(
         context: Context,
         chatId: Long,
@@ -724,19 +891,41 @@ object NotificationPresenter {
         topicId: Int? = null,
     ) {
         val id = notificationId(chatId)
-        val active = NotificationManagerCompat.from(context).activeNotifications.firstOrNull { it.id == id } ?: return
-        val messages = batchMessages(active.notification)
+        val local = NotificationLocalStore(context)
+        val ledger = local.notificationLedger(chatId).retain(dropIds, upTo, topicId)
+        local.saveNotificationLedger(chatId, ledger)
+        val post = activeNotification(context, id) ?: return
+        val messages = batchMessages(post)
         val kept = if (topicId == null) NotificationBatch.retain(messages, dropIds, upTo)
         else messages.filter { message ->
             message.topicId != topicId || NotificationBatch.retain(listOf(message), dropIds, upTo)
                 .isNotEmpty()
         }
-        if (kept.isEmpty()) {
+        val remaining = kept.ifEmpty {
+            ledger.pending.entries.toList().takeLast(8).map { (messageId, topic) ->
+                NotificationMessage(
+                    messageId,
+                    context.getString(R.string.push_hidden_body),
+                    System.currentTimeMillis(),
+                    topicId = topic
+                )
+            }
+        }
+        if (remaining.isEmpty()) {
             if (upTo == null || !suppressVisibleBubble(
                     context, chatId, NotificationLocalStore(context).bubblesEnabled,
                 )) cancel(context, chatId, badge)
+        } else {
+            repost(
+                context,
+                chatId,
+                post,
+                remaining,
+                silent = true,
+                onlyAlertOnce = true,
+                badge = badge
+            )
         }
-        else repost(context, chatId, active.notification, kept, silent = true, onlyAlertOnce = true)
     }
 
     private fun repost(
@@ -746,6 +935,7 @@ object NotificationPresenter {
         messages: List<NotificationMessage>,
         silent: Boolean,
         onlyAlertOnce: Boolean,
+        badge: BadgeSettings = NotificationLocalStore(context).badgeSettings(),
     ) {
         if (messages.isEmpty()) return
         val id = notificationId(chatId)
@@ -756,6 +946,8 @@ object NotificationPresenter {
                 ?.let { IconCompat.createWithBitmap(it) }
         }
         val person = senderPerson(title, NotificationConversation.peerPersonKey(chatId), iconCompat)
+        val pendingCount = NotificationLocalStore(context).notificationLedger(chatId).pending.size
+        val unreadCount = maxOf(messages.size, pendingCount)
         val builder = builderFor(
             context = context,
             id = id,
@@ -764,7 +956,8 @@ object NotificationPresenter {
             chatId = chatId,
             person = person,
             messages = messages,
-            count = messages.size,
+            count = NotificationBadgePlan.number(unreadCount, badge),
+            unreadCount = unreadCount,
             shortcutId = if (chatId != 0L) "chat:$chatId" else null,
             largeIcon = icon,
             pictureUri = null,
@@ -787,12 +980,22 @@ object NotificationPresenter {
         ) {
             return
         }
+        builder.extras.putBoolean(
+            "org.monogram.push.preview",
+            post.extras.getBoolean("org.monogram.push.preview", true)
+        )
         if (Build.VERSION.SDK_INT >= 30) {
             post.bubbleMetadata?.shortcutId?.let {
                 builder.setBubbleMetadata(shortcutBubble(it, suppressNotification = false, expand = false))
             }
         }
-        runCatching { NotificationManagerCompat.from(context).notify(id, builder.build()) }
+        val replacement = builder.build()
+        if (runCatching {
+                NotificationManagerCompat.from(context).notify(id, replacement)
+            }.isSuccess) {
+            pendingPosts[id] = replacement to android.os.SystemClock.elapsedRealtime()
+            refreshSummary(context, badge, id, replacement)
+        }
     }
 
     private fun shortcutBubble(
@@ -894,11 +1097,12 @@ object NotificationPresenter {
             PendingIntent.FLAG_UPDATE_CURRENT or immutableFlags(),
         )
 
-    private fun dismissIntent(context: Context, id: Int): PendingIntent =
+    private fun dismissIntent(context: Context, id: Int, chatId: Long, maxId: Int): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             id xor 4,
-            Intent(context, NotificationActionReceiver::class.java).setAction(ACTION_DISMISS),
+            Intent(context, NotificationActionReceiver::class.java).setAction(ACTION_DISMISS)
+                .putExtra(EXTRA_CHAT_ID, chatId).putExtra(EXTRA_MESSAGE_ID, maxId),
             PendingIntent.FLAG_UPDATE_CURRENT or immutableFlags(),
         )
 

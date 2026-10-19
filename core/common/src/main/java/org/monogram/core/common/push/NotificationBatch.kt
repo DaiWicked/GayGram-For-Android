@@ -13,6 +13,9 @@ data class NotificationMessage(
     val senderName: String? = null,
     val senderKey: String? = null,
     val topicId: Int? = null,
+    val pictureUri: String? = null,
+    val pictureMimeType: String = "image/jpeg",
+    val edited: Boolean = false,
 )
 
 /**
@@ -34,8 +37,27 @@ object NotificationBatch {
         max: Int = MAX_MESSAGES,
     ): List<NotificationMessage> {
         if (max <= 0) return emptyList()
-        val kept = existing.filterNot { it.isRepeatOf(incoming) }
-        return (kept + incoming).takeLast(max)
+        val index = existing.indexOfFirst { it.isRepeatOf(incoming) }
+        if (index >= 0) {
+            return existing.mapIndexed { i, message ->
+                if (i == index && (!message.edited || incoming.edited)) incoming.copy(
+                    timestamp = message.timestamp,
+                    pictureUri = incoming.pictureUri ?: message.pictureUri,
+                    pictureMimeType = if (incoming.pictureUri == null) message.pictureMimeType else incoming.pictureMimeType,
+                )
+                else message
+            }.takeLast(max)
+        }
+        return (existing + incoming).takeLast(max)
+    }
+
+    fun attachPicture(
+        existing: List<NotificationMessage>,
+        messageId: Int,
+        uri: String,
+        mimeType: String = "image/jpeg",
+    ): List<NotificationMessage> = existing.map {
+        if (it.messageId == messageId) it.copy(pictureUri = uri, pictureMimeType = mimeType) else it
     }
 
     /**

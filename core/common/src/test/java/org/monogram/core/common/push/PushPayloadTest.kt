@@ -10,6 +10,18 @@ import org.monogram.core.models.PushTokenType
 
 class PushPayloadTest {
     @Test
+    fun liveGroupMessageKeepsSenderAndConversationSeparate() {
+        val payload = liveMessagePayload(
+            -5L, 10, false, "hello", null, "Ada", 42L, "Group", PushChannelKind.Group,
+        )!!
+        val style = conversationStyle(payload, false, 0L, 10_000L)
+        assertEquals("Group", style.conversationTitle)
+        assertEquals("Ada", style.messageSenderName)
+        assertEquals("peer:42", style.messagePersonKey)
+        assertEquals("hello", payload.body)
+    }
+
+    @Test
     fun tokenTypesMatchTelegramDocs() {
         assertEquals(2, PushTokenType.Fcm.code)
         assertEquals(4, PushTokenType.Simple.code)

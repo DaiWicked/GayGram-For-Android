@@ -66,6 +66,7 @@ import org.monogram.core.models.NotifySettings
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.PushDebugState
 import org.monogram.core.models.PushTokenType
+import org.monogram.core.models.chatListPreviewSource
 import org.monogram.core.models.peerAvatarCacheKey
 import org.monogram.network.bridge.MtprotoClient
 import org.monogram.network.bridge.MtprotoUpdate
@@ -74,9 +75,37 @@ import org.unifiedpush.android.connector.UnifiedPush
 import java.util.Collections
 import kotlin.coroutines.resume
 
-private val VISUAL_LOC_KEYS = listOf("PHOTO", "VIDEO", "GIF", "STICKER", "ROUND")
 private val VISUAL_MEDIA_KINDS =
-    setOf("photo", "video", "gif", "sticker", "sticker_animated", "document")
+    setOf(
+        "photo",
+        "video",
+        "video_note",
+        "gif",
+        "sticker",
+        "sticker_animated",
+        "sticker_video",
+        "document"
+    )
+
+private class NotificationTiming(private val source: String) {
+    private val started = android.os.SystemClock.elapsedRealtime()
+    private val trace = nextTrace.incrementAndGet()
+
+    init {
+        mark("received")
+    }
+
+    fun mark(phase: String, detail: String = "") {
+        if (org.monogram.BuildConfig.DEBUG) android.util.Log.i(
+            "MonogramNotifyTiming",
+            "trace=$trace source=$source phase=$phase elapsedMs=${android.os.SystemClock.elapsedRealtime() - started} $detail",
+        )
+    }
+
+    companion object {
+        private val nextTrace = java.util.concurrent.atomic.AtomicLong()
+    }
+}
 
 class PushCoordinator(
     private val context: Context,
@@ -113,7 +142,9 @@ class PushCoordinator(
     var broadcasts: NotifySettings = NotifySettings()
     @Volatile
     var chatPhotos: Map<Long, String> = emptyMap()
-    private val mediaLookups: MutableSet<Long> = Collections.synchronizedSet(HashSet())
+    private val restrictedMedia: MutableSet<Pair<Long, Int>> =
+        Collections.synchronizedSet(HashSet())
+    private val mediaLookups: MutableSet<Pair<Long, Int>> = Collections.synchronizedSet(HashSet())
     private val wakeGate = PushWakeGate()
     private var wakeJob: Job? = null
     @Volatile
@@ -172,6 +203,47 @@ class PushCoordinator(
                     )
 
                     is MtprotoUpdate.NewMessage -> presentLiveMessage(update.message)
+                    is MtprotoUpdate.MessageEdited -> {
+                        val key = update.message.id.chatId.value to update.message.id.id
+                        if (update.message.mediaPreviewRestricted) restrictedMedia.add(key) else restrictedMedia.remove(
+                            key
+                        )
+                        mediaLookups.remove(key)
+                        NotificationPresenter.editMessage(
+                            context, update.message.id.chatId.value, update.message.id.id,
+                            notificationText(update.message), store.badgeSettings(),
+                            hideMedia = update.message.mediaPreviewRestricted,
+                        )
+                    }
+
+                    is MtprotoUpdate.ReadInbox -> NotificationPresenter.dropMessages(
+                        context,
+                        update.chatId.value,
+                        emptySet(),
+                        update.maxId,
+                        store.badgeSettings(),
+                    )
+
+                    is MtprotoUpdate.ReadHistoryConfirmed -> NotificationPresenter.dropMessages(
+                        context,
+                        update.chatId.value,
+                        emptySet(),
+                        update.maxId,
+                        store.badgeSettings(),
+                    )
+
+                    is MtprotoUpdate.MessagesDeleted -> {
+                        val deletedChat = update.chatId
+                        if (deletedChat == null) NotificationPresenter.dropUnscopedMessages(
+                            context, update.messageIds.toSet(), store.badgeSettings(),
+                        ) else NotificationPresenter.dropMessages(
+                            context,
+                            deletedChat.value,
+                            update.messageIds.toSet(),
+                            null,
+                            store.badgeSettings(),
+                        )
+                    }
 
                     else -> Unit
                 }
@@ -265,6 +337,8 @@ class PushCoordinator(
         notifySettingsJob = null
         accountUserId = 0L
         knownChats = emptyList()
+        restrictedMedia.clear()
+        mediaLookups.clear()
         lastPayload = null
         exceptions = emptyList()
         users = NotifySettings()
@@ -497,6 +571,7 @@ class PushCoordinator(
     }
 
     fun handleIncoming(fcm: Boolean, body: ByteArray?, onComplete: (() -> Unit)? = null) {
+        val timing = NotificationTiming(if (fcm) "fcm" else "unifiedpush")
         scope.launch {
             try {
                 when (val incoming = normalizeIncomingBody(fcm, body)) {
@@ -511,7 +586,8 @@ class PushCoordinator(
                             is IncomingPush.Present -> handlePayload(
                                 plain.json,
                                 wake = true,
-                                joinWake = true
+                                joinWake = true,
+                                timing = timing,
                             )
 
                             else -> wakeFetchAndJoin()
@@ -526,7 +602,8 @@ class PushCoordinator(
                     is IncomingPush.Present -> handlePayload(
                         incoming.json,
                         wake = true,
-                        joinWake = true
+                        joinWake = true,
+                        timing = timing,
                     )
                 }
             } finally {
@@ -540,32 +617,64 @@ class PushCoordinator(
         wakeFetch()
     }
 
+    private fun notificationText(message: Message): String =
+        org.monogram.core.models.formatChatListPreview(
+            isGroup = false, isChannel = false, outgoing = message.outgoing, senderName = null,
+            mediaKind = message.mediaKind,
+            text = message.chatListPreviewSource(),
+            mediaLabel = { kind ->
+                val resource = when (kind) {
+                    "photo" -> org.monogram.feature.chats.R.string.chats_preview_photo
+                    "video" -> org.monogram.feature.chats.R.string.chats_preview_video
+                    "gif" -> org.monogram.feature.chats.R.string.chats_preview_gif
+                    "sticker", "sticker_animated", "sticker_video" -> org.monogram.feature.chats.R.string.chats_preview_sticker
+                    "document" -> org.monogram.feature.chats.R.string.chats_preview_document
+                    "audio" -> org.monogram.feature.chats.R.string.chats_preview_audio
+                    "voice" -> org.monogram.feature.chats.R.string.chats_preview_voice
+                    "video_note" -> org.monogram.feature.chats.R.string.chats_preview_video_note
+                    "webpage" -> org.monogram.feature.chats.R.string.chats_preview_link
+                    "todo" -> org.monogram.feature.chats.R.string.chats_preview_checklist
+                    else -> null
+                }
+                resource?.let(context::getString)
+            },
+        ).ifBlank { context.getString(org.monogram.R.string.push_hidden_body) }
+
     private fun presentLiveMessage(message: Message) {
         if (appForeground || message.outgoing || message.pending) return
+        val key = message.id.chatId.value to message.id.id
+        if (message.mediaKind != null && message.mediaPreviewRestricted) restrictedMedia.add(key)
+        else restrictedMedia.remove(key)
         val chat = knownChats.firstOrNull { it.id == message.id.chatId }
         val payload = liveMessagePayload(
             chatId = message.id.chatId.value,
             messageId = message.id.id,
             outgoing = false,
-            text = message.text,
-            fileName = message.fileName,
+            text = notificationText(message),
+            fileName = null,
             senderName = message.senderName,
             senderId = message.senderId?.value,
             title = chat?.title.orEmpty(),
             kind = chat?.let { notificationPeerKind(it) } ?: PushChannelKind.Private,
         ) ?: return
-        scope.launch { handlePayload(payload, wake = false, joinWake = false) }
+        val timing = NotificationTiming("mtproto")
+        scope.launch { handlePayload(payload, wake = false, joinWake = false, timing = timing) }
     }
 
-    private suspend fun handlePayload(json: String, wake: Boolean, joinWake: Boolean) {
-        handlePayload(parsePushPayload(json), wake, joinWake)
+    private suspend fun handlePayload(
+        json: String, wake: Boolean, joinWake: Boolean,
+        timing: NotificationTiming = NotificationTiming("simulation"),
+    ) {
+        handlePayload(parsePushPayload(json), wake, joinWake, timing)
     }
 
     private suspend fun handlePayload(
         payload: PushPayload,
         wake: Boolean,
         joinWake: Boolean,
+        timing: NotificationTiming,
     ) {
+        timing.mark("parsed")
         if (accountUserId == 0L) accountUserId = sessionStore.readAuthorizedUserId()?.value ?: 0L
         if (payload.userId != null && (accountUserId == 0L || payload.userId != accountUserId)) return
         AppLog.api("notify", "parsed loc=${payload.locKey} action=${payload.action}")
@@ -614,16 +723,18 @@ class PushCoordinator(
             PushAction.Show -> {
                 AppLog.api("notify", "loc=${payload.locKey} fg=$appForeground")
                 ensureNotifySettings()
-                withTimeoutOrNull(15_000L) { notifySettingsJob?.join() }
+                val needsSettings =
+                    !store.hasNotifySettingsCache || store.mutedFolders().isNotEmpty()
+                if (!notifySettingsLoaded && needsSettings) {
+                    withTimeoutOrNull(15_000L) { notifySettingsJob?.join() }
+                }
                 if (!notifySettingsLoaded &&
                     (!store.hasNotifySettingsCache || store.mutedFolders().isNotEmpty())
                 ) {
                     maybeWake()
                     return
                 }
-                val unknownPeer =
-                    payload.chatId != null && knownChats.none { it.id.value == payload.chatId }
-                if (unknownPeer || store.mutedFolders().isNotEmpty()) {
+                if (store.mutedFolders().isNotEmpty()) {
                     val dialogs = withTimeoutOrNull(5_000L) { client.getChats() }
                     if (dialogs is Outcome.Ok) rememberChatPhotos(dialogs.value)
                     else if (store.mutedFolders().isNotEmpty()) {
@@ -631,6 +742,7 @@ class PushCoordinator(
                         return
                     }
                 }
+                timing.mark("policy", "cached=${store.hasNotifySettingsCache} wait=$needsSettings")
                 val now = (System.currentTimeMillis() / 1000L).toInt()
                 val mutedFolderChats = folders
                     .filter { it.id in store.mutedFolders() }
@@ -653,7 +765,7 @@ class PushCoordinator(
                 if (!shown.show) {
                     AppLog.api("notify", "suppressed loc=${payload.locKey}")
                 }
-                present(payload, shown, folderId)
+                present(payload, shown, folderId, timing)
                 if (decision.show) {
                     lastPayload = payload
                     payload.chatId?.let { store.lastShownChatId = it }
@@ -668,7 +780,16 @@ class PushCoordinator(
         scope.launch {
             try {
                 if (intent.action == NotificationPresenter.ACTION_DISMISS) {
-                    NotificationPresenter.refreshSummary(context)
+                    val dismissedChat = intent.getLongExtra(NotificationPresenter.EXTRA_CHAT_ID, 0L)
+                    val through = intent.getIntExtra(NotificationPresenter.EXTRA_MESSAGE_ID, 0)
+                    if (dismissedChat != 0L) NotificationPresenter.dropMessages(
+                        context,
+                        dismissedChat,
+                        emptySet(),
+                        through.takeIf { it > 0 } ?: Int.MAX_VALUE,
+                        store.badgeSettings(),
+                    )
+                    NotificationPresenter.refreshSummary(context, store.badgeSettings())
                     return@launch
                 }
                 val chatId = intent.getLongExtra(NotificationPresenter.EXTRA_CHAT_ID, 0L)
@@ -750,43 +871,41 @@ class PushCoordinator(
         payload: PushPayload,
         decision: org.monogram.core.common.push.NotificationDecision,
         folderId: Int?,
+        timing: NotificationTiming,
     ) {
         val chatId = payload.chatId ?: 0L
         val cached = if (chatId != 0L) avatarFile(chatId) else null
         val mode = if (chatId != 0L) store.peerMode(chatId) else null
         val badge = store.badgeSettings()
         NotificationPresenter.show(context, payload, decision, folderId, cached, mode, badge)
+        timing.mark("post_requested")
         if (chatId == 0L || !decision.show) return
         if (decision.preview) {
             scope.launch {
                 val messageId = payload.messageId ?: 0
                 if (messageId <= 0) return@launch
-                // A text push can still be a captioned photo, and this push path carries no
-                // attachb64, so the media kind has to come from the message itself. The lookup is
-                // done once per message and only while its notification is on screen.
-                if (!payload.isVisualMedia() && !rememberMediaLookup(
-                        chatId,
-                        messageId
-                    )
-                ) return@launch
-                val mediaKind = when {
-                    payload.isVisualMedia() -> "photo"
-                    else -> messageMediaKind(chatId, messageId) ?: return@launch
-                }
-                if (mediaKind !in VISUAL_MEDIA_KINDS) return@launch
-                if (payload.isVisualMedia()) rememberMediaLookup(chatId, messageId)
-                mediaThumbFile(chatId, messageId)?.let { file ->
-                    NotificationPresenter.show(
-                        context,
-                        payload,
-                        decision,
-                        folderId,
-                        avatarFile(chatId),
-                        mode,
-                        badge,
-                        quiet = true,
-                        pictureFile = file,
-                    )
+                // Verify current message privacy before exposing any thumbnail to SystemUI.
+                if (!rememberMediaLookup(chatId, messageId)) return@launch
+                var completed = false
+                try {
+                    withTimeoutOrNull(15_000L) {
+                        val message =
+                            notificationMediaMessage(chatId, messageId) ?: return@withTimeoutOrNull
+                        if (message.mediaPreviewRestricted || message.mediaKind !in VISUAL_MEDIA_KINDS) {
+                            completed = true
+                            return@withTimeoutOrNull
+                        }
+                        val file = mediaThumbFile(chatId, messageId) ?: return@withTimeoutOrNull
+                        if ((chatId to messageId) in restrictedMedia) return@withTimeoutOrNull
+                        NotificationPresenter.show(
+                            context, payload, decision, folderId, avatarFile(chatId), mode, badge,
+                            quiet = true, pictureFile = file,
+                        )
+                        timing.mark("image_post_requested")
+                        completed = true
+                    }
+                } finally {
+                    if (!completed) mediaLookups.remove(chatId to messageId)
                 }
             }
         }
@@ -829,26 +948,18 @@ class PushCoordinator(
         }
     }
 
-    /**
-     * Whether a thumbnail is worth fetching: a visual loc key (media without a caption) or an
-     * `attachb64` blob, which the server only sends for media; a captioned photo arrives as
-     * `MESSAGE_TEXT` with the caption, so the loc key alone would miss it.
-     */
-    private fun PushPayload.isVisualMedia(): Boolean =
-        attachB64 != null || VISUAL_LOC_KEYS.any { locKey.contains(it) }
-
-    /** Media kind of a message (`Message.mediaKind`), used when a text push turns out to be media. */
-    private suspend fun messageMediaKind(chatId: Long, messageId: Int): String? =
+    /** Fetch the authoritative media kind and privacy restriction, including for captioned pushes. */
+    private suspend fun notificationMediaMessage(chatId: Long, messageId: Int): Message? =
         when (val result =
             client.getHistoryPage(PeerId(chatId), limit = 1, offsetId = messageId + 1)) {
-            is Outcome.Ok -> result.value.firstOrNull { it.id.id == messageId }?.mediaKind
+            is Outcome.Ok -> result.value.firstOrNull { it.id.id == messageId }
             is Outcome.Err -> null
         }
 
     /** One thumbnail lookup per message, bounded so a redelivered push cannot repeat the fetch. */
     private fun rememberMediaLookup(chatId: Long, messageId: Int): Boolean {
         if (mediaLookups.size > 256) mediaLookups.clear()
-        return mediaLookups.add(chatId * 31 + messageId)
+        return mediaLookups.add(chatId to messageId)
     }
 
     /**
@@ -872,7 +983,9 @@ class PushCoordinator(
                         file.absolutePath
                     ) is Outcome.Err
                 ) {
-                    return null
+                    val inline = client.peekMessageInlineThumb(PeerId(chatId), messageId)
+                    if (inline == null || inline.isEmpty() || inline.size > 2 * 1024 * 1024) return null
+                    file.writeBytes(inline)
                 }
             }
         }

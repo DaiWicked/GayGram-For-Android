@@ -22,6 +22,7 @@ fn empty_page_clears_offsets() {
 #[test]
 fn next_page_uses_last_message_and_rate() {
     let last = MessageDto {
+        media_preview_restricted: None,
         chat_id: -1_000_000_000_042,
         id: 88,
         sender_id: None,

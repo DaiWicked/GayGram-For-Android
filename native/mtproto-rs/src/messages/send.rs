@@ -54,6 +54,7 @@ pub(crate) fn message_from_updates(
         Updates::Updates(u) => first_new_message(&u.updates, media_index),
         Updates::UpdatesCombined(u) => first_new_message(&u.updates, media_index),
         Updates::UpdateShortSentMessage(s) => Some(MessageDto {
+            media_preview_restricted: None,
             chat_id,
             id: s.id,
             sender_id: None,
@@ -90,6 +91,7 @@ pub(crate) fn message_from_updates(
             sender_photo_cache_key: None,
         }),
         Updates::UpdateShortMessage(m) => Some(MessageDto {
+            media_preview_restricted: None,
             chat_id,
             id: m.id,
             sender_id: Some(m.user_id),
@@ -130,6 +132,7 @@ pub(crate) fn message_from_updates(
             sender_photo_cache_key: None,
         }),
         Updates::UpdateShortChatMessage(m) => Some(MessageDto {
+            media_preview_restricted: None,
             chat_id,
             id: m.id,
             sender_id: Some(m.from_id),
@@ -172,6 +175,7 @@ pub(crate) fn message_from_updates(
         _ => None,
     }
     .unwrap_or(MessageDto {
+        media_preview_restricted: None,
         chat_id,
         id: 0,
         sender_id: None,
@@ -584,6 +588,7 @@ pub(crate) fn messages_from_forward_updates(
 pub(crate) fn first_new_from_short(updates: Updates, chat_id: i64) -> Option<MessageDto> {
     match updates {
         Updates::UpdateShortSentMessage(s) => Some(MessageDto {
+            media_preview_restricted: None,
             chat_id,
             id: s.id,
             sender_id: None,

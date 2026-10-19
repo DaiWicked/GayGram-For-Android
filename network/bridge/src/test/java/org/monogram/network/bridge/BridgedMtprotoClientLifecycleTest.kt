@@ -20,6 +20,7 @@ import org.monogram.core.common.Outcome
 import org.monogram.core.common.TelegramCredentials
 import org.monogram.core.models.PeerId
 import org.monogram.mtproto.MtprotoNative
+import org.monogram.network.bridge.message.toModel
 import org.monogram.network.bridge.session.nativeFailureLogLine
 import uniffi.monogram_mtproto.AuthSignedIn
 import uniffi.monogram_mtproto.ChatDto
@@ -1415,6 +1416,25 @@ class BridgedMtprotoClientLifecycleTest {
 
     private fun newMessageEvent(id: Int): UpdateEventDto =
         UpdateEventDto.NewMessage(sampleMessage(42L, id))
+
+    @Test
+    fun mediaPreviewRestrictionSurvivesTheUniffiRecordAndDomainMapping() {
+        for (restricted in listOf<Boolean?>(false, true, null)) {
+            val dto = sampleMessage(7L, 3).copy(mediaPreviewRestricted = restricted)
+            val converter = uniffi.monogram_mtproto.FfiConverterTypeMessageDto
+            val buffer = java.nio.ByteBuffer.allocate(converter.allocationSize(dto).toInt())
+            converter.write(dto, buffer)
+            buffer.flip()
+            val restored = converter.read(buffer)
+            assertEquals(restricted, restored.mediaPreviewRestricted)
+            assertEquals(
+                restricted != false,
+                restored.toModel().mediaPreviewRestricted
+            )
+            assertEquals(0, buffer.remaining())
+        }
+        org.junit.Assert.assertNull(sampleMessage(7L, 3).mediaPreviewRestricted)
+    }
 
     private fun sampleMessage(chatId: Long, id: Int) = MessageDto(
         chatId = chatId,

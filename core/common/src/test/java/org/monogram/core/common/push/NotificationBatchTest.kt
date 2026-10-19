@@ -19,7 +19,44 @@ class NotificationBatchTest {
         val retried = NotificationBatch.append(batch, message(2, "two", at = 500L))
         assertEquals(2, retried.size)
         assertEquals(listOf(1, 2), retried.map { it.messageId })
-        assertEquals(500L, retried.last().timestamp)
+        assertEquals(0L, retried.last().timestamp)
+    }
+
+    @Test
+    fun staleDuplicateCannotOverwriteAnAuthoritativeEdit() {
+        val edited = message(1, "edited", 10L).copy(edited = true, pictureUri = "content://photo/1")
+        val batch = listOf(edited, message(2, "newer", 20L))
+        assertEquals(batch, NotificationBatch.append(batch, message(1, "original", 30L)))
+        val updated = NotificationBatch.append(batch, edited.copy(text = "edited again"))
+        assertEquals("edited again", updated.first().text)
+        assertEquals(updated, NotificationBatch.append(updated, message(1, "original", 40L)))
+    }
+
+    @Test
+    fun editingOlderMessagePreservesOrderAndAttachment() {
+        val batch = listOf(
+            message(1, "old", 10L).copy(
+                pictureUri = "content://photo/1",
+                pictureMimeType = "image/webp"
+            ), message(2, "new", 20L)
+        )
+        val edited = NotificationBatch.append(batch, message(1, "edited", 99L))
+        assertEquals(listOf(1, 2), edited.map { it.messageId })
+        assertEquals("edited", edited.first().text)
+        assertEquals(10L, edited.first().timestamp)
+        assertEquals("content://photo/1", edited.first().pictureUri)
+        assertEquals("image/webp", edited.first().pictureMimeType)
+    }
+
+    @Test
+    fun latePictureUpdatesOnlyItsMessageAndDoesNotResurrectDeletedMessages() {
+        val batch = listOf(message(1, "photo"), message(2, "text"))
+        val refreshed = NotificationBatch.attachPicture(batch, 1, "content://photo/1")
+        assertEquals("content://photo/1", refreshed.first().pictureUri)
+        assertEquals(null, refreshed.last().pictureUri)
+        val deleted = NotificationBatch.retain(refreshed, dropIds = setOf(1))
+        assertEquals(deleted, NotificationBatch.attachPicture(deleted, 1, "content://photo/1"))
+        assertEquals(refreshed, NotificationBatch.append(refreshed, message(2, "text")))
     }
 
     @Test

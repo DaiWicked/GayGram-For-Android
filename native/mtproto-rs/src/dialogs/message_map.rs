@@ -1,8 +1,8 @@
 use crate::{HashMap, HashMapExt};
 
 use tellers_mtproto::latest::api::{
-    Chat as TlChat, Message, MessageEntity, MessageFwdHeader, MessageReplyHeader, MessagesMessages,
-    RichMessage, User, Vector,
+    Chat as TlChat, Message, MessageEntity, MessageFwdHeader, MessageMedia, MessageReplyHeader,
+    MessagesMessages, RichMessage, User, Vector,
 };
 
 use super::peers::{cache_from_users_chats, display_name};
@@ -81,6 +81,8 @@ pub(crate) fn message_to_dto_named(
             let (reply_to_msg_id, reply_to_top_id, reply_quote, forum_topic) =
                 reply_meta(m.reply_to.as_deref());
             Some(MessageDto {
+                media_preview_restricted: media_preview_restricted(m.media.as_deref())
+                    .map(|restricted| restricted || m.noforwards.is_some() || m.ttl_period.is_some()),
                 chat_id,
                 id: m.id,
                 sender_id: m.from_id.as_ref().map(|p| peer_chat_id(p)),
@@ -151,6 +153,7 @@ pub(crate) fn message_to_dto_named(
             let (reply_to_msg_id, reply_to_top_id, _, forum_topic) =
                 reply_meta(m.reply_to.as_deref());
             Some(MessageDto {
+                media_preview_restricted: None,
                 chat_id: peer_chat_id(&m.peer_id),
                 id: m.id,
                 sender_id,
@@ -192,6 +195,18 @@ pub(crate) fn message_to_dto_named(
                 forum_topic,
                 sender_photo_cache_key: sender_photo_cache_key(media_index, sender_id),
             })
+        }
+        _ => None,
+    }
+}
+
+fn media_preview_restricted(media: Option<&MessageMedia>) -> Option<bool> {
+    match media {
+        Some(MessageMedia::MessageMediaPhoto(photo)) => {
+            Some(photo.spoiler.is_some() || photo.ttl_seconds.is_some())
+        }
+        Some(MessageMedia::MessageMediaDocument(document)) => {
+            Some(document.spoiler.is_some() || document.ttl_seconds.is_some())
         }
         _ => None,
     }
@@ -365,12 +380,14 @@ pub(crate) fn dtos_from_messages_page(
             let count = vector_boxed_items(&m.messages).count() as i32;
             (m.messages, m.users, m.chats, 0, count)
         }
-        MessagesMessages::MessagesMessagesSlice(m) => {
-            (m.messages, m.users, m.chats, m.next_rate.unwrap_or(0), m.count)
-        }
-        MessagesMessages::MessagesChannelMessages(m) => {
-            (m.messages, m.users, m.chats, 0, m.count)
-        }
+        MessagesMessages::MessagesMessagesSlice(m) => (
+            m.messages,
+            m.users,
+            m.chats,
+            m.next_rate.unwrap_or(0),
+            m.count,
+        ),
+        MessagesMessages::MessagesChannelMessages(m) => (m.messages, m.users, m.chats, 0, m.count),
         MessagesMessages::MessagesMessagesNotModified(_) => return Ok((Vec::new(), 0, 0)),
         _ => return Err(MtprotoError::Message("unexpected messages.messages".into())),
     };

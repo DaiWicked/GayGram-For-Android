@@ -180,6 +180,10 @@ pub struct MessageDto {
     /// Avatar already indexed at `(sender_id, 0)` when its key starts with `avatar:`.
     #[serde(default)]
     pub sender_photo_cache_key: Option<String>,
+    /// `None` means the cached record predates media privacy metadata.
+    #[serde(default)]
+    #[uniffi(default = None)]
+    pub media_preview_restricted: Option<bool>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

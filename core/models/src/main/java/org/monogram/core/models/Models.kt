@@ -232,6 +232,7 @@ data class Message(
     val senderPhotoCacheKey: String? = null,
     val replyMarkup: ReplyMarkup? = null,
     val checklist: Checklist? = null,
+    val mediaPreviewRestricted: Boolean = true,
 )
 
 /** Last dialog row, so opening a listed chat can paint before history returns. */

@@ -8,6 +8,7 @@ use tellers_mtproto::latest::api::{
 
 fn dto(id: i32, text: &str, reply_to: Option<i32>, quote: Option<&str>) -> MessageDto {
     MessageDto {
+        media_preview_restricted: None,
         chat_id: 1,
         id,
         sender_id: None,
@@ -270,6 +271,79 @@ fn service_message(sender_id: i64, id: i32) -> tellers_mtproto::latest::api::Mes
 }
 
 #[test]
+fn notification_media_privacy_keeps_unknown_distinct_from_spoilers_and_expiry() {
+    use tellers_mtproto::latest::api::{
+        Message, MessageMedia, MessageMediaDocumentConstructor, MessageMediaPhotoConstructor,
+    };
+    let mut old = serde_json::to_value(dto(1, "hi", None, None)).unwrap();
+    old.as_object_mut()
+        .unwrap()
+        .remove("media_preview_restricted");
+    assert!(
+        serde_json::from_value::<MessageDto>(old)
+            .unwrap()
+            .media_preview_restricted.is_none()
+    );
+    for document in [false, true] {
+        for (spoiler, ttl) in [
+            (false, None),
+            (true, None),
+            (false, Some(10)),
+            (true, Some(0)),
+        ] {
+            let mut message = text_message(7, 3);
+            let media = if document {
+                MessageMedia::MessageMediaDocument(MessageMediaDocumentConstructor {
+                    flags: 0,
+                    nopremium: None,
+                    spoiler: spoiler.then(|| Box::new(True::True(TrueConstructor {}))),
+                    video: None,
+                    round: None,
+                    voice: None,
+                    document: None,
+                    alt_documents: None,
+                    video_cover: None,
+                    video_timestamp: None,
+                    ttl_seconds: ttl,
+                })
+            } else {
+                MessageMedia::MessageMediaPhoto(MessageMediaPhotoConstructor {
+                    flags: 0,
+                    spoiler: spoiler.then(|| Box::new(True::True(TrueConstructor {}))),
+                    live_photo: None,
+                    photo: None,
+                    ttl_seconds: ttl,
+                    video: None,
+                })
+            };
+            if let Message::Message(ref mut inner) = message {
+                inner.media = Some(Box::new(media));
+            }
+            let mapped =
+                message_to_dto(&message, &mut crate::media::MediaIndex::default()).unwrap();
+            assert_eq!(mapped.media_preview_restricted, Some(spoiler || ttl.is_some()));
+            if let Message::Message(ref mut inner) = message {
+                inner.ttl_period = Some(60);
+            }
+            assert_eq!(
+                message_to_dto(&message, &mut crate::media::MediaIndex::default())
+                    .unwrap()
+                    .media_preview_restricted,
+                Some(true)
+            );
+        }
+    }
+    assert!(
+        message_to_dto(
+            &text_message(7, 3),
+            &mut crate::media::MediaIndex::default()
+        )
+        .unwrap()
+        .media_preview_restricted.is_none()
+    );
+}
+
+#[test]
 fn sender_photo_cache_key_defaults_and_copies_avatar_slots_only() {
     let mut value = serde_json::to_value(dto(1, "hi", None, None)).expect("json");
     value
@@ -296,8 +370,5 @@ fn sender_photo_cache_key_defaults_and_copies_avatar_slots_only() {
     assert!(document.sender_photo_cache_key.is_none());
 
     let service = message_to_dto(&service_message(7, 6), &mut media).expect("service");
-    assert_eq!(
-        service.sender_photo_cache_key.as_deref(),
-        Some("avatar:7")
-    );
+    assert_eq!(service.sender_photo_cache_key.as_deref(), Some("avatar:7"));
 }

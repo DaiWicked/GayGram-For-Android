@@ -121,7 +121,8 @@ fun liveMessagePayload(
     val body = text?.takeIf { it.isNotBlank() } ?: fileName?.takeIf { it.isNotBlank() } ?: ""
     return PushPayload(
         locKey = locKey,
-        locArgs = listOf(shownTitle, body),
+        locArgs = if (kind == PushChannelKind.Group) listOf(senderName.orEmpty(), shownTitle, body)
+        else listOf(shownTitle, body),
         title = shownTitle,
         body = body,
         chatId = chatId,

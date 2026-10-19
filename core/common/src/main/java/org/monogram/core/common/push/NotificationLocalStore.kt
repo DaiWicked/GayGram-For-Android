@@ -73,6 +73,29 @@ class NotificationLocalStore(context: Context) {
         get() = prefs.getLong(LAST_SHOWN_CHAT, 0L)
         set(value) { prefs.edit().putLong(LAST_SHOWN_CHAT, value).apply() }
 
+    fun notificationLedger(chatId: Long): NotificationLedger =
+        NotificationLedger.decode(prefs.getString("notification_ledger_$chatId", null))
+
+    fun saveNotificationLedger(chatId: Long, ledger: NotificationLedger) {
+        if (!prefs.edit().putString("notification_ledger_$chatId", ledger.encode()).commit()) {
+            org.monogram.core.common.AppLog.warn(
+                "notify",
+                "notification identity persistence failed"
+            )
+        }
+    }
+
+    fun notificationChatIds(): Set<Long> = prefs.all.keys.mapNotNull {
+        it.takeIf { key -> key.startsWith("notification_ledger_") }
+            ?.removePrefix("notification_ledger_")?.toLongOrNull()
+    }.toSet()
+
+    fun clearNotificationLedgers() {
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith("notification_ledger_") }.forEach(editor::remove)
+        editor.commit()
+    }
+
     fun categoryVibrate(kind: String): Boolean = prefs.getBoolean("${kind}_vibrate", true)
     fun setCategoryVibrate(kind: String, value: Boolean) {
         prefs.edit().putBoolean("${kind}_vibrate", value).apply()
