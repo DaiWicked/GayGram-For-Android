@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">Разрешите доступ к камере в настройках приложения для сканирования QR-кодов</string>
     <string name="settings_devices_open_settings">Открыть настройки приложения</string>
     <string name="settings_devices_scan_title">Сканировать QR-код</string>
+    <string name="settings_passkeys">Ключи доступа</string>
+    <string name="settings_passkeys_hint">Ключи доступа позволяют входить по отпечатку пальца, лицу или PIN-коду устройства</string>
+    <string name="settings_passkeys_create">Создать ключ доступа</string>
+    <string name="settings_passkeys_delete">Удалить</string>
+    <string name="settings_passkeys_empty">Ключей доступа пока нет</string>
+    <string name="settings_passkeys_error">Не удалось загрузить или обновить ключи доступа</string>
+    <string name="settings_passkeys_retry">Повторить</string>
+    <string name="settings_passkeys_unsupported">Ключи доступа требуют Android 9 или новее</string>
+    <string name="settings_passkeys_provider_error">Проверьте поддержку Telegram и доверие к приложению в менеджере учётных данных. В KeePassDX включите Monogram: Настройки → Заполнение форм → Настройки ключей доступа → Привилегированные приложения. Затем повторите попытку</string>
 </resources>

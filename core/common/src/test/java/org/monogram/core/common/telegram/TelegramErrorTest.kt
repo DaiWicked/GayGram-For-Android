@@ -8,6 +8,14 @@ import org.junit.Test
 
 class TelegramErrorTest {
     @Test
+    fun freshAuthorizationRestrictionUsesCatalogEntry() {
+        val error = TelegramError.parse("RPC 406: FRESH_RESET_AUTHORISATION_FORBIDDEN")
+        assertTrue(error.recognized)
+        assertEquals(TelegramError.Kind.FreshAuthorization, error.kind)
+        assertFalse(error.requiresReauth)
+        assertEquals(TelegramError.Kind.NotAcceptable, TelegramError.parse("RPC 406: UNKNOWN_RESTRICTION").kind)
+    }
+    @Test
     fun catalogIngestsOfficialDatabase() {
         assertEquals(227, TelegramError.CATALOG_LAYER)
         assertEquals(TelegramErrorCatalog.SIZE, TelegramError.CATALOG_SIZE)

@@ -54,7 +54,9 @@ dependencies {
 val rustCrate = rootProject.layout.projectDirectory.dir("native/mtproto-rs")
 val transportCrate = rootProject.layout.projectDirectory.dir("native/mtproto-transport")
 val workspaceLock = rootProject.layout.projectDirectory.file("native/Cargo.lock")
-val workspaceTarget = rootProject.layout.projectDirectory.dir("native/target")
+val workspaceTarget = providers.environmentVariable("CARGO_TARGET_DIR")
+    .map { rustCrate.dir(it) }
+    .getOrElse(rootProject.layout.projectDirectory.dir("native/target"))
 val cargoConfigFiles = rootProject.layout.projectDirectory.dir(".cargo").asFileTree.matching {
     include("config.toml")
 }

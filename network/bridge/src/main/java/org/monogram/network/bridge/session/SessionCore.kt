@@ -1,6 +1,5 @@
 package org.monogram.network.bridge.session
 
-import kotlin.io.encoding.Base64
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -29,17 +28,20 @@ import org.monogram.core.common.telegram.retryShortFlood
 import org.monogram.core.models.AuthSession
 import org.monogram.core.models.AuthState
 import org.monogram.core.models.DeviceSession
-import org.monogram.core.models.QrLogin
+import org.monogram.core.models.PasskeyCredential
+import org.monogram.core.models.PasskeyLoginOptions
 import org.monogram.core.models.PeerId
+import org.monogram.core.models.QrLogin
 import org.monogram.mtproto.MtprotoNative
 import org.monogram.network.bridge.ClientInitInfo
 import org.monogram.network.bridge.DurableUpdateSink
 import org.monogram.network.bridge.MtprotoTransportMode
 import org.monogram.network.bridge.MtprotoUpdate
 import org.monogram.network.bridge.ProxyConfig
-import uniffi.monogram_mtproto.QrLoginDto
 import uniffi.monogram_mtproto.MtprotoException
+import uniffi.monogram_mtproto.QrLoginDto
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.io.encoding.Base64
 
 internal class SessionCore(
     internal val credentials: TelegramCredentials,
@@ -51,6 +53,86 @@ internal class SessionCore(
     internal val clock: MonotonicClock = NanoTimeClock,
     internal val initConnection: ClientInitInfo? = null,
 ) : SessionOps {
+    override suspend fun passkeysEnabled(): Outcome<Boolean> {
+        when (val result = ensureConnected()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpc("passkeysEnabled failed") { native.passkeysEnabled(it) }
+    }
+
+    override suspend fun initPasskeyLogin(): Outcome<PasskeyLoginOptions> {
+        sessionDead = false
+        when (val result = connect()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpc("initPasskeyLogin failed") { handle ->
+            native.initPasskeyLogin(handle).let {
+                PasskeyLoginOptions(it.options, it.dcId, it.authKeyId)
+            }
+        }
+    }
+
+    override suspend fun finishPasskeyLogin(
+        options: PasskeyLoginOptions,
+        credential: PasskeyCredential,
+    ): Outcome<AuthState> = try {
+        Outcome.Ok(onNative { handle ->
+            val result = native.finishPasskeyLogin(
+                handle,
+                credential.toNative(),
+                options.dcId,
+                options.authKeyId
+            )
+            maybeStartUpdates(handle)
+            AuthState.Authorized(AuthSession(PeerId(result.userId), result.dcId))
+        })
+    } catch (_: MtprotoException.PasswordRequired) {
+        Outcome.Ok(AuthState.AwaitingPassword)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        fail(e, "finishPasskeyLogin failed", degradeHome = false)
+    }
+
+    override suspend fun initPasskeyRegistration(): Outcome<String> {
+        when (val result = ensureConnected()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpc("initPasskeyRegistration failed") { native.initPasskeyRegistration(it) }
+    }
+
+    override suspend fun registerPasskey(credential: PasskeyCredential): Outcome<org.monogram.core.models.Passkey> {
+        when (val result = ensureConnected()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpcWrite("registerPasskey failed") {
+            native.registerPasskey(
+                it,
+                credential.toNative()
+            ).toModel()
+        }
+    }
+
+    override suspend fun getPasskeys(): Outcome<List<org.monogram.core.models.Passkey>> {
+        when (val result = ensureConnected()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpc("getPasskeys failed") { native.getPasskeys(it).map { key -> key.toModel() } }
+    }
+
+    override suspend fun deletePasskey(id: String): Outcome<Boolean> {
+        when (val result = ensureConnected()) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> Unit
+        }
+        return rpcWrite("deletePasskey failed") { native.deletePasskey(it, id) }
+    }
+
     override suspend fun exportLoginToken(): Outcome<QrLogin> {
         sessionDead = false
         when (val connected = connect()) {
@@ -65,6 +147,7 @@ internal class SessionCore(
                             .withPadding(Base64.PaddingOption.ABSENT).encode(result.token),
                         result.expires,
                     )
+
                     is QrLoginDto.Authorized -> {
                         maybeStartUpdates(handle)
                         QrLogin.Authorized(
@@ -118,7 +201,12 @@ internal class SessionCore(
             is Outcome.Err -> return connected
             is Outcome.Ok -> Unit
         }
-        return rpcWrite("revokeDeviceSession failed") { handle -> native.revokeDeviceSession(handle, hash) }
+        return rpcWrite("revokeDeviceSession failed") { handle ->
+            native.revokeDeviceSession(
+                handle,
+                hash
+            )
+        }
     }
 
     @Volatile

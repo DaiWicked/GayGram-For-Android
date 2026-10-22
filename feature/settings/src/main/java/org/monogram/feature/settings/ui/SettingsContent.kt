@@ -81,6 +81,7 @@ import org.monogram.core.ui.components.AppSyncStatus
 import org.monogram.core.ui.media.mediaViewerMotionEnabled
 import org.monogram.core.ui.rememberEnsuredFile
 import org.monogram.core.ui.rememberStrippedPreview
+import org.monogram.feature.settings.DevicesStore
 import org.monogram.feature.settings.R
 import org.monogram.feature.settings.SettingsComponent
 import org.monogram.feature.settings.SettingsFolderHost
@@ -179,6 +180,7 @@ fun SettingsContent(
     )
     val title = when (page) {
         SettingsPage.Home -> stringResource(R.string.settings_title)
+        SettingsPage.Passkeys -> stringResource(R.string.settings_passkeys)
         SettingsPage.Devices -> stringResource(R.string.settings_devices)
         SettingsPage.DeviceScanner -> stringResource(R.string.settings_devices_link)
         SettingsPage.Proxy -> stringResource(R.string.settings_proxy)
@@ -260,6 +262,18 @@ fun SettingsContent(
                         }
                     },
                     actions = {
+                        if (page == SettingsPage.Devices) {
+                            val devices by component.devices.collectAsStateWithLifecycle()
+                            IconButton(
+                                onClick = { component.onDevices(DevicesStore.Intent.Refresh) },
+                                enabled = !devices.loading,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Refresh,
+                                    contentDescription = stringResource(R.string.settings_devices_refresh),
+                                )
+                            }
+                        }
                         if (page == SettingsPage.Logs) {
                             LogsTopActions(
                                 onShare = {
@@ -323,6 +337,7 @@ fun SettingsContent(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface)) {
                     when (val visiblePage = child.instance) {
+                        SettingsPage.Passkeys -> PasskeysSettings(component, Modifier.padding(innerPadding))
                         SettingsPage.Devices -> DevicesSettings(
                             component,
                             Modifier.padding(innerPadding),
@@ -639,6 +654,7 @@ private fun SettingsPageList(
 
 private fun settingsPageKey(page: SettingsPage): String = when (page) {
     SettingsPage.Home -> "home"
+    SettingsPage.Passkeys -> "passkeys"
     SettingsPage.Devices -> "devices"
     SettingsPage.DeviceScanner -> "device-scanner"
     SettingsPage.Folders -> "folders"

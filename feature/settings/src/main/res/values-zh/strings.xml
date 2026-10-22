@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">请在应用设置中允许访问相机，以扫描二维码</string>
     <string name="settings_devices_open_settings">打开应用设置</string>
     <string name="settings_devices_scan_title">扫描二维码</string>
+    <string name="settings_passkeys">通行密钥</string>
+    <string name="settings_passkeys_hint">使用指纹、面容或设备 PIN 码登录</string>
+    <string name="settings_passkeys_create">创建通行密钥</string>
+    <string name="settings_passkeys_delete">删除</string>
+    <string name="settings_passkeys_empty">暂无通行密钥</string>
+    <string name="settings_passkeys_error">无法加载或更新通行密钥</string>
+    <string name="settings_passkeys_retry">重试</string>
+    <string name="settings_passkeys_unsupported">通行密钥需要 Android 9 或更高版本</string>
+    <string name="settings_passkeys_provider_error">请确认凭据提供程序支持 Telegram 并信任此应用。在 KeePassDX 的设置 → 表单填充 → 通行密钥设置 → 特权应用中启用 Monogram，然后重试</string>
 </resources>

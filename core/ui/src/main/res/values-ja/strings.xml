@@ -257,4 +257,6 @@
     <string name="media_info_unknown">不明</string>
     <string name="media_action_save_as">名前を付けて保存…</string>
     <string name="media_copy_hdr_warning">画像をコピーしました。一部のアプリではHDRに対応していない場合があります</string>
+    <string name="status_fresh_authorization">安全のため、ログイン直後はこの操作を行えません。24時間後に再試行するか、以前からログインしている端末を使用してください</string>
+    <string name="passkey_client_data_mismatch">認証情報プロバイダが異なるログインデータに署名しました。Monogramの特権アプリ設定を確認してください</string>
 </resources>

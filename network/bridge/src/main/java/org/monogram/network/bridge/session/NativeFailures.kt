@@ -58,15 +58,23 @@ internal fun nativeFailureLogLine(error: TelegramError, raw: String = ""): Strin
     val constructor = UNKNOWN_NATIVE_CONSTRUCTOR.matchEntire(raw)?.groupValues?.get(1)
     val badMessageCode = BAD_NATIVE_MESSAGE.find(raw)?.groupValues?.get(1)
     val reason = SESSION_INVALIDATED.find(raw)?.groupValues?.get(1)?.uppercase()
+    val rpcFailure = if (error.recognized) null else SAFE_RPC_FAILURE.matchEntire(raw)
     val local = if (error.recognized) null else nativeLocalReason(raw)
     return "$summary cause=$cause" +
+            (rpcFailure?.let { " rpc_code=${it.groupValues[1]} rpc_type=${it.groupValues[2]}" } ?: "") +
             (reason?.let { " reason=$it" } ?: "") +
             (constructor?.let { " constructor=$it" } ?: "") +
             (badMessageCode?.let { " bad_msg_code=$it" } ?: "") +
             (local?.let { " local=$it" } ?: "")
 }
 
+private val SAFE_RPC_FAILURE = Regex("RPC ([1-5][0-9]{2}): ([A-Z][A-Z0-9_]{0,79})")
+
 internal val LOCAL_REASONS = listOf(
+    "invalid passkey credential" to "passkey_credential_invalid",
+    "invalid passkey user handle" to "passkey_user_handle_invalid",
+    "stale passkey login" to "passkey_login_stale",
+    "missing passkey login key" to "passkey_login_key_missing",
     "no downloadable thumb" to "no_thumb",
     "no display size" to "no_display_size",
     "media deferred" to "media_deferred",

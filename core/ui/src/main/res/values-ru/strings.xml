@@ -308,4 +308,6 @@
     <string name="media_info_unknown">Неизвестно</string>
     <string name="media_action_save_as">Сохранить как…</string>
     <string name="media_copy_hdr_warning">Изображение скопировано. Некоторые приложения могут не поддерживать HDR</string>
+    <string name="status_fresh_authorization">В целях безопасности это действие недоступно сразу после входа. Попробуйте через 24 часа или используйте более старую сессию</string>
+    <string name="passkey_client_data_mismatch">Провайдер ключей подписал другие данные входа. Проверьте настройки привилегированных приложений для Monogram</string>
 </resources>

@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Telegram login QR code</string>
     <string name="auth_qr_retry">Try Again</string>
     <string name="auth_qr_use_phone">Log in with Phone Number</string>
+    <string name="auth_passkey_login">Log in with a passkey</string>
+    <string name="auth_passkey_error">Passkey unavailable. Check your credential provider and app trust settings, then retry</string>
+    <string name="auth_passkey_missing">No Telegram passkey was found. Choose another credential provider or use phone or QR login</string>
 </resources>

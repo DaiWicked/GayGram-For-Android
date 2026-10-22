@@ -24,6 +24,8 @@ android {
 }
 
 dependencies {
+    api(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
     testImplementation(libs.junit)
     implementation(project(":core:common"))
     implementation(project(":core:models"))

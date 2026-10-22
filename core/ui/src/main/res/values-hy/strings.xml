@@ -274,4 +274,6 @@
     <string name="media_info_unknown">Անհայտ</string>
     <string name="media_action_save_as">Պահպանել որպես…</string>
     <string name="media_copy_hdr_warning">Պատկերը պատճենվեց։ Որոշ հավելվածներ կարող են չաջակցել HDR-ին</string>
+    <string name="status_fresh_authorization">Անվտանգության նկատառումներով այս գործողությունն անհասանելի է մուտքից անմիջապես հետո։ Փորձեք 24 ժամ անց կամ օգտագործեք ավելի հին նստաշրջան</string>
+    <string name="passkey_client_data_mismatch">Հավատարմագրերի մատակարարը ստորագրել է մուտքի այլ տվյալներ։ Ստուգեք Monogram-ի արտոնյալ հավելվածների կարգավորումները</string>
 </resources>

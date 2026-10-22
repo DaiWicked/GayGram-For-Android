@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.monogram.core.common.MediaCacheLimit
 import org.monogram.core.common.MediaCacheLimitStore
+import org.monogram.core.common.Outcome
 import org.monogram.core.common.push.NotificationLocalStore
 import org.monogram.core.common.push.PushRegistration
 import org.monogram.core.database.OfflineWarmup
@@ -72,6 +73,20 @@ class SettingsComponent(
     }
 
     val state: StateFlow<SettingsStore.State> = store.stateFlow
+    val passkeysEnabled = MutableStateFlow(false)
+    fun refreshPasskeysEnabled() {
+        scope.launch {
+            val result = client.passkeysEnabled()
+            passkeysEnabled.value = (result as? Outcome.Ok)?.value == true
+        }
+    }
+
+    private val passkeysStore by lazy {
+        instanceKeeper.getStore("passkeys") { PasskeysStoreFactory(storeFactory, client).create() }
+    }
+    val passkeys: StateFlow<PasskeysStore.State> by lazy { passkeysStore.stateFlow }
+    fun onPasskeys(intent: PasskeysStore.Intent) = passkeysStore.accept(intent)
+
     private val devicesStore by lazy {
         instanceKeeper.getStore("devices") { DevicesStoreFactory(storeFactory, client).create() }
     }

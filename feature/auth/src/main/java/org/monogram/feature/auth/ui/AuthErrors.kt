@@ -45,6 +45,9 @@ internal fun AuthInlineError(message: String?, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun errorText(error: AuthStore.Error): String = when (error) {
+    AuthStore.Error.PasskeyMissing -> stringResource(R.string.auth_passkey_missing)
+    AuthStore.Error.PasskeyClientDataMismatch -> stringResource(org.monogram.core.ui.R.string.passkey_client_data_mismatch)
+    AuthStore.Error.PasskeyFailed -> stringResource(R.string.auth_passkey_error)
     AuthStore.Error.PhoneRequired -> stringResource(R.string.auth_error_phone_required)
     AuthStore.Error.CodeRequired -> stringResource(R.string.auth_error_code_required)
     AuthStore.Error.PasswordRequired -> stringResource(R.string.auth_error_password_required)

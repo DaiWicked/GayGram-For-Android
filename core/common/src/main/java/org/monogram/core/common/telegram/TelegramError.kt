@@ -39,8 +39,8 @@ data class TelegramError(
     /** Main-DC 401 session death requires re-login. AUTH_KEY_PERM_EMPTY is PFS, not logout. */
     val requiresReauth: Boolean
         get() = kind == Kind.Session &&
-            type != "AUTH_KEY_UNSYNCHRONIZED" &&
-            type != "AUTH_KEY_PERM_EMPTY"
+                type != "AUTH_KEY_UNSYNCHRONIZED" &&
+                type != "AUTH_KEY_PERM_EMPTY"
 
     enum class Kind {
         Flood,
@@ -53,6 +53,7 @@ data class TelegramError(
         Privacy,
         SeeOther,
         NotFound,
+        FreshAuthorization,
         NotAcceptable,
         Internal,
         Generic,
@@ -130,6 +131,7 @@ data class TelegramError(
 
         fun classify(httpCode: Int, type: String): Kind {
             val t = type.uppercase()
+            if (t == "FRESH_RESET_AUTHORISATION_FORBIDDEN") return Kind.FreshAuthorization
             if (t.contains("MIGRATE")) return Kind.SeeOther
             if (httpCode == 420 ||
                 t.contains("FLOOD_WAIT") ||
@@ -213,7 +215,8 @@ data class TelegramError(
          * the real token is what makes logs point at the cause instead of a fake 401.
          */
         fun sessionInvalidated(reason: String? = null): TelegramError {
-            val token = reason?.trim()?.takeIf { SESSION_REASON.matches(it) } ?: SESSION_INVALIDATED_TYPE
+            val token =
+                reason?.trim()?.takeIf { SESSION_REASON.matches(it) } ?: SESSION_INVALIDATED_TYPE
             return parse("$SESSION_INVALIDATED_PREFIX $token")
         }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -57,6 +58,7 @@ import org.monogram.network.bridge.session.LoginTokenFailure
 internal fun DevicesSettings(component: SettingsComponent, modifier: Modifier) {
     val state by component.devices.collectAsStateWithLifecycle()
     LifecycleResumeEffect(component) {
+        component.refreshPasskeysEnabled()
         component.onDevices(DevicesStore.Intent.Resume)
         component.onDevices(DevicesStore.Intent.Refresh)
         onPauseOrDispose { component.onDevices(DevicesStore.Intent.Pause) }
@@ -65,6 +67,8 @@ internal fun DevicesSettings(component: SettingsComponent, modifier: Modifier) {
         state = state,
         onIntent = component::onDevices,
         onScan = { component.openPage(SettingsPage.DeviceScanner) },
+        passkeysEnabled = component.passkeysEnabled.collectAsStateWithLifecycle().value,
+        onPasskeys = { component.openPage(SettingsPage.Passkeys) },
         modifier = modifier,
     )
 }
@@ -74,6 +78,8 @@ internal fun DevicesSettingsContent(
     state: DevicesStore.State,
     onIntent: (DevicesStore.Intent) -> Unit,
     onScan: () -> Unit,
+    passkeysEnabled: Boolean = false,
+    onPasskeys: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var revokeHash by remember { mutableStateOf<Long?>(null) }
@@ -107,6 +113,15 @@ internal fun DevicesSettingsContent(
                     onClick = onScan,
                 )
             }
+            if (passkeysEnabled) item {
+                SettingsTile(
+                    icon = Icons.Outlined.VpnKey,
+                    iconColor = MaterialTheme.colorScheme.secondary,
+                    title = stringResource(R.string.settings_passkeys),
+                    subtitle = stringResource(R.string.settings_passkeys_hint),
+                    onClick = onPasskeys,
+                )
+            }
             if (state.loading) item { MonogramLinearProgress(modifier = Modifier.fillMaxWidth()) }
             state.error?.let { error ->
                 item {
@@ -135,12 +150,12 @@ internal fun DevicesSettingsContent(
                 }
             }
             item {
-                TextButton(
-                    onClick = { onIntent(DevicesStore.Intent.Refresh) },
-                    enabled = !state.loading,
-                ) {
-                    Text(stringResource(R.string.settings_devices_refresh))
-                }
+                Text(
+                    text = stringResource(R.string.settings_devices),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                )
             }
             if (state.sessions.isEmpty() && !state.loading && state.error == null)
                 item { Text(stringResource(R.string.settings_devices_empty)) }

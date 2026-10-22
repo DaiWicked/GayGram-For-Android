@@ -27,14 +27,56 @@ use crate::session_file;
 use crate::vpx;
 use crate::waveform;
 use crate::{
-    AuthCodeSent, AuthSignedIn, DeviceSessionDto, QrLoginDto, BotCallbackAnswerDto, ChatDto, ContactsSearchDto, DiscussionDto,
-    FolderDto, ForumTopicsPageDto, GlobalMessageSearchDto, InlineBotResultsDto, InstantViewDto,
-    JoinChatDto, LottieSize, MessageDto, MessagesPageDto, MtprotoError, NotifyExceptionDto, NotifySettingsDto,
-    ProfileDto,
-    ReactionChoiceDto, ResolvedPeerDto, SavedGifDto, StickerCatalogDto, StickerListDto,
-    StickerPackDto, UpdateEventDto, UpdatesStateDto, UploadItemDto, VpxAlphaFrame, VpxFrame,
-    WallpaperCatalogDto,
+    AuthCodeSent, AuthSignedIn, BotCallbackAnswerDto, ChatDto, ContactsSearchDto, DeviceSessionDto,
+    DiscussionDto, FolderDto, ForumTopicsPageDto, GlobalMessageSearchDto, InlineBotResultsDto,
+    InstantViewDto, JoinChatDto, LottieSize, MessageDto, MessagesPageDto, MtprotoError,
+    NotifyExceptionDto, NotifySettingsDto, ProfileDto, QrLoginDto, ReactionChoiceDto,
+    ResolvedPeerDto, SavedGifDto, StickerCatalogDto, StickerListDto, StickerPackDto,
+    UpdateEventDto, UpdatesStateDto, UploadItemDto, VpxAlphaFrame, VpxFrame, WallpaperCatalogDto,
 };
+
+#[uniffi::export]
+pub fn passkeys_enabled(handle: u64) -> Result<bool, MtprotoError> {
+    client::passkeys_enabled(handle)
+}
+
+#[uniffi::export]
+pub fn init_passkey_login(handle: u64) -> Result<crate::PasskeyLoginOptionsDto, MtprotoError> {
+    client::init_passkey_login(handle)
+}
+
+#[uniffi::export]
+pub fn finish_passkey_login(
+    handle: u64,
+    credential: crate::PasskeyCredentialDto,
+    dc_id: i32,
+    auth_key_id: i64,
+) -> Result<AuthSignedIn, MtprotoError> {
+    client::finish_passkey_login(handle, credential, dc_id, auth_key_id)
+}
+
+#[uniffi::export]
+pub fn init_passkey_registration(handle: u64) -> Result<String, MtprotoError> {
+    client::init_passkey_registration(handle)
+}
+
+#[uniffi::export]
+pub fn register_passkey(
+    handle: u64,
+    credential: crate::PasskeyCredentialDto,
+) -> Result<crate::PasskeyDto, MtprotoError> {
+    client::register_passkey(handle, credential)
+}
+
+#[uniffi::export]
+pub fn get_passkeys(handle: u64) -> Result<Vec<crate::PasskeyDto>, MtprotoError> {
+    client::get_passkeys(handle)
+}
+
+#[uniffi::export]
+pub fn delete_passkey(handle: u64, id: String) -> Result<bool, MtprotoError> {
+    client::delete_passkey(handle, id)
+}
 
 #[uniffi::export]
 pub fn export_login_token(handle: u64) -> Result<QrLoginDto, MtprotoError> {
@@ -47,17 +89,12 @@ pub fn poll_login_token(handle: u64) -> Result<bool, MtprotoError> {
 }
 
 #[uniffi::export]
-pub fn get_device_sessions(
-    handle: u64,
-) -> Result<Vec<DeviceSessionDto>, MtprotoError> {
+pub fn get_device_sessions(handle: u64) -> Result<Vec<DeviceSessionDto>, MtprotoError> {
     client::get_device_sessions(handle)
 }
 
 #[uniffi::export]
-pub fn accept_login_token(
-    handle: u64,
-    token: Vec<u8>,
-) -> Result<DeviceSessionDto, MtprotoError> {
+pub fn accept_login_token(handle: u64, token: Vec<u8>) -> Result<DeviceSessionDto, MtprotoError> {
     client::accept_login_token(handle, token)
 }
 
@@ -1327,6 +1364,10 @@ pub fn generate_qr_code(text: String, size: u32) -> Result<crate::QrCodeMatrix, 
 }
 
 #[uniffi::export]
-pub fn decode_qr_code(luma: Vec<u8>, width: u32, height: u32) -> Result<Option<String>, MtprotoError> {
+pub fn decode_qr_code(
+    luma: Vec<u8>,
+    width: u32,
+    height: u32,
+) -> Result<Option<String>, MtprotoError> {
     qr::decode(luma, width, height)
 }

@@ -9,6 +9,9 @@ sealed interface SettingsPage {
     data object Home : SettingsPage
 
     @Serializable
+    data object Passkeys : SettingsPage
+
+    @Serializable
     data object Devices : SettingsPage
 
     @Serializable

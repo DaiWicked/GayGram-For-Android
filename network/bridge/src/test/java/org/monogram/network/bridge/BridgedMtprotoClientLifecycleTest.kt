@@ -706,6 +706,40 @@ class BridgedMtprotoClientLifecycleTest {
     }
 
     @Test
+    fun unknownRpcFailureLogsOnlyValidatedIdentifier() {
+        val raw = "RPC 400: PASSKEY_TEST_ERROR"
+        val error = org.monogram.core.common.telegram.TelegramError.parse(raw)
+        assertTrue(nativeFailureLogLine(error, raw).contains("rpc_code=400 rpc_type=PASSKEY_TEST_ERROR"))
+        listOf(
+            "$raw payload=private-credential",
+            "RPC 400: private-credential",
+            "RPC 400: PASSKEY_TEST_ERROR\nprivate-credential",
+        ).forEach { invalid ->
+            val parsed = org.monogram.core.common.telegram.TelegramError.parse(invalid)
+            val line = nativeFailureLogLine(parsed, invalid)
+            assertTrue(!line.contains("rpc_type="))
+            assertTrue(!line.contains("private-credential"))
+        }
+    }
+
+    @Test
+    fun passkeyLocalFailuresLogOnlyFixedLabels() {
+        val reasons = mapOf(
+            "invalid passkey credential" to "passkey_credential_invalid",
+            "invalid passkey user handle" to "passkey_user_handle_invalid",
+            "stale passkey login" to "passkey_login_stale",
+            "missing passkey login key" to "passkey_login_key_missing",
+        )
+        reasons.forEach { (reason, label) ->
+            val raw = "$reason payload=private-credential"
+            val error = org.monogram.core.common.telegram.TelegramError.parse(raw)
+            val line = nativeFailureLogLine(error, raw)
+            assertTrue(line.contains("local=$label"))
+            assertTrue(!line.contains("private-credential"))
+        }
+    }
+
+    @Test
     fun unknownNativeFailureDoesNotLeakPayloadIntoLogs() {
         val error = org.monogram.core.common.telegram.TelegramError.parse(
             "decode failed via body=private-message password=secret snapshot=private-session",

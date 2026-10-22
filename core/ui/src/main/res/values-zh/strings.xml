@@ -257,4 +257,6 @@
     <string name="media_info_unknown">未知</string>
     <string name="media_action_save_as">另存为…</string>
     <string name="media_copy_hdr_warning">已复制图片。部分应用可能不支持 HDR</string>
+    <string name="status_fresh_authorization">为确保安全，登录后暂时无法执行此操作。请在24小时后重试，或使用更早登录的会话</string>
+    <string name="passkey_client_data_mismatch">凭据提供方签署了不同的登录数据。请检查其 Monogram 特权应用设置</string>
 </resources>

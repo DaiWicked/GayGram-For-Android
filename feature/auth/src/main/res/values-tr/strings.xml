@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Telegram giriş QR kodu</string>
     <string name="auth_qr_retry">Tekrar Dene</string>
     <string name="auth_qr_use_phone">Telefon Numarasıyla Giriş Yap</string>
+    <string name="auth_passkey_login">Geçiş anahtarıyla giriş yap</string>
+    <string name="auth_passkey_error">Geçiş anahtarı kullanılamıyor. Sağlayıcıyı ve uygulama güven ayarlarını kontrol edip yeniden deneyin</string>
+    <string name="auth_passkey_missing">Telegram geçiş anahtarı bulunamadı. Başka bir sağlayıcı seçin veya telefon ya da QR ile giriş yapın</string>
 </resources>

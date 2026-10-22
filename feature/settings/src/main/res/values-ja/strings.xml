@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">QRコードをスキャンするには、アプリの設定でカメラへのアクセスを許可してください</string>
     <string name="settings_devices_open_settings">アプリの設定を開く</string>
     <string name="settings_devices_scan_title">QRコードをスキャン</string>
+    <string name="settings_passkeys">パスキー</string>
+    <string name="settings_passkeys_hint">指紋、顔認証、または端末のPINでログインできます</string>
+    <string name="settings_passkeys_create">パスキーを作成</string>
+    <string name="settings_passkeys_delete">削除</string>
+    <string name="settings_passkeys_empty">パスキーはまだありません</string>
+    <string name="settings_passkeys_error">パスキーを読み込むか更新できませんでした</string>
+    <string name="settings_passkeys_retry">再試行</string>
+    <string name="settings_passkeys_unsupported">パスキーにはAndroid 9以降が必要です</string>
+    <string name="settings_passkeys_provider_error">認証情報プロバイダがTelegramに対応し、このアプリを信頼していることを確認してください。KeePassDXでは、設定 → フォーム入力 → パスキー設定 → 特権アプリでMonogramを有効にして再試行してください</string>
 </resources>

@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Telegram մուտք գործելու QR կոդ</string>
     <string name="auth_qr_retry">Կրկին փորձել</string>
     <string name="auth_qr_use_phone">Մուտք գործել հեռախոսահամարով</string>
+    <string name="auth_passkey_login">Մուտք գործել անցաբանալով</string>
+    <string name="auth_passkey_error">Անցաբանալին հասանելի չէ։ Ստուգեք մատակարարն ու հավելվածի վստահության կարգավորումները և կրկին փորձեք</string>
+    <string name="auth_passkey_missing">Telegram-ի անցաբանալին չի գտնվել։ Ընտրեք այլ մատակարար կամ մուտք գործեք հեռախոսահամարով կամ QR կոդով</string>
 </resources>

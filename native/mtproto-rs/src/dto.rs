@@ -12,6 +12,33 @@ pub struct AuthSignedIn {
     pub dc_id: i32,
 }
 
+#[derive(Clone, uniffi::Record)]
+pub struct PasskeyCredentialDto {
+    pub id: String,
+    pub raw_id: String,
+    pub client_data: String,
+    pub authenticator_data: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub user_handle: String,
+    pub attestation_data: Vec<u8>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct PasskeyLoginOptionsDto {
+    pub options: String,
+    pub dc_id: i32,
+    pub auth_key_id: i64,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct PasskeyDto {
+    pub id: String,
+    pub name: String,
+    pub date: i32,
+    pub software_emoji_id: Option<i64>,
+    pub last_usage_date: Option<i32>,
+}
+
 #[derive(Clone, uniffi::Enum)]
 pub enum QrLoginDto {
     Token { token: Vec<u8>, expires: i32 },

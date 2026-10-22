@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">Permite el acceso a la cámara en los ajustes de la app para escanear códigos QR</string>
     <string name="settings_devices_open_settings">Abrir ajustes de la aplicación</string>
     <string name="settings_devices_scan_title">Escanear código QR</string>
+    <string name="settings_passkeys">Claves de acceso</string>
+    <string name="settings_passkeys_hint">Las claves de acceso permiten entrar con tu huella, rostro o PIN del dispositivo</string>
+    <string name="settings_passkeys_create">Crear clave de acceso</string>
+    <string name="settings_passkeys_delete">Eliminar</string>
+    <string name="settings_passkeys_empty">Aún no hay claves de acceso</string>
+    <string name="settings_passkeys_error">No se pudieron cargar o actualizar las claves de acceso</string>
+    <string name="settings_passkeys_retry">Reintentar</string>
+    <string name="settings_passkeys_unsupported">Las claves de acceso requieren Android 9 o posterior</string>
+    <string name="settings_passkeys_provider_error">Comprueba que el proveedor admita Telegram y confíe en esta aplicación. En KeePassDX, activa Monogram en Ajustes → Rellenado de formularios → Ajustes de claves de acceso → Aplicaciones privilegiadas y reinténtalo</string>
 </resources>

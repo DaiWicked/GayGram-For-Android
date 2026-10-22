@@ -49,4 +49,7 @@
     <string name="auth_qr_code">QR-код для входу в Telegram</string>
     <string name="auth_qr_retry">Спробувати знову</string>
     <string name="auth_qr_use_phone">Увійти за номером телефону</string>
+    <string name="auth_passkey_login">Увійти з ключем доступу</string>
+    <string name="auth_passkey_error">Ключ доступу недоступний. Перевірте менеджер облікових даних і довіру до застосунку та повторіть спробу</string>
+    <string name="auth_passkey_missing">Ключ доступу Telegram не знайдено. Виберіть інший менеджер облікових даних або увійдіть за телефоном чи QR-кодом</string>
 </resources>

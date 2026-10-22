@@ -4,6 +4,8 @@
 //! https://core.telegram.org/api/auth
 
 mod auth;
+mod passkeys;
+pub use passkeys::*;
 mod dispatch;
 mod extras;
 pub(crate) mod extras_rpc;
@@ -622,7 +624,13 @@ pub(crate) fn with_client_mut_binding<T>(
         client.main_gate.acquire(class)?
     };
     let mut io = lock_request_lane(&client.main, "lane_wait.main")?;
-    crate::auth::bind_temp::ensure_main_temp_with(&client, &mut io, false, &crate::rpc::SystemClock, negotiate)?;
+    crate::auth::bind_temp::ensure_main_temp_with(
+        &client,
+        &mut io,
+        false,
+        &crate::rpc::SystemClock,
+        negotiate,
+    )?;
     let mut state = {
         let d = client.data.lock();
         ClientState {
@@ -667,7 +675,10 @@ pub(crate) fn with_client_mut_binding<T>(
     let mut slot = io.transport.take();
     let before_snapshot = io.snapshot.clone();
     let result = with_client_transport(&client, &mut slot, || f(&mut state));
-    let temp_failed = result.as_ref().err().is_some_and(|err| temporary_key_failure(&state, err));
+    let temp_failed = result
+        .as_ref()
+        .err()
+        .is_some_and(|err| temporary_key_failure(&state, err));
     if !temp_failed && !state.session_dead {
         if let Err(error) = &result {
             if kills_session(state.user_id, error) {
@@ -706,8 +717,14 @@ pub(crate) fn with_client_mut_binding<T>(
     }
     let dc_keys_changed = before_dc_auth_keys != state.dc_auth_keys;
     if identity_changed {
-        client.policy.bound_extra_sessions.store(0, Ordering::Release);
-        client.policy.main_session_allowance.store(-1, Ordering::Release);
+        client
+            .policy
+            .bound_extra_sessions
+            .store(0, Ordering::Release);
+        client
+            .policy
+            .main_session_allowance
+            .store(-1, Ordering::Release);
         if state.user_id.is_none() || before_user_id.is_some() {
             client.policy.premium.store(false, Ordering::Relaxed);
         }
@@ -722,7 +739,9 @@ pub(crate) fn with_client_mut_binding<T>(
     if let Some(permanent) = &state.permanent {
         io.perm_key = permanent.auth_key.clone();
         io.temp_expires_at = state.temp_expires_at.max(1);
-    } else if state.snapshot.auth_key != before_snapshot.auth_key || state.snapshot.dc_id != before_snapshot.dc_id {
+    } else if state.snapshot.auth_key != before_snapshot.auth_key
+        || state.snapshot.dc_id != before_snapshot.dc_id
+    {
         io.temp_expires_at = 0;
         io.perm_key = None;
     }
@@ -745,20 +764,38 @@ pub(crate) fn with_client_mut_binding<T>(
         } else {
             let peers_changed = merge_changed_entries(&mut d.peers, &before_peers, state.peers);
             let media_changed = merge_changed_entries(&mut d.media, &before_media, state.media);
-            let channels_changed = merge_changed_entries(&mut d.channel_pts, &before_channel_pts, state.channel_pts);
+            let channels_changed =
+                merge_changed_entries(&mut d.channel_pts, &before_channel_pts, state.channel_pts);
             let recovery_changed = state.channel_recovery != before_recovery
-                && merge_changed_entries(&mut d.channel_recovery, &before_recovery, state.channel_recovery);
+                && merge_changed_entries(
+                    &mut d.channel_recovery,
+                    &before_recovery,
+                    state.channel_recovery,
+                );
             let seen_before = d.seen_messages.len();
             d.seen_messages.extend(state.seen_messages);
             d.updates = prefer_newer_cursor(d.updates.clone(), state.updates);
             d.updates_started |= state.updates_started;
-            peers_changed || media_changed || channels_changed || recovery_changed || seen_before != d.seen_messages.len() || updates_changed
+            peers_changed
+                || media_changed
+                || channels_changed
+                || recovery_changed
+                || seen_before != d.seen_messages.len()
+                || updates_changed
         };
         d.logout_tokens = state.logout_tokens;
         d.new_session = state.new_session;
-        d.session_dead = if before_dead { state.session_dead } else { d.session_dead || state.session_dead };
+        d.session_dead = if before_dead {
+            state.session_dead
+        } else {
+            d.session_dead || state.session_dead
+        };
         if before_dead || state.session_dead || !d.session_dead {
-            d.session_dead_reason = if state.session_dead { state.session_dead_reason.clone() } else { None };
+            d.session_dead_reason = if state.session_dead {
+                state.session_dead_reason.clone()
+            } else {
+                None
+            };
         }
         if d.session_dead {
             io.transport = None;
@@ -806,7 +843,11 @@ pub(crate) fn with_client_mut_binding<T>(
         schedule_persist(&client, persist_id);
     }
     schedule_file_cleanup(&client);
-    if temp_failed { Err(temporary_key_retry_error()) } else { result }
+    if temp_failed {
+        Err(temporary_key_retry_error())
+    } else {
+        result
+    }
 }
 
 pub(crate) fn home_fork_source(data: &ClientData) -> Option<Snapshot> {
@@ -918,7 +959,10 @@ pub(crate) fn with_read_lane<T>(
     if let Some(metadata) = crate::rpc::take_new_session_metadata() {
         state.new_session = Some(metadata);
     }
-    let temp_failed = result.as_ref().err().is_some_and(|err| temporary_key_failure(&state, err));
+    let temp_failed = result
+        .as_ref()
+        .err()
+        .is_some_and(|err| temporary_key_failure(&state, err));
     if temp_failed {
         expire_temporary_lane(&client, &mut io, result.as_ref().err().unwrap());
         return Err(temporary_key_retry_error());
@@ -956,7 +1000,11 @@ pub(crate) fn with_read_lane<T>(
             let _ =
                 merge_changed_entries(&mut d.channel_pts, &before_channel_pts, state.channel_pts);
             if state.channel_recovery != before_recovery {
-                merge_changed_entries(&mut d.channel_recovery, &before_recovery, state.channel_recovery);
+                merge_changed_entries(
+                    &mut d.channel_recovery,
+                    &before_recovery,
+                    state.channel_recovery,
+                );
             }
             d.seen_messages.extend(state.seen_messages);
             d.updates = prefer_newer_cursor(d.updates.clone(), state.updates);

@@ -3,8 +3,17 @@ package org.monogram.feature.auth.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -17,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.monogram.core.ui.auth.PasskeyCredentials
 import org.monogram.core.ui.theme.MonogramTheme
 import org.monogram.feature.auth.AuthStore
 import org.monogram.feature.auth.R
@@ -29,15 +39,9 @@ internal fun AuthPhoneStep(
     isError: Boolean,
     primaryEnabled: Boolean,
     onIntent: (AuthStore.Intent) -> Unit,
+    primaryAction: @Composable () -> Unit = {},
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        androidx.compose.material3.TextButton(
-            onClick = { onIntent(AuthStore.Intent.StartQrLogin) },
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.auth_qr_login))
-        }
         PhoneInput(
             value = state.phone,
             onValueChange = { onIntent(AuthStore.Intent.PhoneChanged(it)) },
@@ -53,6 +57,7 @@ internal fun AuthPhoneStep(
                 }
             },
         )
+        primaryAction()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -82,6 +87,35 @@ internal fun AuthPhoneStep(
                 onCheckedChange = null,
                 enabled = enabled,
             )
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            FilledTonalButton(
+                onClick = { onIntent(AuthStore.Intent.StartQrLogin) },
+                enabled = enabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+            ) {
+                Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.auth_qr_login))
+            }
+            if (PasskeyCredentials.supported) {
+                FilledTonalButton(
+                    onClick = { onIntent(AuthStore.Intent.StartPasskeyLogin) },
+                    enabled = enabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                ) {
+                    Icon(Icons.Outlined.VpnKey, contentDescription = null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.auth_passkey_login))
+                }
+            }
         }
     }
 }

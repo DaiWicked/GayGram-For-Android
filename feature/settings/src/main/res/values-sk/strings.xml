@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">Ak chcete skenovať QR kódy, povoľte prístup ku kamere v nastaveniach aplikácie</string>
     <string name="settings_devices_open_settings">Otvoriť nastavenia aplikácie</string>
     <string name="settings_devices_scan_title">Skenovať QR kód</string>
+    <string name="settings_passkeys">Prístupové kľúče</string>
+    <string name="settings_passkeys_hint">Prístupové kľúče umožňujú prihlásenie odtlačkom prsta, tvárou alebo PIN kódom zariadenia</string>
+    <string name="settings_passkeys_create">Vytvoriť prístupový kľúč</string>
+    <string name="settings_passkeys_delete">Odstrániť</string>
+    <string name="settings_passkeys_empty">Zatiaľ žiadne prístupové kľúče</string>
+    <string name="settings_passkeys_error">Prístupové kľúče sa nepodarilo načítať alebo aktualizovať</string>
+    <string name="settings_passkeys_retry">Skúsiť znova</string>
+    <string name="settings_passkeys_unsupported">Prístupové kľúče vyžadujú Android 9 alebo novší</string>
+    <string name="settings_passkeys_provider_error">Overte podporu Telegramu a dôveru aplikácii u poskytovateľa. V KeePassDX povoľte Monogram v Nastavenia → Vypĺňanie formulárov → Nastavenia prístupových kľúčov → Privilegované aplikácie a skúste to znova</string>
 </resources>

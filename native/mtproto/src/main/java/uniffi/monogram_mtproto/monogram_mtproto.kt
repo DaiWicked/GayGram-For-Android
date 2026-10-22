@@ -750,6 +750,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_delete_message(
     ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_delete_passkey(
+    ): Int
     external fun uniffi_monogram_mtproto_checksum_func_destroy_client(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_destroy_lottie(
@@ -781,6 +783,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_monogram_mtproto_checksum_func_edit_text_message(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_export_login_token(
+    ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_finish_passkey_login(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_finish_waveform(
     ): Int
@@ -828,6 +832,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_get_participants(
     ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_get_passkeys(
+    ): Int
     external fun uniffi_monogram_mtproto_checksum_func_get_pinned_messages(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_get_poll_votes(
@@ -862,6 +868,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_get_web_page_preview(
     ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_init_passkey_login(
+    ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_init_passkey_registration(
+    ): Int
     external fun uniffi_monogram_mtproto_checksum_func_is_authorized(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_join_chat(
@@ -879,6 +889,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_monogram_mtproto_checksum_func_lottie_size(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_mark_dialog_unread(
+    ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_passkeys_enabled(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_peek_message_inline_thumb(
     ): Int
@@ -907,6 +919,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_monogram_mtproto_checksum_func_read_reactions(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_register_device(
+    ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_register_passkey(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_release_request_control(
     ): Int
@@ -1064,6 +1078,8 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_monogram_mtproto_fn_func_delete_message(`handle`: Long,`chatId`: Long,`messageId`: Int,`revoke`: Byte,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
+    external fun uniffi_monogram_mtproto_fn_func_delete_passkey(`handle`: Long,`id`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): Byte
     external fun uniffi_monogram_mtproto_fn_func_destroy_client(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
     external fun uniffi_monogram_mtproto_fn_func_destroy_lottie(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
@@ -1095,6 +1111,8 @@ internal object UniffiLib {
     external fun uniffi_monogram_mtproto_fn_func_edit_text_message(`handle`: Long,`chatId`: Long,`messageId`: Int,`text`: RustBuffer.ByValue,`entitiesJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_export_login_token(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_monogram_mtproto_fn_func_finish_passkey_login(`handle`: Long,`credential`: RustBuffer.ByValue,`dcId`: Int,`authKeyId`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_finish_waveform(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
@@ -1142,6 +1160,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_get_participants(`handle`: Long,`chatId`: Long,`filter`: RustBuffer.ByValue,`query`: RustBuffer.ByValue,`offset`: Int,`limit`: Int,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
+    external fun uniffi_monogram_mtproto_fn_func_get_passkeys(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_get_pinned_messages(`handle`: Long,`chatId`: Long,`limit`: Int,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_get_poll_votes(`handle`: Long,`chatId`: Long,`messageId`: Int,uniffi_out_err: UniffiRustCallStatus,
@@ -1176,6 +1196,10 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_get_web_page_preview(`handle`: Long,`message`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
+    external fun uniffi_monogram_mtproto_fn_func_init_passkey_login(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_monogram_mtproto_fn_func_init_passkey_registration(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_is_authorized(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
     external fun uniffi_monogram_mtproto_fn_func_join_chat(`handle`: Long,`chatId`: Long,uniffi_out_err: UniffiRustCallStatus,
@@ -1194,6 +1218,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_mark_dialog_unread(`handle`: Long,`chatId`: Long,`unread`: Byte,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
+    external fun uniffi_monogram_mtproto_fn_func_passkeys_enabled(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): Byte
     external fun uniffi_monogram_mtproto_fn_func_peek_message_inline_thumb(`handle`: Long,`chatId`: Long,`messageId`: Int,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_peek_peer_inline_thumb(`handle`: Long,`peerId`: Long,uniffi_out_err: UniffiRustCallStatus,
@@ -1222,6 +1248,8 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_monogram_mtproto_fn_func_register_device(`handle`: Long,`tokenType`: Int,`token`: RustBuffer.ByValue,`secret`: RustBuffer.ByValue,`noMuted`: Byte,`appSandbox`: Byte,`otherUids`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
+    external fun uniffi_monogram_mtproto_fn_func_register_passkey(`handle`: Long,`credential`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_monogram_mtproto_fn_func_release_request_control(`id`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
     external fun uniffi_monogram_mtproto_fn_func_render_lottie_frame(`handle`: Long,`frame`: Float,`width`: Int,`height`: Int,uniffi_out_err: UniffiRustCallStatus,
@@ -1507,6 +1535,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_monogram_mtproto_checksum_func_delete_message() and 0xFFFF) != 62832) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_delete_passkey() and 0xFFFF) != 897) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_monogram_mtproto_checksum_func_destroy_client() and 0xFFFF) != 9968) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1553,6 +1584,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_export_login_token() and 0xFFFF) != 33248) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_finish_passkey_login() and 0xFFFF) != 43833) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_finish_waveform() and 0xFFFF) != 21863) {
@@ -1624,6 +1658,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_monogram_mtproto_checksum_func_get_participants() and 0xFFFF) != 24154) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_get_passkeys() and 0xFFFF) != 30830) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_monogram_mtproto_checksum_func_get_pinned_messages() and 0xFFFF) != 64998) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1675,6 +1712,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_monogram_mtproto_checksum_func_get_web_page_preview() and 0xFFFF) != 55665) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_init_passkey_login() and 0xFFFF) != 36751) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_init_passkey_registration() and 0xFFFF) != 40051) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_monogram_mtproto_checksum_func_is_authorized() and 0xFFFF) != 9962) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1700,6 +1743,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_mark_dialog_unread() and 0xFFFF) != 40354) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_passkeys_enabled() and 0xFFFF) != 2647) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_peek_message_inline_thumb() and 0xFFFF) != 34494) {
@@ -1742,6 +1788,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_register_device() and 0xFFFF) != 43379) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_register_passkey() and 0xFFFF) != 63163) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_release_request_control() and 0xFFFF) != 4655) {
@@ -3905,6 +3954,165 @@ public object FfiConverterTypeOutboxReadDto: FfiConverterRustBuffer<OutboxReadDt
     override fun write(value: OutboxReadDto, buf: ByteBuffer) {
             FfiConverterInt.write(value.`date`, buf)
             FfiConverterOptionalString.write(value.`error`, buf)
+    }
+}
+
+
+
+data class PasskeyCredentialDto (
+    var `id`: kotlin.String
+    ,
+    var `rawId`: kotlin.String
+    ,
+    var `clientData`: kotlin.String
+    ,
+    var `authenticatorData`: kotlin.ByteArray
+    ,
+    var `signature`: kotlin.ByteArray
+    ,
+    var `userHandle`: kotlin.String
+    ,
+    var `attestationData`: kotlin.ByteArray
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePasskeyCredentialDto: FfiConverterRustBuffer<PasskeyCredentialDto> {
+    override fun read(buf: ByteBuffer): PasskeyCredentialDto {
+        return PasskeyCredentialDto(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PasskeyCredentialDto) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`rawId`) +
+            FfiConverterString.allocationSize(value.`clientData`) +
+            FfiConverterByteArray.allocationSize(value.`authenticatorData`) +
+            FfiConverterByteArray.allocationSize(value.`signature`) +
+            FfiConverterString.allocationSize(value.`userHandle`) +
+            FfiConverterByteArray.allocationSize(value.`attestationData`)
+    )
+
+    override fun write(value: PasskeyCredentialDto, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`rawId`, buf)
+            FfiConverterString.write(value.`clientData`, buf)
+            FfiConverterByteArray.write(value.`authenticatorData`, buf)
+            FfiConverterByteArray.write(value.`signature`, buf)
+            FfiConverterString.write(value.`userHandle`, buf)
+            FfiConverterByteArray.write(value.`attestationData`, buf)
+    }
+}
+
+
+
+data class PasskeyDto (
+    var `id`: kotlin.String
+    ,
+    var `name`: kotlin.String
+    ,
+    var `date`: kotlin.Int
+    ,
+    var `softwareEmojiId`: kotlin.Long?
+    ,
+    var `lastUsageDate`: kotlin.Int?
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePasskeyDto: FfiConverterRustBuffer<PasskeyDto> {
+    override fun read(buf: ByteBuffer): PasskeyDto {
+        return PasskeyDto(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterInt.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterOptionalInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PasskeyDto) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterInt.allocationSize(value.`date`) +
+            FfiConverterOptionalLong.allocationSize(value.`softwareEmojiId`) +
+            FfiConverterOptionalInt.allocationSize(value.`lastUsageDate`)
+    )
+
+    override fun write(value: PasskeyDto, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterInt.write(value.`date`, buf)
+            FfiConverterOptionalLong.write(value.`softwareEmojiId`, buf)
+            FfiConverterOptionalInt.write(value.`lastUsageDate`, buf)
+    }
+}
+
+
+
+data class PasskeyLoginOptionsDto (
+    var `options`: kotlin.String
+    ,
+    var `dcId`: kotlin.Int
+    ,
+    var `authKeyId`: kotlin.Long
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypePasskeyLoginOptionsDto: FfiConverterRustBuffer<PasskeyLoginOptionsDto> {
+    override fun read(buf: ByteBuffer): PasskeyLoginOptionsDto {
+        return PasskeyLoginOptionsDto(
+            FfiConverterString.read(buf),
+            FfiConverterInt.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: PasskeyLoginOptionsDto) = (
+            FfiConverterString.allocationSize(value.`options`) +
+            FfiConverterInt.allocationSize(value.`dcId`) +
+            FfiConverterLong.allocationSize(value.`authKeyId`)
+    )
+
+    override fun write(value: PasskeyLoginOptionsDto, buf: ByteBuffer) {
+            FfiConverterString.write(value.`options`, buf)
+            FfiConverterInt.write(value.`dcId`, buf)
+            FfiConverterLong.write(value.`authKeyId`, buf)
     }
 }
 
@@ -6479,6 +6687,34 @@ public object FfiConverterSequenceTypeNotifyExceptionDto: FfiConverterRustBuffer
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypePasskeyDto: FfiConverterRustBuffer<List<PasskeyDto>> {
+    override fun read(buf: ByteBuffer): List<PasskeyDto> {
+        val len = buf.getInt()
+        return List<PasskeyDto>(len) {
+            FfiConverterTypePasskeyDto.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<PasskeyDto>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypePasskeyDto.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<PasskeyDto>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypePasskeyDto.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypePollVoterDto: FfiConverterRustBuffer<List<PollVoterDto>> {
     override fun read(buf: ByteBuffer): List<PollVoterDto> {
         val len = buf.getInt()
@@ -7125,6 +7361,19 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
 }
 
 
+
+    @Throws(MtprotoException::class) fun `deletePasskey`(`handle`: kotlin.ULong, `id`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_delete_passkey(
+
+
+        FfiConverterULong.lower(`handle`),
+        FfiConverterString.lower(`id`),_status)
+}
+    )
+    }
+
  fun `destroyClient`(`handle`: kotlin.ULong)
         =
     uniffiRustCall() { _status ->
@@ -7325,6 +7574,21 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
 
 
         FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
+
+
+    @Throws(MtprotoException::class) fun `finishPasskeyLogin`(`handle`: kotlin.ULong, `credential`: PasskeyCredentialDto, `dcId`: kotlin.Int, `authKeyId`: kotlin.Long): AuthSignedIn {
+            return FfiConverterTypeAuthSignedIn.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_finish_passkey_login(
+
+
+        FfiConverterULong.lower(`handle`),
+        FfiConverterTypePasskeyCredentialDto.lower(`credential`),
+        FfiConverterInt.lower(`dcId`),
+        FfiConverterLong.lower(`authKeyId`),_status)
 }
     )
     }
@@ -7660,6 +7924,18 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
     }
 
 
+    @Throws(MtprotoException::class) fun `getPasskeys`(`handle`: kotlin.ULong): List<PasskeyDto> {
+            return FfiConverterSequenceTypePasskeyDto.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_get_passkeys(
+
+
+        FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
+
+
     @Throws(MtprotoException::class) fun `getPinnedMessages`(`handle`: kotlin.ULong, `chatId`: kotlin.Long, `limit`: kotlin.Int): List<MessageDto> {
             return FfiConverterSequenceTypeMessageDto.lift(
     uniffiRustCallWithError(MtprotoException) { _status ->
@@ -7904,6 +8180,30 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
     }
 
 
+    @Throws(MtprotoException::class) fun `initPasskeyLogin`(`handle`: kotlin.ULong): PasskeyLoginOptionsDto {
+            return FfiConverterTypePasskeyLoginOptionsDto.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_init_passkey_login(
+
+
+        FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
+
+
+    @Throws(MtprotoException::class) fun `initPasskeyRegistration`(`handle`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_init_passkey_registration(
+
+
+        FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
+
+
     @Throws(MtprotoException::class) fun `isAuthorized`(`handle`: kotlin.ULong): kotlin.Boolean {
             return FfiConverterBoolean.lift(
     uniffiRustCallWithError(MtprotoException) { _status ->
@@ -8016,6 +8316,18 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
         FfiConverterBoolean.lower(`unread`),_status)
 }
 
+
+
+    @Throws(MtprotoException::class) fun `passkeysEnabled`(`handle`: kotlin.ULong): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_passkeys_enabled(
+
+
+        FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
 
  fun `peekMessageInlineThumb`(`handle`: kotlin.ULong, `chatId`: kotlin.Long, `messageId`: kotlin.Int): kotlin.ByteArray? {
             return FfiConverterOptionalByteArray.lift(
@@ -8213,6 +8525,19 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
         FfiConverterSequenceLong.lower(`otherUids`),_status)
 }
 
+
+
+    @Throws(MtprotoException::class) fun `registerPasskey`(`handle`: kotlin.ULong, `credential`: PasskeyCredentialDto): PasskeyDto {
+            return FfiConverterTypePasskeyDto.lift(
+    uniffiRustCallWithError(MtprotoException) { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_register_passkey(
+
+
+        FfiConverterULong.lower(`handle`),
+        FfiConverterTypePasskeyCredentialDto.lower(`credential`),_status)
+}
+    )
+    }
 
  fun `releaseRequestControl`(`id`: kotlin.ULong)
         =

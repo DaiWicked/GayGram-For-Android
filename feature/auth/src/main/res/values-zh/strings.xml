@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Telegram 登录二维码</string>
     <string name="auth_qr_retry">重试</string>
     <string name="auth_qr_use_phone">通过手机号码登录</string>
+    <string name="auth_passkey_login">使用通行密钥登录</string>
+    <string name="auth_passkey_error">通行密钥不可用。请检查凭据提供程序和应用信任设置，然后重试</string>
+    <string name="auth_passkey_missing">未找到 Telegram 通行密钥。请选择其他凭据提供程序，或使用手机号或二维码登录</string>
 </resources>

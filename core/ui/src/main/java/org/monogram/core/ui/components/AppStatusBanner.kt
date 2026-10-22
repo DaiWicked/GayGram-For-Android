@@ -135,8 +135,10 @@ fun AppStatusBanner(
         progress = error?.kind == TelegramError.Kind.FileReference,
         onRetry = onRetry.takeIf {
             error != null &&
+                error.kind != TelegramError.Kind.FreshAuthorization &&
                 (error.kind != TelegramError.Kind.Flood || floodSeconds <= 0)
         },
+        maxLines = if (error?.kind == TelegramError.Kind.FreshAuthorization) Int.MAX_VALUE else 3,
         modifier = modifier,
     )
     if (error == null) {
@@ -152,6 +154,7 @@ fun AppStatusBanner(
     progress: Boolean,
     onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    maxLines: Int = 3,
 ) {
     AnimatedVisibility(
         visible = !text.isNullOrBlank(),
@@ -184,7 +187,7 @@ fun AppStatusBanner(
                     Text(
                         text = text.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 3,
+                        maxLines = maxLines,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
@@ -207,6 +210,7 @@ fun AppStatusBanner(
 
 @Composable
 fun TelegramError.toUiMessage(remainingFloodSeconds: Int? = null): String = when (kind) {
+    TelegramError.Kind.FreshAuthorization -> stringResource(R.string.status_fresh_authorization)
     TelegramError.Kind.Flood -> if ((remainingFloodSeconds ?: retryAfterSeconds ?: argument ?: 0) > 0) {
         stringResource(
             R.string.status_flood_wait,

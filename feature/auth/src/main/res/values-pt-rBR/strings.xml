@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Código QR para entrar no Telegram</string>
     <string name="auth_qr_retry">Tentar novamente</string>
     <string name="auth_qr_use_phone">Entrar com número de telefone</string>
+    <string name="auth_passkey_login">Entrar com uma chave de acesso</string>
+    <string name="auth_passkey_error">Chave de acesso indisponível. Verifique o provedor e a confiança no aplicativo e tente novamente</string>
+    <string name="auth_passkey_missing">Nenhuma chave do Telegram encontrada. Escolha outro provedor ou entre por telefone ou QR</string>
 </resources>

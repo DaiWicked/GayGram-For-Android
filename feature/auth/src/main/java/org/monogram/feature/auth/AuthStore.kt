@@ -14,6 +14,8 @@ import org.monogram.core.common.telegram.TelegramError
 import org.monogram.core.models.AuthSession
 import org.monogram.core.models.LoadingUi
 import org.monogram.core.models.AuthState
+import org.monogram.core.models.PasskeyCredential
+import org.monogram.core.models.PasskeyLoginOptions
 import org.monogram.core.models.QrLogin
 import org.monogram.network.bridge.session.SessionOps
 
@@ -28,6 +30,8 @@ interface AuthStore : Store<AuthStore.Intent, AuthStore.State, AuthStore.Label> 
         data object SignIn : Intent
         data class SubmitPassword(val password: String) : Intent
         data object BackToPhone : Intent
+        data object StartPasskeyLogin : Intent
+        class PasskeyResult(val credential: PasskeyCredential?, val failed: Boolean = false, val missing: Boolean = false, val clientDataMismatch: Boolean = false) : Intent
         data object StartQrLogin : Intent
         data object PauseQrLogin : Intent
         data object ResumeQrLogin : Intent
@@ -47,6 +51,9 @@ interface AuthStore : Store<AuthStore.Intent, AuthStore.State, AuthStore.Label> 
     }
 
     sealed interface Error {
+        data object PasskeyMissing : Error
+        data object PasskeyClientDataMismatch : Error
+        data object PasskeyFailed : Error
         data object PhoneRequired : Error
         data object CodeRequired : Error
         data object PasswordRequired : Error
@@ -54,6 +61,7 @@ interface AuthStore : Store<AuthStore.Intent, AuthStore.State, AuthStore.Label> 
     }
 
     data class State(
+        val passkeyOptions: PasskeyLoginOptions? = null,
         val phone: String = "",
         val code: String = "",
         val password: String = "",
@@ -88,6 +96,7 @@ internal class AuthStoreFactory(
             ) {}
 
     private sealed interface Msg {
+        class PasskeyOptions(val value: PasskeyLoginOptions?) : Msg
         data class Phone(val value: String) : Msg
         data class Code(val value: String) : Msg
         data class Password(val value: String) : Msg
@@ -135,6 +144,13 @@ internal class AuthStoreFactory(
                     dispatch(Msg.UseTestDc(intent.enabled))
                     scope.launch { client.setTestDc(intent.enabled) }
                 }
+                AuthStore.Intent.StartPasskeyLogin -> if (!state().loading) startPasskeyLogin()
+                is AuthStore.Intent.PasskeyResult -> {
+                    if (intent.missing) dispatch(Msg.Error(AuthStore.Error.PasskeyMissing))
+                    else if (intent.clientDataMismatch) dispatch(Msg.Error(AuthStore.Error.PasskeyClientDataMismatch))
+                    else if (intent.failed) dispatch(Msg.Error(AuthStore.Error.PasskeyFailed))
+                    finishPasskeyLogin(intent.credential)
+                }
                 AuthStore.Intent.SendCode -> sendCode()
                 AuthStore.Intent.ResendCode -> resendCode()
                 AuthStore.Intent.SignIn -> signIn()
@@ -159,6 +175,51 @@ internal class AuthStoreFactory(
                         dispatch(Msg.Loading(false))
                     }
                 }
+            }
+        }
+
+        private fun startPasskeyLogin() {
+            dispatch(Msg.Error(null))
+            dispatch(Msg.Loading(true))
+            scope.launch {
+                when (val configured = client.setTestDc(state().useTestDc)) {
+                    is Outcome.Err -> {
+                        dispatch(Msg.Error(AuthStore.Error.Rpc(configured.telegramError)))
+                        dispatch(Msg.Loading(false))
+                        return@launch
+                    }
+                    is Outcome.Ok -> Unit
+                }
+                when (val result = client.initPasskeyLogin()) {
+                    is Outcome.Ok -> dispatch(Msg.PasskeyOptions(result.value))
+                    is Outcome.Err -> {
+                        dispatch(Msg.Error(AuthStore.Error.Rpc(result.telegramError)))
+                        dispatch(Msg.Loading(false))
+                    }
+                }
+            }
+        }
+
+        private fun finishPasskeyLogin(credential: PasskeyCredential?) {
+            val options = state().passkeyOptions ?: return
+            dispatch(Msg.PasskeyOptions(null))
+            if (credential == null) {
+                dispatch(Msg.Loading(false))
+                return
+            }
+            scope.launch {
+                when (val result = client.finishPasskeyLogin(options, credential)) {
+                    is Outcome.Ok -> when (val auth = result.value) {
+                        is AuthState.Authorized -> {
+                            dispatch(Msg.Phase(AuthStore.Phase.Authorized(auth.session)))
+                            publish(AuthStore.Label.Authorized(auth.session))
+                        }
+                        AuthState.AwaitingPassword -> dispatch(Msg.Phase(AuthStore.Phase.PasswordEntry))
+                        else -> Unit
+                    }
+                    is Outcome.Err -> dispatch(Msg.Error(AuthStore.Error.Rpc(result.telegramError)))
+                }
+                dispatch(Msg.Loading(false))
             }
         }
 
@@ -450,6 +511,7 @@ internal class AuthStoreFactory(
 
     private object ReducerImpl : Reducer<AuthStore.State, Msg> {
         override fun AuthStore.State.reduce(msg: Msg): AuthStore.State = when (msg) {
+            is Msg.PasskeyOptions -> copy(passkeyOptions = msg.value)
             is Msg.Phone -> copy(phone = msg.value, error = null)
             is Msg.Code -> copy(code = msg.value, error = null)
             is Msg.Password -> copy(password = msg.value, error = null)
@@ -476,6 +538,7 @@ internal class AuthStoreFactory(
                 error = AuthStore.Error.Rpc(TelegramError.parse("AUTH_RESTART")),
             )
             Msg.BackToPhone -> copy(
+                passkeyOptions = null,
                 phase = AuthStore.Phase.PhoneEntry,
                 code = "",
                 password = "",

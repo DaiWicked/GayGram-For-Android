@@ -89,7 +89,9 @@ fun hostCdylibName(libName: String): String {
 }
 
 val workspaceLock = rootProject.layout.projectDirectory.file("native/Cargo.lock")
-val workspaceTarget = rootProject.layout.projectDirectory.dir("native/target")
+val workspaceTarget = providers.environmentVariable("CARGO_TARGET_DIR")
+    .map { rustCrate.dir(it) }
+    .getOrElse(rootProject.layout.projectDirectory.dir("native/target"))
 val hostUniffiLib = workspaceTarget.file("debug/${hostCdylibName("monogram_markup")}")
 val uniffiKotlin = layout.projectDirectory.file(
     "src/main/java/uniffi/monogram_markup/monogram_markup.kt",

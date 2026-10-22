@@ -46,6 +46,14 @@ data class NativeJoinResult(
 )
 
 interface MtprotoNative {
+    fun passkeysEnabled(handle: Long): Boolean = false
+    fun initPasskeyLogin(handle: Long): uniffi.monogram_mtproto.PasskeyLoginOptionsDto = throw UnsupportedOperationException("passkeys")
+    fun finishPasskeyLogin(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto, dcId: Int, authKeyId: Long): uniffi.monogram_mtproto.AuthSignedIn = throw UnsupportedOperationException("passkeys")
+    fun initPasskeyRegistration(handle: Long): String = throw UnsupportedOperationException("passkeys")
+    fun registerPasskey(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto): uniffi.monogram_mtproto.PasskeyDto = throw UnsupportedOperationException("passkeys")
+    fun getPasskeys(handle: Long): List<uniffi.monogram_mtproto.PasskeyDto> = throw UnsupportedOperationException("passkeys")
+    fun deletePasskey(handle: Long, id: String): Boolean = throw UnsupportedOperationException("passkeys")
+
     fun exportLoginToken(handle: Long): QrLoginDto =
         throw UnsupportedOperationException("QR login")
     fun pollLoginToken(handle: Long): Boolean = throw UnsupportedOperationException("QR login")

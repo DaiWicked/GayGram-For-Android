@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Código QR para iniciar sesión en Telegram</string>
     <string name="auth_qr_retry">Reintentar</string>
     <string name="auth_qr_use_phone">Iniciar sesión con número de teléfono</string>
+    <string name="auth_passkey_login">Iniciar sesión con una clave de acceso</string>
+    <string name="auth_passkey_error">Clave de acceso no disponible. Revisa el proveedor y la confianza en la aplicación e inténtalo de nuevo</string>
+    <string name="auth_passkey_missing">No se encontró una clave de Telegram. Elige otro proveedor o inicia sesión por teléfono o QR</string>
 </resources>

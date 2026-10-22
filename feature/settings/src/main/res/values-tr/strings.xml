@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">QR kodlarını taramak için uygulama ayarlarında kamera erişimine izin verin</string>
     <string name="settings_devices_open_settings">Uygulama Ayarlarını Aç</string>
     <string name="settings_devices_scan_title">QR kodunu tara</string>
+    <string name="settings_passkeys">Geçiş anahtarları</string>
+    <string name="settings_passkeys_hint">Geçiş anahtarları parmak izi, yüz veya cihaz PIN koduyla giriş yapmanızı sağlar</string>
+    <string name="settings_passkeys_create">Geçiş anahtarı oluştur</string>
+    <string name="settings_passkeys_delete">Sil</string>
+    <string name="settings_passkeys_empty">Henüz geçiş anahtarı yok</string>
+    <string name="settings_passkeys_error">Geçiş anahtarları yüklenemedi veya güncellenemedi</string>
+    <string name="settings_passkeys_retry">Yeniden dene</string>
+    <string name="settings_passkeys_unsupported">Geçiş anahtarları Android 9 veya üzerini gerektirir</string>
+    <string name="settings_passkeys_provider_error">Sağlayıcınızın Telegram desteğini ve bu uygulamaya güvenini kontrol edin. KeePassDX içinde Ayarlar → Form doldurma → Geçiş anahtarı ayarları → Ayrıcalıklı uygulamalar bölümünde Monogram uygulamasını etkinleştirip yeniden deneyin</string>
 </resources>

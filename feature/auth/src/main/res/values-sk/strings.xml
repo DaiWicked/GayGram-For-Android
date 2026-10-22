@@ -49,4 +49,7 @@
     <string name="auth_qr_code">QR kód na prihlásenie do Telegramu</string>
     <string name="auth_qr_retry">Skúsiť znova</string>
     <string name="auth_qr_use_phone">Prihlásiť sa telefónnym číslom</string>
+    <string name="auth_passkey_login">Prihlásiť sa prístupovým kľúčom</string>
+    <string name="auth_passkey_error">Prístupový kľúč nie je dostupný. Skontrolujte poskytovateľa a dôveru aplikácii a skúste to znova</string>
+    <string name="auth_passkey_missing">Prístupový kľúč Telegramu sa nenašiel. Vyberte iného poskytovateľa alebo sa prihláste telefónom či QR kódom</string>
 </resources>

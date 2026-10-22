@@ -49,4 +49,7 @@
     <string name="auth_qr_code">Telegramログイン用QRコード</string>
     <string name="auth_qr_retry">再試行</string>
     <string name="auth_qr_use_phone">電話番号でログイン</string>
+    <string name="auth_passkey_login">パスキーでログイン</string>
+    <string name="auth_passkey_error">パスキーを使用できません。認証情報プロバイダとアプリの信頼設定を確認して再試行してください</string>
+    <string name="auth_passkey_missing">Telegramのパスキーが見つかりません。別の認証情報プロバイダを選択するか、電話番号またはQRでログインしてください</string>
 </resources>

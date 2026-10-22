@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">Allow camera access in app settings to scan QR codes</string>
     <string name="settings_devices_open_settings">Open App Settings</string>
     <string name="settings_devices_scan_title">Scan QR code</string>
+    <string name="settings_passkeys">Passkeys</string>
+    <string name="settings_passkeys_hint">Passkeys let you log in with your fingerprint, face or device PIN</string>
+    <string name="settings_passkeys_create">Create passkey</string>
+    <string name="settings_passkeys_delete">Delete</string>
+    <string name="settings_passkeys_empty">No passkeys yet</string>
+    <string name="settings_passkeys_error">Could not load or update passkeys</string>
+    <string name="settings_passkeys_retry">Retry</string>
+    <string name="settings_passkeys_unsupported">Passkeys require Android 9 or newer</string>
+    <string name="settings_passkeys_provider_error">Check that your credential provider supports Telegram and trusts this app. In KeePassDX, enable Monogram under Settings → Form filling → Passkeys settings → Privileged apps, then retry</string>
 </resources>

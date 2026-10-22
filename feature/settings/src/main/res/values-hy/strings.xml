@@ -429,4 +429,13 @@
     <string name="settings_devices_camera_permission">QR կոդերը սկանավորելու համար հավելվածի կարգավորումներում թույլատրեք տեսախցիկի հասանելիությունը</string>
     <string name="settings_devices_open_settings">Բացել հավելվածի կարգավորումները</string>
     <string name="settings_devices_scan_title">Սկանավորել QR կոդը</string>
+    <string name="settings_passkeys">Անցաբանալիներ</string>
+    <string name="settings_passkeys_hint">Անցաբանալիները թույլ են տալիս մուտք գործել մատնահետքով, դեմքով կամ սարքի PIN կոդով</string>
+    <string name="settings_passkeys_create">Ստեղծել անցաբանալին</string>
+    <string name="settings_passkeys_delete">Ջնջել</string>
+    <string name="settings_passkeys_empty">Անցաբանալիներ դեռ չկան</string>
+    <string name="settings_passkeys_error">Չհաջողվեց բեռնել կամ թարմացնել անցաբանալիները</string>
+    <string name="settings_passkeys_retry">Կրկին փորձել</string>
+    <string name="settings_passkeys_unsupported">Անցաբանալիների համար պահանջվում է Android 9 կամ ավելի նոր տարբերակ</string>
+    <string name="settings_passkeys_provider_error">Ստուգեք, որ մատակարարն աջակցում է Telegram-ին և վստահում է այս հավելվածին։ KeePassDX-ում միացրեք Monogram-ը՝ Կարգավորումներ → Ձևերի լրացում → Անցաբանալիների կարգավորումներ → Արտոնյալ հավելվածներ, ապա կրկին փորձեք</string>
 </resources>

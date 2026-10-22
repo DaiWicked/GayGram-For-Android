@@ -19,6 +19,7 @@ mod instant_view;
 mod lottie;
 pub mod media;
 mod messages;
+mod passkeys;
 mod peers;
 mod perf;
 mod presence;

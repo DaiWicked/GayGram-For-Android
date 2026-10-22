@@ -153,6 +153,14 @@ object MtprotoNativeUniFfi : MtprotoNative {
     override fun getDeviceSessions(handle: Long) = nativeGetDeviceSessions(handle.toULong())
     override fun acceptLoginToken(handle: Long, token: ByteArray) = nativeAcceptLoginToken(handle.toULong(), token)
     override fun revokeDeviceSession(handle: Long, hash: Long) = nativeRevokeDeviceSession(handle.toULong(), hash)
+    override fun passkeysEnabled(handle: Long) = uniffi.monogram_mtproto.passkeysEnabled(handle.toULong())
+    override fun initPasskeyLogin(handle: Long) = uniffi.monogram_mtproto.initPasskeyLogin(handle.toULong())
+    override fun finishPasskeyLogin(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto, dcId: Int, authKeyId: Long) = uniffi.monogram_mtproto.finishPasskeyLogin(handle.toULong(), credential, dcId, authKeyId)
+    override fun initPasskeyRegistration(handle: Long) = uniffi.monogram_mtproto.initPasskeyRegistration(handle.toULong())
+    override fun registerPasskey(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto) = uniffi.monogram_mtproto.registerPasskey(handle.toULong(), credential)
+    override fun getPasskeys(handle: Long) = uniffi.monogram_mtproto.getPasskeys(handle.toULong())
+    override fun deletePasskey(handle: Long, id: String) = uniffi.monogram_mtproto.deletePasskey(handle.toULong(), id)
+
     override fun exportLoginToken(handle: Long) = uniffi.monogram_mtproto.exportLoginToken(handle.toULong())
     override fun pollLoginToken(handle: Long) = uniffi.monogram_mtproto.pollLoginToken(handle.toULong())
 
