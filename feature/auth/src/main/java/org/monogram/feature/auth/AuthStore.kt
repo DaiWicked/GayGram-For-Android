@@ -218,6 +218,10 @@ internal class AuthStoreFactory(
                         when (val update = client.pollLoginToken()) {
                             is Outcome.Ok -> if (update.value) break
                             is Outcome.Err -> {
+                                if (update.telegramError.requiresReauth) {
+                                    backToPhone()
+                                    return@launch
+                                }
                                 dispatch(Msg.Phase(AuthStore.Phase.QrEntry()))
                                 dispatch(Msg.Error(AuthStore.Error.Rpc(update.telegramError)))
                                 return@launch
