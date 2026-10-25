@@ -702,6 +702,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_animated_emoji_max(
     ): Int
+    external fun uniffi_monogram_mtproto_checksum_func_api_layer(
+    ): Int
     external fun uniffi_monogram_mtproto_checksum_func_append_todo_items(
     ): Int
     external fun uniffi_monogram_mtproto_checksum_func_bind_request_control(
@@ -1029,6 +1031,8 @@ internal object UniffiLib {
     external fun uniffi_monogram_mtproto_fn_func_add_waveform_pcm(`handle`: Long,`samples`: RustBuffer.ByValue,`sampleRate`: Int,`channels`: Int,`presentationTimeUs`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
     external fun uniffi_monogram_mtproto_fn_func_animated_emoji_max(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
+    ): Int
+    external fun uniffi_monogram_mtproto_fn_func_api_layer(uniffi_out_err: UniffiRustCallStatus,
     ): Int
     external fun uniffi_monogram_mtproto_fn_func_append_todo_items(`handle`: Long,`chatId`: Long,`messageId`: Int,`firstId`: Int,`titles`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
@@ -1461,6 +1465,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_animated_emoji_max() and 0xFFFF) != 64831) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_monogram_mtproto_checksum_func_api_layer() and 0xFFFF) != 27211) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_monogram_mtproto_checksum_func_append_todo_items() and 0xFFFF) != 40508) {
@@ -3567,6 +3574,11 @@ data class MessageDto (
     var `replyQuote`: kotlin.String?
     ,
     /**
+     * Compact JSON list of `{kind,offset,length,url?}` entities for `reply_quote`.
+     */
+    var `replyQuoteEntitiesJson`: kotlin.String?
+    ,
+    /**
      * Compact JSON list of `{kind,offset,length,url?}` message entities.
      */
     var `entitiesJson`: kotlin.String?
@@ -3650,6 +3662,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterOptionalInt.read(buf),
             FfiConverterOptionalInt.read(buf),
@@ -3688,6 +3701,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.allocationSize(value.`mediaWidth`) +
             FfiConverterOptionalInt.allocationSize(value.`mediaHeight`) +
             FfiConverterOptionalString.allocationSize(value.`replyQuote`) +
+            FfiConverterOptionalString.allocationSize(value.`replyQuoteEntitiesJson`) +
             FfiConverterOptionalString.allocationSize(value.`entitiesJson`) +
             FfiConverterBoolean.allocationSize(value.`noforwards`) +
             FfiConverterOptionalInt.allocationSize(value.`replyToMsgId`) +
@@ -3726,6 +3740,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.write(value.`mediaWidth`, buf)
             FfiConverterOptionalInt.write(value.`mediaHeight`, buf)
             FfiConverterOptionalString.write(value.`replyQuote`, buf)
+            FfiConverterOptionalString.write(value.`replyQuoteEntitiesJson`, buf)
             FfiConverterOptionalString.write(value.`entitiesJson`, buf)
             FfiConverterBoolean.write(value.`noforwards`, buf)
             FfiConverterOptionalInt.write(value.`replyToMsgId`, buf)
@@ -7064,6 +7079,16 @@ public object FfiConverterSequenceTypeUpdateEventDto: FfiConverterRustBuffer<Lis
 
 
         FfiConverterULong.lower(`handle`),_status)
+}
+    )
+    }
+
+ fun `apiLayer`(): kotlin.UInt {
+            return FfiConverterUInt.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_monogram_mtproto_fn_func_api_layer(
+
+        _status)
 }
     )
     }

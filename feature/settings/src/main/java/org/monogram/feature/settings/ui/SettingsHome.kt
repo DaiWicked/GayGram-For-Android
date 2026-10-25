@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.monogram.core.common.CountryManager
@@ -66,6 +67,8 @@ internal fun LazyListScope.homeItems(
     selfPeerId: Long?,
     updateState: AppUpdateState = AppUpdateState.Idle,
     updatesEnabled: Boolean = true,
+    devicesSubtitle: Int? = null,
+    apiLayer: Int = 0,
 ) {
     item {
         AccountHeader(
@@ -125,7 +128,9 @@ internal fun LazyListScope.homeItems(
         SettingsTile(
             icon = Icons.Outlined.Devices,
             title = stringResource(R.string.settings_devices),
-            subtitle = stringResource(R.string.settings_devices_sub),
+            subtitle = devicesSubtitle?.let { count ->
+                pluralStringResource(R.plurals.settings_devices_active_count, count, count)
+            } ?: stringResource(R.string.settings_devices_sub),
             iconColor = MaterialTheme.colorScheme.secondary,
             position = ItemPosition.MIDDLE,
             onClick = { onOpen(SettingsPage.Devices) },
@@ -299,8 +304,19 @@ internal fun LazyListScope.homeItems(
         )
     }
     item {
+        val about = buildString {
+            append(stringResource(R.string.settings_about))
+            append(' ')
+            append(appVersion)
+            append('\n')
+            append(buildStamp)
+            if (apiLayer > 0) {
+                append('\n')
+                append(stringResource(R.string.settings_api_layer, apiLayer))
+            }
+        }
         Text(
-            text = "${stringResource(R.string.settings_about)} $appVersion\n$buildStamp",
+            text = about,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

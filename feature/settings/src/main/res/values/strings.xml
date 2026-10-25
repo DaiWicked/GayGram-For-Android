@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Fix link previews</string>
     <string name="settings_input_bar_fix_previews_sub">Fix link previews for X, Bluesky, TikTok, Reddit, and Pixiv</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">API layer %1$d</string>
     <string name="settings_update_beta">Beta updates</string>
     <string name="settings_update_beta_sub">Install CI builds from GitHub Actions</string>
     <string name="settings_update_beta_supporters">Automatic GitHub Actions downloads are available only for supporters</string>
@@ -420,7 +421,6 @@
     <string name="settings_devices_terminate_action">Terminate</string>
     <string name="settings_devices_refresh">Refresh</string>
     <string name="settings_devices_empty">No linked devices</string>
-    <string name="settings_devices_current">This device</string>
     <string name="settings_devices_password_pending">Waiting for the two-step verification password on the new device</string>
     <string name="settings_devices_last_active">Last active: %1$s</string>
     <string name="settings_devices_terminate">Terminate Session</string>
@@ -438,4 +438,19 @@
     <string name="settings_passkeys_retry">Retry</string>
     <string name="settings_passkeys_unsupported">Passkeys require Android 9 or newer</string>
     <string name="settings_passkeys_provider_error">Check that your credential provider supports Telegram and trusts this app. In KeePassDX, enable Monogram under Settings → Form filling → Passkeys settings → Privileged apps, then retry</string>
+    <string name="settings_passkeys_unavailable_hint">Sign in with a fingerprint instead of an SMS code</string>
+    <string name="settings_passkeys_help_show">Why passkeys need a provider</string>
+    <string name="settings_passkeys_help_hide">Hide passkey details</string>
+    <string name="settings_passkeys_help_title">Google doesn\'t allow passkeys for unofficial clients</string>
+    <string name="settings_passkeys_help_text">Monogram doesn\'t use Telegram\'s signing key, so Google Password Manager refuses Telegram passkeys and you can\'t add one yet. Google is the only passkey provider built into your phone, so switch to a custom passkey provider such as KeePassDX. It\'s a bit technical to set up, but once it\'s done you can add passkeys here and sign in with a fingerprint instead of an SMS code</string>
+    <string name="settings_passkeys_help_open">Open passkey settings</string>
+    <string name="settings_passkeys_provider_open">Open KeePassDX</string>
+    <string name="settings_devices_current_title">This device</string>
+    <string name="settings_devices_other_title">Active devices</string>
+    <string name="settings_passkeys_important">Important</string>
+    <string name="settings_passkeys_provider_install">Get KeePassDX on Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d active device</item>
+        <item quantity="other">%1$d active devices</item>
+    </plurals>
 </resources>

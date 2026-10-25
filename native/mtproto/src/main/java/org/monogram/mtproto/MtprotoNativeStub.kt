@@ -21,6 +21,8 @@ object MtprotoNativeStub : MtprotoNative {
 
     override fun libraryVersion(): String = "stub-0.0.1"
 
+    override fun apiLayer(): Int = 0
+
     override fun setTransportMode(mode: String) = Unit
     override fun setProxy(kind: String, host: String, port: Int, username: String?, password: String?, secret: ByteArray) = Unit
     override fun clearProxy() = Unit

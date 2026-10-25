@@ -38,6 +38,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -115,6 +116,12 @@ fun SettingsContent(
     var pickingLimit by remember { mutableStateOf(false) }
     val cacheLimit by MediaCacheLimitStore.current.collectAsStateWithLifecycle()
     val cacheLimitText = cacheLimitLabel(cacheLimit)
+    val activeDeviceCount by component.devices.collectAsStateWithLifecycle()
+    LaunchedEffect(component) {
+        if (activeDeviceCount.sessions.isEmpty()) {
+            component.onDevices(DevicesStore.Intent.Refresh)
+        }
+    }
     var debugStatsExpanded by rememberSaveable { mutableStateOf("") }
     val pages by component.pages.subscribeAsState()
     val page = pages.active.instance
@@ -372,6 +379,10 @@ fun SettingsContent(
                                 selfPeerId = state.profile?.id?.value,
                                 updateState = updateState,
                                 updatesEnabled = component.updatesEnabled,
+                                devicesSubtitle = activeDeviceCount.sessions
+                                    .count { !it.current && !it.passwordPending }
+                                    .takeIf { it > 0 },
+                                apiLayer = state.apiLayer,
                             )
                         }
 

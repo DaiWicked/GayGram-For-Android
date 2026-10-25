@@ -69,6 +69,7 @@ pub(crate) fn message_from_updates(
             media_width: None,
             media_height: None,
             reply_quote: None,
+            reply_quote_entities_json: None,
             entities_json: None,
             noforwards: false,
             reply_to_msg_id: None,
@@ -90,7 +91,10 @@ pub(crate) fn message_from_updates(
             forum_topic: false,
             sender_photo_cache_key: None,
         }),
-        Updates::UpdateShortMessage(m) => Some(MessageDto {
+        Updates::UpdateShortMessage(m) => {
+            let (reply_to_msg_id, reply_to_top_id, reply_quote, reply_quote_entities_json, _) =
+                crate::dialogs::reply_meta(m.reply_to.as_deref());
+            Some(MessageDto {
             media_preview_restricted: None,
             chat_id,
             id: m.id,
@@ -105,11 +109,12 @@ pub(crate) fn message_from_updates(
             media_duration: None,
             media_width: None,
             media_height: None,
-            reply_quote: crate::dialogs::reply_meta(m.reply_to.as_deref()).2,
+            reply_quote,
+            reply_quote_entities_json,
             entities_json: None,
             noforwards: false,
-            reply_to_msg_id: crate::dialogs::reply_meta(m.reply_to.as_deref()).0,
-            reply_to_top_id: crate::dialogs::reply_meta(m.reply_to.as_deref()).1,
+            reply_to_msg_id,
+            reply_to_top_id,
             fwd_from: crate::dialogs::fwd_from_label(m.fwd_from.as_deref(), &crate::HashMap::new()),
             fwd_from_id: crate::dialogs::fwd_origin(m.fwd_from.as_deref()).0,
             fwd_date: crate::dialogs::fwd_origin(m.fwd_from.as_deref()).1,
@@ -130,8 +135,12 @@ pub(crate) fn message_from_updates(
             reply_markup_json: None,
             forum_topic: false,
             sender_photo_cache_key: None,
-        }),
-        Updates::UpdateShortChatMessage(m) => Some(MessageDto {
+            })
+        }
+        Updates::UpdateShortChatMessage(m) => {
+            let (reply_to_msg_id, reply_to_top_id, reply_quote, reply_quote_entities_json, _) =
+                crate::dialogs::reply_meta(m.reply_to.as_deref());
+            Some(MessageDto {
             media_preview_restricted: None,
             chat_id,
             id: m.id,
@@ -146,11 +155,12 @@ pub(crate) fn message_from_updates(
             media_duration: None,
             media_width: None,
             media_height: None,
-            reply_quote: crate::dialogs::reply_meta(m.reply_to.as_deref()).2,
+            reply_quote,
+            reply_quote_entities_json,
             entities_json: None,
             noforwards: false,
-            reply_to_msg_id: crate::dialogs::reply_meta(m.reply_to.as_deref()).0,
-            reply_to_top_id: crate::dialogs::reply_meta(m.reply_to.as_deref()).1,
+            reply_to_msg_id,
+            reply_to_top_id,
             fwd_from: crate::dialogs::fwd_from_label(m.fwd_from.as_deref(), &crate::HashMap::new()),
             fwd_from_id: crate::dialogs::fwd_origin(m.fwd_from.as_deref()).0,
             fwd_date: crate::dialogs::fwd_origin(m.fwd_from.as_deref()).1,
@@ -171,7 +181,8 @@ pub(crate) fn message_from_updates(
             reply_markup_json: None,
             forum_topic: false,
             sender_photo_cache_key: None,
-        }),
+            })
+        }
         _ => None,
     }
     .unwrap_or(MessageDto {
@@ -190,6 +201,7 @@ pub(crate) fn message_from_updates(
         media_width: None,
         media_height: None,
         reply_quote: None,
+        reply_quote_entities_json: None,
         entities_json: None,
         noforwards: false,
         reply_to_msg_id: None,
@@ -308,6 +320,7 @@ pub(crate) fn input_reply_to_thread(
                 monoforum_peer_id: None,
                 todo_item_id: None,
                 poll_option: None,
+                quote_rich: None,
             },
         ))),
     )
@@ -603,6 +616,7 @@ pub(crate) fn first_new_from_short(updates: Updates, chat_id: i64) -> Option<Mes
             media_width: None,
             media_height: None,
             reply_quote: None,
+            reply_quote_entities_json: None,
             entities_json: None,
             noforwards: false,
             reply_to_msg_id: None,

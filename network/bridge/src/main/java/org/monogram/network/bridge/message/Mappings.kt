@@ -37,6 +37,7 @@ internal fun MessageDto.toModel(): Message = Message(
     repliesCount = repliesCount,
     discussionPeerId = discussionPeerId,
     replyQuote = replyQuote,
+    replyQuoteEntities = TextEntities.parse(replyQuoteEntitiesJson),
     entities = TextEntities.parse(entitiesJson),
     noforwards = noforwards,
     replyToMsgId = replyToMsgId,

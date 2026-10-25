@@ -3,7 +3,8 @@ use crate::MessageDto;
 use crate::{HashMap, HashMapExt};
 use tellers_mtproto::latest::api::{
     MessageFwdHeader, MessageFwdHeaderConstructor, MessageReplyHeader,
-    MessageReplyHeaderConstructor, True, TrueConstructor,
+    MessageReplyHeaderConstructor, RichText, TextBoldConstructor, TextPlainConstructor, True,
+    TrueConstructor, Vector, VectorConstructor,
 };
 
 fn dto(id: i32, text: &str, reply_to: Option<i32>, quote: Option<&str>) -> MessageDto {
@@ -23,6 +24,7 @@ fn dto(id: i32, text: &str, reply_to: Option<i32>, quote: Option<&str>) -> Messa
         media_width: None,
         media_height: None,
         reply_quote: quote.map(str::to_string),
+        reply_quote_entities_json: None,
         entities_json: None,
         noforwards: false,
         reply_to_msg_id: reply_to,
@@ -61,13 +63,53 @@ fn reply_meta_reads_id_and_quote() {
         quote_text: Some("quoted".into()),
         quote_entities: None,
         quote_offset: None,
+        quote_rich: None,
         todo_item_id: None,
         poll_option: None,
         reply_to_ephemeral: None,
     });
     assert_eq!(
         reply_meta(Some(&header)),
-        (Some(9), Some(42), Some("quoted".into()), false),
+        (Some(9), Some(42), Some("quoted".into()), None, false),
+    );
+}
+
+#[test]
+fn reply_meta_reads_rich_quote() {
+    let rich = Vector::Vector(VectorConstructor {
+        field_0: 1,
+        field_1: vec![Box::new(RichText::TextBold(TextBoldConstructor {
+            text: Box::new(RichText::TextPlain(TextPlainConstructor {
+                text: "quoted".into(),
+            })),
+        }))],
+    });
+    let header = MessageReplyHeader::MessageReplyHeader(MessageReplyHeaderConstructor {
+        flags: MessageReplyHeaderConstructor::QUOTE_RICH_FLAG,
+        reply_to_scheduled: None,
+        forum_topic: None,
+        quote: None,
+        reply_to_msg_id: Some(9),
+        reply_to_peer_id: None,
+        reply_from: None,
+        reply_media: None,
+        reply_to_top_id: None,
+        quote_text: None,
+        quote_entities: None,
+        quote_offset: None,
+        quote_rich: Some(Box::new(rich)),
+        todo_item_id: None,
+        poll_option: None,
+        reply_to_ephemeral: None,
+    });
+    let (id, top, quote, entities, forum) = reply_meta(Some(&header));
+    assert_eq!((id, top, quote, forum), (Some(9), None, Some("quoted".into()), false));
+    assert!(
+        entities
+            .as_deref()
+            .unwrap_or_default()
+            .contains(r#""kind":"bold""#),
+        "expected bold entity, got {entities:?}",
     );
 }
 
@@ -86,11 +128,12 @@ fn reply_meta_reads_forum_topic_flag() {
         quote_text: None,
         quote_entities: None,
         quote_offset: None,
+        quote_rich: None,
         todo_item_id: None,
         poll_option: None,
         reply_to_ephemeral: None,
     });
-    assert_eq!(reply_meta(Some(&header)).3, true);
+    assert_eq!(reply_meta(Some(&header)).4, true);
 }
 
 #[test]

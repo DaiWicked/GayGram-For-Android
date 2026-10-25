@@ -246,6 +246,11 @@ pub fn library_version() -> String {
 }
 
 #[uniffi::export]
+pub fn api_layer() -> u32 {
+    tellers_mtproto::LATEST_API_LAYER
+}
+
+#[uniffi::export]
 pub fn set_init_connection_info(info: crate::InitConnectionInfo) {
     crate::api_invoke::set_init_connection_info(info);
 }

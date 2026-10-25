@@ -1,10 +1,32 @@
 package org.monogram.feature.dialog.ui
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.monogram.core.models.TextEntity
 import org.monogram.feature.dialog.R
 
 class MessageReplyQuoteTest {
+    @Test
+    fun quoteEntitiesRenderAsSpans() {
+        val text = quoteAnnotatedString(
+            quote = "quoted",
+            entities = listOf(TextEntity("bold", 0, 6)),
+            linkColor = Color.Red,
+        )
+        assertEquals("quoted", text.text)
+        assertEquals(SpanStyle(fontWeight = FontWeight.Bold), text.spanStyles.single().item)
+    }
+
+    @Test
+    fun quoteWithoutEntitiesKeepsPlainText() {
+        val text = quoteAnnotatedString("quoted", emptyList(), Color.Red)
+        assertEquals("quoted", text.text)
+        assertEquals(0, text.spanStyles.size)
+    }
+
     @Test
     fun mediaKindsThatHadNoLabelMapToTheirOwnLabel() {
         assertEquals(R.string.dialog_media_audio, replyMediaLabelRes("audio"))

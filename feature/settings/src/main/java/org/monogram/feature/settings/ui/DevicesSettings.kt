@@ -10,9 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -39,8 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.text.DateFormat
-import java.util.Date
+import org.monogram.core.models.DeviceSession
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
 import org.monogram.core.ui.components.SettingsCard
@@ -53,6 +51,8 @@ import org.monogram.feature.settings.R
 import org.monogram.feature.settings.SettingsComponent
 import org.monogram.feature.settings.SettingsPage
 import org.monogram.network.bridge.session.LoginTokenFailure
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 internal fun DevicesSettings(component: SettingsComponent, modifier: Modifier) {
@@ -83,6 +83,8 @@ internal fun DevicesSettingsContent(
     modifier: Modifier = Modifier,
 ) {
     var revokeHash by remember { mutableStateOf<Long?>(null) }
+    val current = state.sessions.filter { it.current }
+    val others = state.sessions.filterNot { it.current }
     val snackbar = remember { SnackbarHostState() }
     val title = stringResource(R.string.settings_devices_linked)
     val terminate = stringResource(R.string.settings_devices_terminate_action)
@@ -101,39 +103,54 @@ internal fun DevicesSettingsContent(
     }
     Box(modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                SettingsTile(
-                    icon = Icons.Outlined.QrCodeScanner,
-                    iconColor = MaterialTheme.colorScheme.primary,
-                    title = stringResource(R.string.settings_devices_link),
-                    subtitle = stringResource(R.string.settings_devices_scan_hint),
-                    onClick = onScan,
-                )
+            item(key = "link") {
+                Box(listItemMotion()) {
+                    SettingsTile(
+                        icon = Icons.Outlined.QrCodeScanner,
+                        iconColor = MaterialTheme.colorScheme.primary,
+                        title = stringResource(R.string.settings_devices_link),
+                        subtitle = stringResource(R.string.settings_devices_scan_hint),
+                        onClick = onScan,
+                    )
+                }
             }
-            if (passkeysEnabled) item {
-                SettingsTile(
-                    icon = Icons.Outlined.VpnKey,
-                    iconColor = MaterialTheme.colorScheme.secondary,
-                    title = stringResource(R.string.settings_passkeys),
-                    subtitle = stringResource(R.string.settings_passkeys_hint),
-                    onClick = onPasskeys,
-                )
+            item(key = "passkeys") {
+                Box(listItemMotion()) {
+                    SettingsTile(
+                        icon = Icons.Outlined.VpnKey,
+                        iconColor = MaterialTheme.colorScheme.secondary,
+                        title = stringResource(R.string.settings_passkeys),
+                        subtitle = stringResource(
+                            if (passkeysEnabled) {
+                                R.string.settings_passkeys_hint
+                            } else {
+                                R.string.settings_passkeys_unavailable_hint
+                            },
+                        ),
+                        onClick = onPasskeys,
+                    )
+                }
             }
-            if (state.loading) item { MonogramLinearProgress(modifier = Modifier.fillMaxWidth()) }
+            if (state.loading) item(key = "loading") {
+                MonogramLinearProgress(modifier = listItemMotion().fillMaxWidth())
+            }
             state.error?.let { error ->
-                item {
+                item(key = "error") {
                     AppStatusBanner(
                         sync = AppSyncStatus.Hidden,
                         error = error,
                         onRetry = { onIntent(DevicesStore.Intent.Refresh) },
+                        modifier = listItemMotion(),
                     )
                 }
             }
             state.tokenFailure?.let { failure ->
-                item {
+                item(key = "token-failure") {
                     Text(
                         stringResource(
                             when (failure) {
@@ -146,79 +163,59 @@ internal fun DevicesSettingsContent(
                             }
                         ),
                         color = MaterialTheme.colorScheme.error,
+                        modifier = listItemMotion(),
                     )
                 }
             }
-            item {
-                Text(
-                    text = stringResource(R.string.settings_devices),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                )
+            if (current.isNotEmpty()) {
+                item(key = "current-heading") {
+                    Text(
+                        text = stringResource(R.string.settings_devices_current_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = listItemMotion().padding(top = 12.dp, bottom = 4.dp),
+                    )
+                }
+                items(current, key = { it.hash }) { session ->
+                    DeviceCard(
+                        session = session,
+                        loading = state.loading,
+                        modifier = listItemMotion(),
+                        onRevoke = { revokeHash = session.hash },
+                    )
+                }
+            }
+            if (others.isNotEmpty()) {
+                item(key = "other-heading") {
+                    Text(
+                        text = stringResource(R.string.settings_devices_other_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = listItemMotion().padding(top = 12.dp, bottom = 4.dp),
+                    )
+                }
+                items(others, key = { it.hash }) { session ->
+                    DeviceCard(
+                        session = session,
+                        loading = state.loading,
+                        modifier = listItemMotion(),
+                        onRevoke = { revokeHash = session.hash },
+                    )
+                }
             }
             if (state.sessions.isEmpty() && !state.loading && state.error == null)
-                item { Text(stringResource(R.string.settings_devices_empty)) }
-            items(state.sessions, key = { it.hash }) { session ->
-                SettingsCard(modifier = listItemMotion()) {
-                    SettingsCardRow(
-                        icon = Icons.Outlined.Devices,
-                        iconColor = MaterialTheme.colorScheme.secondary,
-                        title = session.deviceModel,
-                        subtitle =
-                            listOf(
-                                    "${session.appName} ${session.appVersion}",
-                                    "${session.platform} ${session.systemVersion}",
-                                    listOf(session.ip, session.country, session.region)
-                                        .filter { it.isNotBlank() }
-                                        .joinToString(" · "),
-                                    when {
-                                        session.current ->
-                                            stringResource(R.string.settings_devices_current)
-                                        session.passwordPending ->
-                                            stringResource(
-                                                R.string.settings_devices_password_pending
-                                            )
-                                        else ->
-                                            stringResource(
-                                                R.string.settings_devices_last_active,
-                                                DateFormat.getDateTimeInstance(
-                                                        DateFormat.MEDIUM,
-                                                        DateFormat.SHORT,
-                                                    )
-                                                    .format(Date(session.dateActive * 1000L)),
-                                            )
-                                    },
-                                )
-                                .filter { it.isNotBlank() }
-                                .joinToString("\n"),
-                        trailingContent =
-                            if (session.current) null
-                            else {
-                                {
-                                    IconButton(
-                                        onClick = { revokeHash = session.hash },
-                                        enabled = !state.loading,
-                                        colors =
-                                            IconButtonDefaults.iconButtonColors(
-                                                contentColor = MaterialTheme.colorScheme.error
-                                            ),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Outlined.Logout,
-                                            contentDescription =
-                                                stringResource(R.string.settings_devices_terminate),
-                                        )
-                                    }
-                                }
-                            },
+                item(key = "empty") {
+                    Text(
+                        text = stringResource(R.string.settings_devices_empty),
+                        modifier = listItemMotion(),
                     )
                 }
-            }
         }
         SnackbarHost(
             hostState = snackbar,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
         ) { data ->
             Snackbar(
                 action = {
@@ -260,6 +257,68 @@ internal fun DevicesSettingsContent(
                     Text(stringResource(R.string.settings_cancel))
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun DeviceCard(
+    session: DeviceSession,
+    loading: Boolean,
+    modifier: Modifier = Modifier,
+    onRevoke: () -> Unit,
+) {
+    val brand = session.platformColor()
+    SettingsCard(modifier = modifier) {
+        SettingsCardRow(
+            icon = session.platformIcon(),
+            iconColor = brand,
+            iconTint = session.platformIconTint(brand),
+            title = session.deviceModel,
+            subtitle =
+                listOf(
+                    "${session.appName} ${session.appVersion}",
+                    "${session.platform} ${session.systemVersion}",
+                    listOf(session.ip, session.country, session.region)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · "),
+                    when {
+                        session.passwordPending ->
+                            stringResource(R.string.settings_devices_password_pending)
+
+                        else ->
+                            stringResource(
+                                R.string.settings_devices_last_active,
+                                DateFormat.getDateTimeInstance(
+                                    DateFormat.MEDIUM,
+                                    DateFormat.SHORT,
+                                )
+                                    .format(Date(session.dateActive * 1000L)),
+                            )
+                    },
+                )
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n"),
+            trailingContent =
+                if (session.current) null
+                else {
+                    {
+                        IconButton(
+                            onClick = onRevoke,
+                            enabled = !loading,
+                            colors =
+                                IconButtonDefaults.iconButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Logout,
+                                contentDescription =
+                                    stringResource(R.string.settings_devices_terminate),
+                            )
+                        }
+                    }
+                },
         )
     }
 }

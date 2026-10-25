@@ -465,6 +465,7 @@ fun MessageBubble(
                 if (showReplyQuote) {
                     MessageReplyQuote(
                         quote = quote,
+                        quoteEntities = message.replyQuoteEntities,
                         quoteKind = quoted?.mediaKind,
                         quotedOutgoing = quoted?.outgoing,
                         quotedSender = quotedSender,

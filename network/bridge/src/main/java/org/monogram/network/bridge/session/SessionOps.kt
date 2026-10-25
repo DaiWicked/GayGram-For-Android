@@ -61,6 +61,9 @@ interface SessionOps {
     suspend fun checkPassword(password: String): Outcome<AuthState.Authorized>
     fun libraryVersion(): String
 
+    /** Telegram TL layer compiled into the native library. */
+    fun apiLayer(): Int = 0
+
     /** Applies the "Faster downloads" setting. No handle needed; takes effect next download. */
     fun applyDownloadConcurrency(lanes: Int, parts: Int) {}
 

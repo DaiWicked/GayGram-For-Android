@@ -1377,7 +1377,7 @@ All functions take the client handle. Kotlin names are shown.
 | Auth key | The long-term MTProto key of an authorization |
 | Session | The session file plus the server-side authorization |
 | DC | Telegram datacenter. The account DC and a file's DC can differ |
-| TL layer | Version of Telegram's schema. This build is pinned to layer 231 |
+| TL layer | Version of Telegram's schema. This build is pinned to layer 232 |
 | DTO | A record or enum that crosses the binding boundary |
 | Dispatch class | Thread-local value (0..7) that picks the lane family and priority |
 | Lane | An internal session used for one kind of request |
@@ -1406,8 +1406,8 @@ All functions take the client handle. Kotlin names are shown.
 | Invoking | https://core.telegram.org/api/invoking |
 | Layers | https://core.telegram.org/api/layers |
 | TL schema explorer | https://schema.jppgr.am/ |
-| Pinned layer 231 | https://schema.jppgr.am/layers/231.tl |
-| Layer 230 -> 231 diff | https://schema.jppgr.am/diff/230-231 |
+| Pinned layer 232 | https://schema.jppgr.am/layers/232.tl |
+| Layer 231 -> 232 diff | https://schema.jppgr.am/diff/231-232 |
 | Layer changelog feed | https://schema.jppgr.am/api/feed |
 | Updates | https://core.telegram.org/api/updates |
 | Files | https://core.telegram.org/api/files |

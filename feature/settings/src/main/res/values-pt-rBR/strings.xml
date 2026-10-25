@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Corrigir prévias de links</string>
     <string name="settings_input_bar_fix_previews_sub">Corrigir prévias de links para X, Bluesky, TikTok, Reddit e Pixiv</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">Camada de API %1$d</string>
     <string name="settings_update_beta">Atualizações beta</string>
     <string name="settings_update_beta_sub">Instalar compilações de CI do GitHub Actions</string>
     <string name="settings_update_beta_supporters">O download automático do GitHub Actions está disponível apenas para apoiadores</string>
@@ -420,7 +421,6 @@
     <string name="settings_devices_terminate_action">Encerrar</string>
     <string name="settings_devices_refresh">Atualizar</string>
     <string name="settings_devices_empty">Nenhum dispositivo conectado</string>
-    <string name="settings_devices_current">Este dispositivo</string>
     <string name="settings_devices_password_pending">Aguardando a senha de verificação em duas etapas no novo dispositivo</string>
     <string name="settings_devices_last_active">Última atividade: %1$s</string>
     <string name="settings_devices_terminate">Encerrar sessão</string>
@@ -438,4 +438,19 @@
     <string name="settings_passkeys_retry">Tentar novamente</string>
     <string name="settings_passkeys_unsupported">As chaves de acesso exigem Android 9 ou superior</string>
     <string name="settings_passkeys_provider_error">Verifique se o provedor aceita Telegram e confia neste aplicativo. No KeePassDX, ative Monogram em Configurações → Preenchimento de formulários → Configurações de chaves de acesso → Aplicativos privilegiados e tente novamente</string>
+    <string name="settings_passkeys_unavailable_hint">Entre com sua digital em vez de um código SMS</string>
+    <string name="settings_passkeys_help_show">Por que é preciso um provedor</string>
+    <string name="settings_passkeys_help_hide">Ocultar detalhes</string>
+    <string name="settings_passkeys_help_title">O Google não permite chaves de acesso em clientes não oficiais</string>
+    <string name="settings_passkeys_help_text">O Monogram não usa a chave de assinatura do Telegram, então o Gerenciador de senhas do Google recusa as chaves de acesso do Telegram e você ainda não pode adicionar uma. O Google é o único provedor de chaves de acesso integrado ao seu celular, então mude para um provedor próprio, como o KeePassDX. A configuração exige um pouco de conhecimento técnico, mas depois disso você poderá adicionar chaves de acesso aqui e entrar com sua digital em vez do código SMS</string>
+    <string name="settings_passkeys_help_open">Abrir ajustes de chaves de acesso</string>
+    <string name="settings_passkeys_provider_open">Abrir o KeePassDX</string>
+    <string name="settings_devices_current_title">Este dispositivo</string>
+    <string name="settings_devices_other_title">Dispositivos ativos</string>
+    <string name="settings_passkeys_important">Importante</string>
+    <string name="settings_passkeys_provider_install">Obter o KeePassDX no Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d dispositivo ativo</item>
+        <item quantity="other">%1$d dispositivos ativos</item>
+    </plurals>
 </resources>

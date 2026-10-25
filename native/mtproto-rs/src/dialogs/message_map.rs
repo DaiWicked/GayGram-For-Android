@@ -2,7 +2,7 @@ use crate::{HashMap, HashMapExt};
 
 use tellers_mtproto::latest::api::{
     Chat as TlChat, Message, MessageEntity, MessageFwdHeader, MessageMedia, MessageReplyHeader,
-    MessagesMessages, RichMessage, User, Vector,
+    MessageReplyHeaderConstructor, MessagesMessages, RichMessage, RichText, User, Vector,
 };
 
 use super::peers::{cache_from_users_chats, display_name};
@@ -78,7 +78,7 @@ pub(crate) fn message_to_dto_named(
                 (Some("unsupported"), Some(_)) => None,
                 _ => indexed.kind.clone(),
             };
-            let (reply_to_msg_id, reply_to_top_id, reply_quote, forum_topic) =
+            let (reply_to_msg_id, reply_to_top_id, reply_quote, reply_quote_entities_json, forum_topic) =
                 reply_meta(m.reply_to.as_deref());
             Some(MessageDto {
                 media_preview_restricted: media_preview_restricted(m.media.as_deref())
@@ -101,6 +101,7 @@ pub(crate) fn message_to_dto_named(
                 media_width: indexed.width,
                 media_height: indexed.height,
                 reply_quote,
+                reply_quote_entities_json,
                 entities_json: rich
                     .as_ref()
                     .and_then(|formatted| {
@@ -150,7 +151,7 @@ pub(crate) fn message_to_dto_named(
         Message::MessageService(m) => {
             let sender_id = m.from_id.as_ref().map(|p| peer_chat_id(p));
             let sender_name = sender_id.and_then(|id| titles.get(&id).map(|name| name.to_string()));
-            let (reply_to_msg_id, reply_to_top_id, _, forum_topic) =
+            let (reply_to_msg_id, reply_to_top_id, _, _, forum_topic) =
                 reply_meta(m.reply_to.as_deref());
             Some(MessageDto {
                 media_preview_restricted: None,
@@ -173,6 +174,7 @@ pub(crate) fn message_to_dto_named(
                 media_width: None,
                 media_height: None,
                 reply_quote: None,
+                reply_quote_entities_json: None,
                 entities_json: None,
                 noforwards: false,
                 reply_to_msg_id,
@@ -221,19 +223,51 @@ fn sender_photo_cache_key(media_index: &MediaIndex, sender_id: Option<i64>) -> O
 
 pub(crate) fn reply_meta(
     header: Option<&MessageReplyHeader>,
-) -> (Option<i32>, Option<i32>, Option<String>, bool) {
+) -> (
+    Option<i32>,
+    Option<i32>,
+    Option<String>,
+    Option<String>,
+    bool,
+) {
     let Some(header) = header else {
-        return (None, None, None, false);
+        return (None, None, None, None, false);
     };
     let MessageReplyHeader::MessageReplyHeader(h) = header else {
-        return (None, None, None, false);
+        return (None, None, None, None, false);
     };
+    let (quote, entities_json) = quote_meta(h);
     (
         h.reply_to_msg_id,
         h.reply_to_top_id,
-        h.quote_text.clone().filter(|s| !s.is_empty()),
+        quote,
+        entities_json,
         h.forum_topic.is_some(),
     )
+}
+
+fn quote_meta(h: &MessageReplyHeaderConstructor) -> (Option<String>, Option<String>) {
+    if let Some(text) = h.quote_text.clone().filter(|s| !s.is_empty()) {
+        return (Some(text), entities_to_json(h.quote_entities.as_deref()));
+    }
+    let Some(rich) = h.quote_rich.as_deref() else {
+        return (None, None);
+    };
+    let mut formatted = crate::media::FormattedText::default();
+    for item in vector_boxed_items(rich) {
+        let part = crate::media::rich_formatted(item);
+        let offset = formatted.text.encode_utf16().count() as i32;
+        formatted.text.push_str(&part.text);
+        formatted.entities.extend(part.entities.into_iter().map(|mut entity| {
+            entity.offset += offset;
+            entity
+        }));
+    }
+    let text = (!formatted.text.is_empty()).then_some(formatted.text);
+    let entities = (!formatted.entities.is_empty())
+        .then(|| serde_json::to_string(&formatted.entities.as_slice()).ok())
+        .flatten();
+    (text, entities)
 }
 
 pub(crate) fn fwd_origin(header: Option<&MessageFwdHeader>) -> (Option<i64>, Option<i64>) {

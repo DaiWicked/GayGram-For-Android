@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Bağlantı önizlemelerini düzelt</string>
     <string name="settings_input_bar_fix_previews_sub">X, Bluesky, TikTok, Reddit ve Pixiv için bağlantı önizlemelerini düzelt</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">API katmanı %1$d</string>
     <string name="settings_update_beta">Beta güncellemeleri</string>
     <string name="settings_update_beta_sub">GitHub Actions üzerinden CI sürümlerini yükle</string>
     <string name="settings_update_beta_supporters">GitHub Actions derlemelerinin otomatik indirilmesi yalnızca destekçilere açıktır</string>
@@ -420,7 +421,6 @@
     <string name="settings_devices_terminate_action">Sonlandır</string>
     <string name="settings_devices_refresh">Yenile</string>
     <string name="settings_devices_empty">Bağlı cihaz yok</string>
-    <string name="settings_devices_current">Bu cihaz</string>
     <string name="settings_devices_password_pending">Yeni cihazda iki adımlı doğrulama parolası bekleniyor</string>
     <string name="settings_devices_last_active">Son etkinlik: %1$s</string>
     <string name="settings_devices_terminate">Oturumu Sonlandır</string>
@@ -438,4 +438,19 @@
     <string name="settings_passkeys_retry">Yeniden dene</string>
     <string name="settings_passkeys_unsupported">Geçiş anahtarları Android 9 veya üzerini gerektirir</string>
     <string name="settings_passkeys_provider_error">Sağlayıcınızın Telegram desteğini ve bu uygulamaya güvenini kontrol edin. KeePassDX içinde Ayarlar → Form doldurma → Geçiş anahtarı ayarları → Ayrıcalıklı uygulamalar bölümünde Monogram uygulamasını etkinleştirip yeniden deneyin</string>
+    <string name="settings_passkeys_unavailable_hint">SMS kodu yerine parmak iziyle giriş yapın</string>
+    <string name="settings_passkeys_help_show">Neden sağlayıcı gerekiyor</string>
+    <string name="settings_passkeys_help_hide">Ayrıntıları gizle</string>
+    <string name="settings_passkeys_help_title">Google resmi olmayan istemciler için geçiş anahtarlarına izin vermiyor</string>
+    <string name="settings_passkeys_help_text">Monogram, Telegram imzalama anahtarını kullanmadığından Google Parola Yöneticisi Telegram geçiş anahtarlarını reddediyor ve henüz bir anahtar ekleyemiyorsunuz. Telefonunuzda yerleşik tek geçiş anahtarı sağlayıcısı Google olduğundan KeePassDX gibi kendi sağlayıcınıza geçin. Kurulum biraz teknik bilgi gerektirir, ancak tamamlandığında burada geçiş anahtarı ekleyip SMS kodu yerine parmak iziyle giriş yapabilirsiniz</string>
+    <string name="settings_passkeys_help_open">Geçiş anahtarı ayarlarını aç</string>
+    <string name="settings_passkeys_provider_open">KeePassDXʼi aç</string>
+    <string name="settings_devices_current_title">Bu cihaz</string>
+    <string name="settings_devices_other_title">Etkin cihazlar</string>
+    <string name="settings_passkeys_important">Önemli</string>
+    <string name="settings_passkeys_provider_install">KeePassDXʼi Google Playʼden edin</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d etkin cihaz</item>
+        <item quantity="other">%1$d etkin cihaz</item>
+    </plurals>
 </resources>

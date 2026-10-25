@@ -691,6 +691,7 @@ internal class SessionCore(
     }
 
     override fun libraryVersion(): String = native.libraryVersion()
+    override fun apiLayer(): Int = runCatching { native.apiLayer() }.getOrDefault(0)
     override fun applyDownloadConcurrency(lanes: Int, parts: Int) {
         runCatching { native.setDownloadConcurrency(lanes, parts) }
             .onSuccess { AppLog.api("download concurrency", "lanes=$lanes parts=$parts") }

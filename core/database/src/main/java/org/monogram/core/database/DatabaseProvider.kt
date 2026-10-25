@@ -22,7 +22,7 @@ object DatabaseProvider {
     @Volatile
     private var instance: MonogramDatabase? = null
 
-    const val SCHEMA_VERSION = 8
+    const val SCHEMA_VERSION = 9
 
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -74,6 +74,12 @@ object DatabaseProvider {
                         "accountGeneration INTEGER NOT NULL, batchId INTEGER NOT NULL, " +
                         "appliedAtMs INTEGER NOT NULL, PRIMARY KEY(accountGeneration, batchId))"
             )
+        }
+    }
+
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE messages ADD COLUMN replyQuoteEntitiesJson TEXT")
         }
     }
 
@@ -211,7 +217,8 @@ object DatabaseProvider {
                 MIGRATION_4_5,
                 MIGRATION_5_6,
                 MIGRATION_6_7,
-                MIGRATION_7_8
+                MIGRATION_7_8,
+                MIGRATION_8_9,
             )
             .setJournalMode(androidx.room.RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .setQueryExecutor(roomQueryExecutor)

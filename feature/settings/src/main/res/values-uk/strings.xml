@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Виправлення перегляду посилань</string>
     <string name="settings_input_bar_fix_previews_sub">Виправляти перегляд посилань для X, Bluesky, TikTok, Reddit та Pixiv</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">Шар API %1$d</string>
     <string name="settings_update_beta">Бета-оновлення</string>
     <string name="settings_update_beta_sub">Встановлювати збірки CI з GitHub Actions</string>
     <string name="settings_update_beta_supporters">Автоматичне завантаження збірок GitHub Actions доступне лише спонсорам</string>
@@ -420,7 +421,6 @@
     <string name="settings_devices_terminate_action">Завершити</string>
     <string name="settings_devices_refresh">Оновити</string>
     <string name="settings_devices_empty">Немає підключених пристроїв</string>
-    <string name="settings_devices_current">Цей пристрій</string>
     <string name="settings_devices_password_pending">Очікування пароля двоетапної перевірки на новому пристрої</string>
     <string name="settings_devices_last_active">Остання активність: %1$s</string>
     <string name="settings_devices_terminate">Завершити сеанс</string>
@@ -438,4 +438,21 @@
     <string name="settings_passkeys_retry">Повторити</string>
     <string name="settings_passkeys_unsupported">Ключі доступу потребують Android 9 або новішої версії</string>
     <string name="settings_passkeys_provider_error">Перевірте підтримку Telegram і довіру до застосунку в менеджері облікових даних. У KeePassDX увімкніть Monogram: Налаштування → Заповнення форм → Налаштування ключів доступу → Привілейовані застосунки. Потім повторіть спробу</string>
+    <string name="settings_passkeys_unavailable_hint">Входьте за відбитком пальця замість коду з SMS</string>
+    <string name="settings_passkeys_help_show">Чому потрібен провайдер</string>
+    <string name="settings_passkeys_help_hide">Приховати подробиці</string>
+    <string name="settings_passkeys_help_title">Google не дозволяє ключі доступу для неофіційних клієнтів</string>
+    <string name="settings_passkeys_help_text">Monogram не використовує ключ підпису Telegram, тому Менеджер паролів Google відхиляє ключі доступу Telegram, і додати ключ поки не можна. Google — єдиний вбудований у телефон провайдер ключів доступу, тож перейдіть на власний провайдер, наприклад KeePassDX. Налаштування потребує деяких технічних знань, але після нього ви зможете додавати ключі доступу тут і входити за відбитком пальця замість коду з SMS</string>
+    <string name="settings_passkeys_help_open">Відкрити налаштування ключів доступу</string>
+    <string name="settings_passkeys_provider_open">Відкрити KeePassDX</string>
+    <string name="settings_devices_current_title">Цей пристрій</string>
+    <string name="settings_devices_other_title">Активні пристрої</string>
+    <string name="settings_passkeys_important">Важливо</string>
+    <string name="settings_passkeys_provider_install">Завантажити KeePassDX у Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d активний пристрій</item>
+        <item quantity="few">%1$d активні пристрої</item>
+        <item quantity="many">%1$d активних пристроїв</item>
+        <item quantity="other">%1$d активного пристрою</item>
+    </plurals>
 </resources>

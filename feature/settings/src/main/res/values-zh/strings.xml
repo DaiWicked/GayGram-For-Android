@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">修复链接预览</string>
     <string name="settings_input_bar_fix_previews_sub">修复 X、Bluesky、TikTok、Reddit 和 Pixiv 的链接预览</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">API 层 %1$d</string>
     <string name="settings_update_beta">Beta 测试版更新</string>
     <string name="settings_update_beta_sub">从 GitHub Actions 安装 CI 构建版本</string>
     <string name="settings_update_beta_supporters">仅赞助者可自动下载 GitHub Actions 构建</string>
@@ -420,7 +421,6 @@
     <string name="settings_devices_terminate_action">终止</string>
     <string name="settings_devices_refresh">刷新</string>
     <string name="settings_devices_empty">没有已关联的设备</string>
-    <string name="settings_devices_current">此设备</string>
     <string name="settings_devices_password_pending">正在等待在新设备上输入两步验证密码</string>
     <string name="settings_devices_last_active">上次活跃：%1$s</string>
     <string name="settings_devices_terminate">终止会话</string>
@@ -438,4 +438,18 @@
     <string name="settings_passkeys_retry">重试</string>
     <string name="settings_passkeys_unsupported">通行密钥需要 Android 9 或更高版本</string>
     <string name="settings_passkeys_provider_error">请确认凭据提供程序支持 Telegram 并信任此应用。在 KeePassDX 的设置 → 表单填充 → 通行密钥设置 → 特权应用中启用 Monogram，然后重试</string>
+    <string name="settings_passkeys_unavailable_hint">用指纹登录，无需短信验证码</string>
+    <string name="settings_passkeys_help_show">为什么需要通行密钥提供程序</string>
+    <string name="settings_passkeys_help_hide">隐藏详情</string>
+    <string name="settings_passkeys_help_title">Google 不允许非官方客户端使用通行密钥</string>
+    <string name="settings_passkeys_help_text">Monogram 未使用 Telegram 的签名密钥，因此 Google 密码管理工具会拒绝 Telegram 通行密钥，你暂时无法添加。Google 是手机中唯一内置的通行密钥提供程序，请切换到 KeePassDX 等自定义提供程序。设置需要一些技术知识，但完成后即可在此添加通行密钥，并用指纹代替短信验证码登录</string>
+    <string name="settings_passkeys_help_open">打开通行密钥设置</string>
+    <string name="settings_passkeys_provider_open">打开 KeePassDX</string>
+    <string name="settings_devices_current_title">此设备</string>
+    <string name="settings_devices_other_title">活动设备</string>
+    <string name="settings_passkeys_important">重要</string>
+    <string name="settings_passkeys_provider_install">在 Google Play 获取 KeePassDX</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="other">%1$d 台活动设备</item>
+    </plurals>
 </resources>

@@ -13,24 +13,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.monogram.core.models.TextEntity
 import org.monogram.feature.dialog.R
 
 @Composable
 internal fun MessageReplyQuote(
     quote: String?,
     quoteKind: String?,
+    quoteEntities: List<TextEntity> = emptyList(),
     quotedOutgoing: Boolean?,
     quotedSender: String?,
     onContainer: Color,
     onQuoteClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val linkColor = MaterialTheme.colorScheme.primary
+    val renderedQuote = remember(quote, quoteEntities, linkColor) {
+        quote?.takeIf { it.isNotEmpty() }?.let { value ->
+            quoteAnnotatedString(value, quoteEntities, linkColor)
+        }
+    }
     Row(
         modifier = modifier
             .fillMaxWidthInBubble()
@@ -73,7 +84,7 @@ internal fun MessageReplyQuote(
                 )
             }
             Text(
-                text = quote ?: replyMediaFallbackLabel(quoteKind),
+                text = renderedQuote ?: AnnotatedString(replyMediaFallbackLabel(quoteKind)),
                 style = MaterialTheme.typography.bodySmall,
                 color = onContainer.copy(alpha = 0.85f),
                 maxLines = 3,
@@ -81,6 +92,15 @@ internal fun MessageReplyQuote(
             )
         }
     }
+}
+
+internal fun quoteAnnotatedString(
+    quote: String,
+    entities: List<TextEntity>,
+    linkColor: Color,
+): AnnotatedString = buildAnnotatedString {
+    append(quote)
+    applyMessageEntities(quote, entities, linkColor)
 }
 
 internal fun replyQuoteAuthor(
