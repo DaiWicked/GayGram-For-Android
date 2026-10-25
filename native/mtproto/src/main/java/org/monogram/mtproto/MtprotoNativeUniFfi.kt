@@ -1,6 +1,5 @@
 package org.monogram.mtproto
 
-import uniffi.monogram_mtproto.DeviceSessionDto
 import uniffi.monogram_mtproto.AuthCodeSent
 import uniffi.monogram_mtproto.AuthSignedIn
 import uniffi.monogram_mtproto.BotCallbackAnswerDto
@@ -38,9 +37,9 @@ import uniffi.monogram_mtproto.UploadItemDto
 import uniffi.monogram_mtproto.uniffiEnsureInitialized
 import java.io.File
 import uniffi.monogram_mtproto.acceptLoginToken as nativeAcceptLoginToken
-import uniffi.monogram_mtproto.getDeviceSessions as nativeGetDeviceSessions
-import uniffi.monogram_mtproto.revokeDeviceSession as nativeRevokeDeviceSession
+import uniffi.monogram_mtproto.acknowledgeUpdateBatch as nativeAcknowledgeUpdateBatch
 import uniffi.monogram_mtproto.animatedEmojiMax as nativeAnimatedEmojiMax
+import uniffi.monogram_mtproto.apiLayer as nativeApiLayer
 import uniffi.monogram_mtproto.appendTodoItems as nativeAppendTodoItems
 import uniffi.monogram_mtproto.checkPassword as nativeCheckPassword
 import uniffi.monogram_mtproto.clearActiveDialog as nativeClearActiveDialog
@@ -59,9 +58,7 @@ import uniffi.monogram_mtproto.destroyClient as nativeDestroyClient
 import uniffi.monogram_mtproto.downloadCustomEmoji as nativeDownloadCustomEmoji
 import uniffi.monogram_mtproto.downloadMessageMedia as nativeDownloadMessageMedia
 import uniffi.monogram_mtproto.downloadMessageThumb as nativeDownloadMessageThumb
-import uniffi.monogram_mtproto.acknowledgeUpdateBatch as nativeAcknowledgeUpdateBatch
 import uniffi.monogram_mtproto.drainUpdates as nativeDrainUpdates
-import uniffi.monogram_mtproto.pendingUpdateBatches as nativePendingUpdateBatches
 import uniffi.monogram_mtproto.editForumTopicHidden as nativeEditForumTopicHidden
 import uniffi.monogram_mtproto.editTextMessage as nativeEditTextMessage
 import uniffi.monogram_mtproto.forwardMessages as nativeForwardMessages
@@ -69,6 +66,7 @@ import uniffi.monogram_mtproto.getAllStickers as nativeGetAllStickers
 import uniffi.monogram_mtproto.getBotCallbackAnswer as nativeGetBotCallbackAnswer
 import uniffi.monogram_mtproto.getChats as nativeGetChats
 import uniffi.monogram_mtproto.getCommonChats as nativeGetCommonChats
+import uniffi.monogram_mtproto.getDeviceSessions as nativeGetDeviceSessions
 import uniffi.monogram_mtproto.getDiscussionMessage as nativeGetDiscussionMessage
 import uniffi.monogram_mtproto.getEmojiStickers as nativeGetEmojiStickers
 import uniffi.monogram_mtproto.getFolders as nativeGetFolders
@@ -108,6 +106,7 @@ import uniffi.monogram_mtproto.logout as nativeLogout
 import uniffi.monogram_mtproto.markDialogUnread as nativeMarkDialogUnread
 import uniffi.monogram_mtproto.peekMessageInlineThumb as nativePeekMessageInlineThumb
 import uniffi.monogram_mtproto.peekPeerInlineThumb as nativePeekPeerInlineThumb
+import uniffi.monogram_mtproto.pendingUpdateBatches as nativePendingUpdateBatches
 import uniffi.monogram_mtproto.pingProxy as nativePingProxy
 import uniffi.monogram_mtproto.readDiscussion as nativeReadDiscussion
 import uniffi.monogram_mtproto.readHistory as nativeReadHistory
@@ -118,6 +117,7 @@ import uniffi.monogram_mtproto.registerDevice as nativeRegisterDevice
 import uniffi.monogram_mtproto.resendAuthCode as nativeResendAuthCode
 import uniffi.monogram_mtproto.resetNotifySettings as nativeResetNotifySettings
 import uniffi.monogram_mtproto.resolveUsername as nativeResolveUsername
+import uniffi.monogram_mtproto.revokeDeviceSession as nativeRevokeDeviceSession
 import uniffi.monogram_mtproto.searchGlobal as nativeSearchGlobal
 import uniffi.monogram_mtproto.searchMessages as nativeSearchMessages
 import uniffi.monogram_mtproto.searchMessagesFiltered as nativeSearchMessagesFiltered
@@ -220,6 +220,8 @@ object MtprotoNativeUniFfi : MtprotoNative {
     override fun clearProxy() = nativeClearProxy()
 
     override fun libraryVersion(): String = nativeLibraryVersion()
+
+    override fun apiLayer(): Int = nativeApiLayer().toInt()
 
     override fun setInitConnectionInfo(
         deviceModel: String,

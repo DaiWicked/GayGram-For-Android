@@ -1,12 +1,11 @@
 package org.monogram.mtproto
 
-import uniffi.monogram_mtproto.DeviceSessionDto
-import uniffi.monogram_mtproto.QrLoginDto
 import uniffi.monogram_mtproto.AuthCodeSent
 import uniffi.monogram_mtproto.AuthSignedIn
 import uniffi.monogram_mtproto.BotCallbackAnswerDto
 import uniffi.monogram_mtproto.ChatDto
 import uniffi.monogram_mtproto.ContactsSearchDto
+import uniffi.monogram_mtproto.DeviceSessionDto
 import uniffi.monogram_mtproto.DiscussionDto
 import uniffi.monogram_mtproto.FolderDto
 import uniffi.monogram_mtproto.ForumTopicsPageDto
@@ -21,6 +20,7 @@ import uniffi.monogram_mtproto.NotifySettingsDto
 import uniffi.monogram_mtproto.OutboxReadDto
 import uniffi.monogram_mtproto.PollVotersDto
 import uniffi.monogram_mtproto.ProfileDto
+import uniffi.monogram_mtproto.QrLoginDto
 import uniffi.monogram_mtproto.ReactionChoiceDto
 import uniffi.monogram_mtproto.ReactionPeersDto
 import uniffi.monogram_mtproto.ReadParticipantsDto
@@ -48,7 +48,7 @@ data class NativeJoinResult(
 interface MtprotoNative {
     fun passkeysEnabled(handle: Long): Boolean = false
     fun initPasskeyLogin(handle: Long): uniffi.monogram_mtproto.PasskeyLoginOptionsDto = throw UnsupportedOperationException("passkeys")
-    fun finishPasskeyLogin(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto, dcId: Int, authKeyId: Long): uniffi.monogram_mtproto.AuthSignedIn = throw UnsupportedOperationException("passkeys")
+    fun finishPasskeyLogin(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto, dcId: Int, authKeyId: Long): AuthSignedIn = throw UnsupportedOperationException("passkeys")
     fun initPasskeyRegistration(handle: Long): String = throw UnsupportedOperationException("passkeys")
     fun registerPasskey(handle: Long, credential: uniffi.monogram_mtproto.PasskeyCredentialDto): uniffi.monogram_mtproto.PasskeyDto = throw UnsupportedOperationException("passkeys")
     fun getPasskeys(handle: Long): List<uniffi.monogram_mtproto.PasskeyDto> = throw UnsupportedOperationException("passkeys")
@@ -99,6 +99,9 @@ interface MtprotoNative {
     fun setDownloadProgressListener(listener: ((String, Long, Long) -> Unit)?) = Unit
 
     fun libraryVersion(): String
+
+    /** Telegram TL layer compiled into the native library. */
+    fun apiLayer(): Int = 0
 
     fun setInitConnectionInfo(
         deviceModel: String,

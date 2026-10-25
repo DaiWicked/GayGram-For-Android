@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Исправление предпросмотра ссылок</string>
     <string name="settings_input_bar_fix_previews_sub">Исправлять превью ссылок для X, Bluesky, TikTok, Reddit и Pixiv</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">Слой API %1$d</string>
     <string name="settings_update_beta">Бета-обновления</string>
     <string name="settings_update_beta_sub">Устанавливать сборки CI из GitHub Actions</string>
     <string name="settings_update_beta_supporters">Автоматическая загрузка сборок GitHub Actions доступна только спонсорам</string>

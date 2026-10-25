@@ -382,6 +382,7 @@ fun SettingsContent(
                                 devicesSubtitle = activeDeviceCount.sessions
                                     .count { !it.current && !it.passwordPending }
                                     .takeIf { it > 0 },
+                                apiLayer = state.apiLayer,
                             )
                         }
 

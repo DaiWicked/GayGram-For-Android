@@ -273,6 +273,7 @@
     <string name="settings_input_bar_fix_previews">Հղումների նախադիտման ուղղում</string>
     <string name="settings_input_bar_fix_previews_sub">Ուղղել հղումների նախադիտումները X-ի, Bluesky-ի, TikTok-ի, Reddit-ի և Pixiv-ի համար</string>
     <string name="settings_about">Monogram</string>
+    <string name="settings_api_layer">API շերտ %1$d</string>
     <string name="settings_update_beta">Բետա թարմացումներ</string>
     <string name="settings_update_beta_sub">Տեղադրել CI տարբերակներ GitHub Actions-ից</string>
     <string name="settings_update_beta_supporters">GitHub Actions-ի ավտոմատ ներբեռնումները հասանելի են միայն աջակիցներին</string>

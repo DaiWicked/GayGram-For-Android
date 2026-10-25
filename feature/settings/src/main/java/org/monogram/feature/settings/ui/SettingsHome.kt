@@ -68,6 +68,7 @@ internal fun LazyListScope.homeItems(
     updateState: AppUpdateState = AppUpdateState.Idle,
     updatesEnabled: Boolean = true,
     devicesSubtitle: Int? = null,
+    apiLayer: Int = 0,
 ) {
     item {
         AccountHeader(
@@ -303,8 +304,19 @@ internal fun LazyListScope.homeItems(
         )
     }
     item {
+        val about = buildString {
+            append(stringResource(R.string.settings_about))
+            append(' ')
+            append(appVersion)
+            append('\n')
+            append(buildStamp)
+            if (apiLayer > 0) {
+                append('\n')
+                append(stringResource(R.string.settings_api_layer, apiLayer))
+            }
+        }
         Text(
-            text = "${stringResource(R.string.settings_about)} $appVersion\n$buildStamp",
+            text = about,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
