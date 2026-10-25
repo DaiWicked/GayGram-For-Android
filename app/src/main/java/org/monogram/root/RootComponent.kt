@@ -643,7 +643,6 @@ class RootComponent(
                 openProxy = config.openProxy,
                 openNotifications = config.openNotifications,
                 appUpdate = appUpdate,
-                updatesEnabled = AppUpdate.inAppUpdatesEnabled(BuildConfig.BUILD_TYPE),
             ),
             folders = FoldersComponent(
                 componentContext = context,

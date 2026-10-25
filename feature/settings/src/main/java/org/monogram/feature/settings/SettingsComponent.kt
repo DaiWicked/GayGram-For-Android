@@ -55,7 +55,6 @@ class SettingsComponent(
     openProxy: Boolean = false,
     openNotifications: Boolean = false,
     val appUpdate: AppUpdateController? = null,
-    val updatesEnabled: Boolean = true,
 ) : ComponentContext by componentContext, ProxySession {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

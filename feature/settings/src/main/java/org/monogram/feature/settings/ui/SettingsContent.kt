@@ -72,7 +72,6 @@ import org.monogram.core.common.DebugLog
 import org.monogram.core.common.DebugStats
 import org.monogram.core.common.MediaCacheLimitStore
 import org.monogram.core.common.Outcome
-import org.monogram.core.common.SponsorRegistry
 import org.monogram.core.models.peerAvatarCacheKey
 import org.monogram.core.ui.AppearanceSettings
 import org.monogram.core.ui.DownloadSettings
@@ -100,8 +99,6 @@ fun SettingsContent(
     folders: SettingsFolderHost? = null,
 ) {
     val state by component.state.collectAsState()
-    val updateState by component.updateState.collectAsState()
-    val sponsorIds by SponsorRegistry.sponsorIds.collectAsState()
     val notifications by component.notifications.collectAsState()
     val appearance by AppearanceSettings.state.collectAsStateWithLifecycle()
     val download by DownloadSettings.state.collectAsStateWithLifecycle()
@@ -375,10 +372,6 @@ fun SettingsContent(
                                 onOpen = component::openPage,
                                 onLogout = { confirmLogout = true },
                                 loading = state.loading || state.loggingOut,
-                                sponsorIds = sponsorIds,
-                                selfPeerId = state.profile?.id?.value,
-                                updateState = updateState,
-                                updatesEnabled = component.updatesEnabled,
                                 devicesSubtitle = activeDeviceCount.sessions
                                     .count { !it.current && !it.passwordPending }
                                     .takeIf { it > 0 },
