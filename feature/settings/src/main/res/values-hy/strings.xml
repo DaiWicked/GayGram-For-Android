@@ -420,7 +420,6 @@
     <string name="settings_devices_terminate_action">Ավարտել</string>
     <string name="settings_devices_refresh">Թարմացնել</string>
     <string name="settings_devices_empty">Կապված սարքեր չկան</string>
-    <string name="settings_devices_current">Այս սարքը</string>
     <string name="settings_devices_password_pending">Նոր սարքում սպասվում է երկքայլ հաստատման գաղտնաբառը</string>
     <string name="settings_devices_last_active">Վերջին ակտիվությունը՝ %1$s</string>
     <string name="settings_devices_terminate">Ավարտել աշխատաշրջանը</string>
@@ -438,4 +437,19 @@
     <string name="settings_passkeys_retry">Կրկին փորձել</string>
     <string name="settings_passkeys_unsupported">Անցաբանալիների համար պահանջվում է Android 9 կամ ավելի նոր տարբերակ</string>
     <string name="settings_passkeys_provider_error">Ստուգեք, որ մատակարարն աջակցում է Telegram-ին և վստահում է այս հավելվածին։ KeePassDX-ում միացրեք Monogram-ը՝ Կարգավորումներ → Ձևերի լրացում → Անցաբանալիների կարգավորումներ → Արտոնյալ հավելվածներ, ապա կրկին փորձեք</string>
+    <string name="settings_passkeys_unavailable_hint">Մուտք գործեք մատնահետքով՝ SMS կոդի փոխարեն</string>
+    <string name="settings_passkeys_help_show">Ինչու է անհրաժեշտ մատակարար</string>
+    <string name="settings_passkeys_help_hide">Թաքցնել մանրամասները</string>
+    <string name="settings_passkeys_help_title">Google-ը թույլ չի տալիս անցաբանալիներ ոչ պաշտոնական հաճախորդների համար</string>
+    <string name="settings_passkeys_help_text">Monogram-ը չի օգտագործում Telegram-ի ստորագրության բանալին, ուստի Google Password Manager-ը մերժում է Telegram-ի անցաբանալիները, և դուք դեռ չեք կարող ավելացնել դրանք։ Google-ը ձեր հեռախոսում ներկառուցված միակ անցաբանալիների մատակարարն է, այնպես որ անցեք սեփական մատակարարի, օրինակ՝ KeePassDX-ի։ Կարգավորումը որոշակի տեխնիկական գիտելիքներ է պահանջում, բայց դրանից հետո կկարողանաք անցաբանալիներ ավելացնել այստեղ և մուտք գործել մատնահետքով՝ SMS կոդի փոխարեն</string>
+    <string name="settings_passkeys_help_open">Բացել անցաբանալիների կարգավորումները</string>
+    <string name="settings_passkeys_provider_open">Բացել KeePassDX-ը</string>
+    <string name="settings_devices_current_title">Այս սարքը</string>
+    <string name="settings_devices_other_title">Ակտիվ սարքեր</string>
+    <string name="settings_passkeys_important">Կարևոր է</string>
+    <string name="settings_passkeys_provider_install">Ներբեռնել KeePassDX-ը Google Play-ից</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d ակտիվ սարք</item>
+        <item quantity="other">%1$d ակտիվ սարք</item>
+    </plurals>
 </resources>

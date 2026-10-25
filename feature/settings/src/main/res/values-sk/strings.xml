@@ -420,7 +420,6 @@
     <string name="settings_devices_terminate_action">Ukončiť</string>
     <string name="settings_devices_refresh">Obnoviť</string>
     <string name="settings_devices_empty">Žiadne prepojené zariadenia</string>
-    <string name="settings_devices_current">Toto zariadenie</string>
     <string name="settings_devices_password_pending">Čaká sa na heslo dvojstupňového overenia na novom zariadení</string>
     <string name="settings_devices_last_active">Posledná aktivita: %1$s</string>
     <string name="settings_devices_terminate">Ukončiť reláciu</string>
@@ -438,4 +437,20 @@
     <string name="settings_passkeys_retry">Skúsiť znova</string>
     <string name="settings_passkeys_unsupported">Prístupové kľúče vyžadujú Android 9 alebo novší</string>
     <string name="settings_passkeys_provider_error">Overte podporu Telegramu a dôveru aplikácii u poskytovateľa. V KeePassDX povoľte Monogram v Nastavenia → Vypĺňanie formulárov → Nastavenia prístupových kľúčov → Privilegované aplikácie a skúste to znova</string>
+    <string name="settings_passkeys_unavailable_hint">Prihlasujte sa odtlačkom prsta namiesto SMS kódu</string>
+    <string name="settings_passkeys_help_show">Prečo je potrebný poskytovateľ</string>
+    <string name="settings_passkeys_help_hide">Skryť podrobnosti</string>
+    <string name="settings_passkeys_help_title">Google nepovoľuje prístupové kľúče pre neoficiálnych klientov</string>
+    <string name="settings_passkeys_help_text">Monogram nepoužíva podpisový kľúč Telegramu, preto Správca hesiel Google odmieta prístupové kľúče Telegramu a kľúč zatiaľ nemôžete pridať. Google je jediný poskytovateľ prístupových kľúčov zabudovaný v telefóne, preto prejdite na vlastného poskytovateľa, napríklad KeePassDX. Nastavenie vyžaduje určité technické znalosti, no potom budete môcť pridávať kľúče tu a prihlasovať sa odtlačkom prsta namiesto SMS kódu</string>
+    <string name="settings_passkeys_help_open">Otvoriť nastavenia prístupových kľúčov</string>
+    <string name="settings_passkeys_provider_open">Otvoriť KeePassDX</string>
+    <string name="settings_devices_current_title">Toto zariadenie</string>
+    <string name="settings_devices_other_title">Aktívne zariadenia</string>
+    <string name="settings_passkeys_important">Dôležité</string>
+    <string name="settings_passkeys_provider_install">Získať KeePassDX z Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d aktívne zariadenie</item>
+        <item quantity="few">%1$d aktívne zariadenia</item>
+        <item quantity="other">%1$d aktívnych zariadení</item>
+    </plurals>
 </resources>

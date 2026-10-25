@@ -420,7 +420,6 @@
     <string name="settings_devices_terminate_action">Завершить</string>
     <string name="settings_devices_refresh">Обновить</string>
     <string name="settings_devices_empty">Нет подключённых устройств</string>
-    <string name="settings_devices_current">Это устройство</string>
     <string name="settings_devices_password_pending">Ожидание пароля двухэтапной аутентификации на новом устройстве</string>
     <string name="settings_devices_last_active">Последняя активность: %1$s</string>
     <string name="settings_devices_terminate">Завершить сеанс</string>
@@ -438,4 +437,21 @@
     <string name="settings_passkeys_retry">Повторить</string>
     <string name="settings_passkeys_unsupported">Ключи доступа требуют Android 9 или новее</string>
     <string name="settings_passkeys_provider_error">Проверьте поддержку Telegram и доверие к приложению в менеджере учётных данных. В KeePassDX включите Monogram: Настройки → Заполнение форм → Настройки ключей доступа → Привилегированные приложения. Затем повторите попытку</string>
+    <string name="settings_passkeys_unavailable_hint">Входите по отпечатку пальца вместо кода из SMS</string>
+    <string name="settings_passkeys_help_show">Почему нужен провайдер</string>
+    <string name="settings_passkeys_help_hide">Скрыть подробности</string>
+    <string name="settings_passkeys_help_title">Google не разрешает ключи доступа для неофициальных клиентов</string>
+    <string name="settings_passkeys_help_text">Monogram не использует ключ подписи Telegram, поэтому Менеджер паролей Google отклоняет ключи доступа Telegram, и добавить ключ пока нельзя. Google — единственный встроенный в телефон провайдер ключей доступа, поэтому переключитесь на собственный провайдер, например KeePassDX. Настройка требует некоторых технических знаний, но после неё вы сможете добавлять ключи доступа здесь и входить по отпечатку пальца вместо кода из SMS</string>
+    <string name="settings_passkeys_help_open">Открыть настройки ключей доступа</string>
+    <string name="settings_passkeys_provider_open">Открыть KeePassDX</string>
+    <string name="settings_devices_current_title">Это устройство</string>
+    <string name="settings_devices_other_title">Активные устройства</string>
+    <string name="settings_passkeys_important">Важно</string>
+    <string name="settings_passkeys_provider_install">Скачать KeePassDX из Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d активное устройство</item>
+        <item quantity="few">%1$d активных устройства</item>
+        <item quantity="many">%1$d активных устройств</item>
+        <item quantity="other">%1$d активного устройства</item>
+    </plurals>
 </resources>

@@ -420,7 +420,6 @@
     <string name="settings_devices_terminate_action">終了</string>
     <string name="settings_devices_refresh">更新</string>
     <string name="settings_devices_empty">接続済みデバイスはありません</string>
-    <string name="settings_devices_current">このデバイス</string>
     <string name="settings_devices_password_pending">新しいデバイスで2段階認証のパスワード入力を待っています</string>
     <string name="settings_devices_last_active">最終アクティブ：%1$s</string>
     <string name="settings_devices_terminate">セッションを終了</string>
@@ -438,4 +437,18 @@
     <string name="settings_passkeys_retry">再試行</string>
     <string name="settings_passkeys_unsupported">パスキーにはAndroid 9以降が必要です</string>
     <string name="settings_passkeys_provider_error">認証情報プロバイダがTelegramに対応し、このアプリを信頼していることを確認してください。KeePassDXでは、設定 → フォーム入力 → パスキー設定 → 特権アプリでMonogramを有効にして再試行してください</string>
+    <string name="settings_passkeys_unavailable_hint">SMSコードの代わりに指紋でログインできます</string>
+    <string name="settings_passkeys_help_show">プロバイダーが必要な理由</string>
+    <string name="settings_passkeys_help_hide">詳細を隠す</string>
+    <string name="settings_passkeys_help_title">Googleは非公式クライアントのパスキーを許可していません</string>
+    <string name="settings_passkeys_help_text">MonogramはTelegramの署名キーを使用していないため、GoogleパスワードマネージャーはTelegramのパスキーを拒否し、まだ追加できません。端末に組み込まれているパスキープロバイダーはGoogleだけなので、KeePassDXなどの独自プロバイダーに切り替えてください。設定には少し専門知識が必要ですが、完了すればここでパスキーを追加し、SMSコードの代わりに指紋でログインできます</string>
+    <string name="settings_passkeys_help_open">パスキー設定を開く</string>
+    <string name="settings_passkeys_provider_open">KeePassDXを開く</string>
+    <string name="settings_devices_current_title">このデバイス</string>
+    <string name="settings_devices_other_title">アクティブなデバイス</string>
+    <string name="settings_passkeys_important">重要</string>
+    <string name="settings_passkeys_provider_install">Google PlayでKeePassDXを入手</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="other">%1$d 台のアクティブなデバイス</item>
+    </plurals>
 </resources>

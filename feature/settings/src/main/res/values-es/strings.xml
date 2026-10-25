@@ -420,7 +420,6 @@
     <string name="settings_devices_terminate_action">Cerrar sesión</string>
     <string name="settings_devices_refresh">Actualizar</string>
     <string name="settings_devices_empty">No hay dispositivos vinculados</string>
-    <string name="settings_devices_current">Este dispositivo</string>
     <string name="settings_devices_password_pending">Esperando la contraseña de verificación en dos pasos en el nuevo dispositivo</string>
     <string name="settings_devices_last_active">Última actividad: %1$s</string>
     <string name="settings_devices_terminate">Cerrar sesión</string>
@@ -438,4 +437,19 @@
     <string name="settings_passkeys_retry">Reintentar</string>
     <string name="settings_passkeys_unsupported">Las claves de acceso requieren Android 9 o posterior</string>
     <string name="settings_passkeys_provider_error">Comprueba que el proveedor admita Telegram y confíe en esta aplicación. En KeePassDX, activa Monogram en Ajustes → Rellenado de formularios → Ajustes de claves de acceso → Aplicaciones privilegiadas y reinténtalo</string>
+    <string name="settings_passkeys_unavailable_hint">Inicia sesión con tu huella en lugar de un código SMS</string>
+    <string name="settings_passkeys_help_show">Por qué se necesita un proveedor</string>
+    <string name="settings_passkeys_help_hide">Ocultar los detalles</string>
+    <string name="settings_passkeys_help_title">Google no permite usar claves de acceso en clientes no oficiales</string>
+    <string name="settings_passkeys_help_text">Monogram no usa la clave de firma de Telegram, así que el Gestor de contraseñas de Google rechaza las claves de acceso de Telegram y aún no puedes añadir una. Google es el único proveedor de claves de acceso integrado en tu teléfono, así que cambia a un proveedor propio como KeePassDX. Configurarlo requiere algo de técnica, pero una vez hecho podrás añadir claves de acceso aquí y entrar con tu huella en lugar del código SMS</string>
+    <string name="settings_passkeys_help_open">Abrir ajustes de claves de acceso</string>
+    <string name="settings_passkeys_provider_open">Abrir KeePassDX</string>
+    <string name="settings_devices_current_title">Este dispositivo</string>
+    <string name="settings_devices_other_title">Dispositivos activos</string>
+    <string name="settings_passkeys_important">Importante</string>
+    <string name="settings_passkeys_provider_install">Obtener KeePassDX en Google Play</string>
+    <plurals name="settings_devices_active_count">
+        <item quantity="one">%1$d dispositivo activo</item>
+        <item quantity="other">%1$d dispositivos activos</item>
+    </plurals>
 </resources>
