@@ -162,6 +162,7 @@
     <string name="settings_debug_stats_show_more">Zobraziť viac (%1$d)</string>
     <string name="settings_debug_stats_show_less">Zobraziť menej</string>
     <string name="settings_logs">Denníky</string>
+    <string name="settings_glass">Sklo</string>
     <string name="settings_logs_sub">Volania API, rekompozície a ďalšie udalosti</string>
     <string name="settings_logs_search">Hľadať v denníkoch</string>
     <string name="settings_logs_search_clear">Vymazať hľadanie</string>

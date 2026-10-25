@@ -162,6 +162,7 @@
     <string name="settings_debug_stats_show_more">Daha fazla göster (%1$d)</string>
     <string name="settings_debug_stats_show_less">Daha az göster</string>
     <string name="settings_logs">Günlükler</string>
+    <string name="settings_glass">Cam</string>
     <string name="settings_logs_sub">API çağrıları, yeniden bileşimler ve diğer olaylar</string>
     <string name="settings_logs_search">Günlüklerde ara</string>
     <string name="settings_logs_search_clear">Aramayı temizle</string>

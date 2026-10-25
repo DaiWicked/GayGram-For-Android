@@ -78,6 +78,7 @@ import org.monogram.core.ui.DownloadSettings
 import org.monogram.core.ui.components.AppBarSyncTitle
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
+import org.monogram.core.ui.glass.GlassShowcase
 import org.monogram.core.ui.media.mediaViewerMotionEnabled
 import org.monogram.core.ui.rememberEnsuredFile
 import org.monogram.core.ui.rememberStrippedPreview
@@ -213,6 +214,7 @@ fun SettingsContent(
         SettingsPage.NotificationDebug -> stringResource(R.string.settings_notifications_debug)
         SettingsPage.Wallpaper -> stringResource(R.string.settings_wallpaper)
         SettingsPage.Folders -> folders?.title ?: stringResource(R.string.settings_folders)
+        SettingsPage.Glass -> stringResource(R.string.settings_glass)
     }
 
     Scaffold(
@@ -515,6 +517,8 @@ fun SettingsContent(
                         )
 
                         SettingsPage.Folders -> folders?.content(innerPadding)
+
+                        SettingsPage.Glass -> GlassShowcase(Modifier.padding(innerPadding))
                     }
                 }
             }
@@ -673,6 +677,7 @@ private fun settingsPageKey(page: SettingsPage): String = when (page) {
     is SettingsPage.NotificationCategory -> "notifications:${page.kind}"
     SettingsPage.NotificationExceptions -> "notifications:exceptions"
     SettingsPage.NotificationDebug -> "notifications:debug"
+    SettingsPage.Glass -> "glass"
 }
 
 private class MultiBackHandler(private val handlers: List<BackHandler>) : BackHandler {

@@ -162,6 +162,7 @@
     <string name="settings_debug_stats_show_more">さらに表示 (%1$d)</string>
     <string name="settings_debug_stats_show_less">折りたたむ</string>
     <string name="settings_logs">ログ</string>
+    <string name="settings_glass">ガラス</string>
     <string name="settings_logs_sub">API、再コンポーズ、その他のイベント</string>
     <string name="settings_logs_search">ログを検索</string>
     <string name="settings_logs_search_clear">検索をクリア</string>

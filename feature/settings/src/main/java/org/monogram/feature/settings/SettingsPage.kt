@@ -54,4 +54,8 @@ sealed interface SettingsPage {
 
     @Serializable
     data object Logs : SettingsPage
+
+    /** Every glass preset over the wallpaper; reached by long-pressing the version line. */
+    @Serializable
+    data object Glass : SettingsPage
 }

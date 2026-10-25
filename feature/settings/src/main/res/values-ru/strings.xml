@@ -162,6 +162,7 @@
     <string name="settings_debug_stats_show_more">Показать еще (%1$d)</string>
     <string name="settings_debug_stats_show_less">Показать меньше</string>
     <string name="settings_logs">Журнал</string>
+    <string name="settings_glass">Стекло</string>
     <string name="settings_logs_sub">Вызовы API, рекомпозиции и другие события</string>
     <string name="settings_logs_search">Поиск в журнале</string>
     <string name="settings_logs_search_clear">Очистить поиск</string>
