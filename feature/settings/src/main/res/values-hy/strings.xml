@@ -195,10 +195,8 @@
     <string name="settings_folders_add">Նոր թղթապանակ</string>
     <string name="settings_folders_refresh">Թարմացնել թղթապանակները</string>
     <string name="settings_save">Պահպանել</string>
-    <string name="settings_monogram_channel">Ալիք</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">Զրույց</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Telegram FAQ</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">Հարց տալ</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">Պատրաստ է</string>
     <string name="settings_notifications_stories_popup">Բարձրացող՝ պատմությունների համար</string>
     <string name="settings_notifications_reactions_popup">Բարձրացող՝ ռեակցիաների համար</string>
-    <string name="settings_section_sponsors">Հովանավորներ</string>
-    <string name="settings_sponsors">Հովանավորներ</string>
-    <string name="settings_sponsors_count">%1$d հովանավոր</string>
-    <string name="settings_sponsor_promo">Դառնալ հովանավոր</string>
-    <string name="settings_sponsor_promo_sub">Աջակցեք GayGram-ին և ստացեք նշիչ</string>
     <string name="settings_proxy">Պրոքսի</string>
     <string name="settings_proxy_sub">Միանալ պրոքսիի միջոցով</string>
     <string name="settings_proxy_type">Տեսակ</string>

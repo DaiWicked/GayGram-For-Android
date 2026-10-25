@@ -195,10 +195,8 @@
     <string name="settings_folders_add">New folder</string>
     <string name="settings_folders_refresh">Refresh folders</string>
     <string name="settings_save">Save</string>
-    <string name="settings_monogram_channel">Channel</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">Chat</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Telegram FAQ</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">Ask a question</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">Done</string>
     <string name="settings_notifications_stories_popup">Popup for stories</string>
     <string name="settings_notifications_reactions_popup">Popup for reactions</string>
-    <string name="settings_section_sponsors">Sponsors</string>
-    <string name="settings_sponsors">Sponsors</string>
-    <string name="settings_sponsors_count">%1$d sponsors</string>
-    <string name="settings_sponsor_promo">Become a sponsor</string>
-    <string name="settings_sponsor_promo_sub">Support GayGram and get a badge</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Connect through a proxy</string>
     <string name="settings_proxy_type">Proxy type</string>

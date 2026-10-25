@@ -195,10 +195,8 @@
     <string name="settings_folders_add">新しいフォルダ</string>
     <string name="settings_folders_refresh">フォルダを更新</string>
     <string name="settings_save">保存</string>
-    <string name="settings_monogram_channel">チャンネル</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">チャット</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Telegram よくある質問</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">質問する</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">完了</string>
     <string name="settings_notifications_stories_popup">ストーリーのポップアップ</string>
     <string name="settings_notifications_reactions_popup">リアクションのポップアップ</string>
-    <string name="settings_section_sponsors">スポンサー</string>
-    <string name="settings_sponsors">スポンサー</string>
-    <string name="settings_sponsors_count">スポンサー %1$d人</string>
-    <string name="settings_sponsor_promo">スポンサーになる</string>
-    <string name="settings_sponsor_promo_sub">GayGram を支援してバッジを取得</string>
     <string name="settings_proxy">プロキシ</string>
     <string name="settings_proxy_sub">プロキシ経由で接続</string>
     <string name="settings_proxy_type">プロキシの種類</string>

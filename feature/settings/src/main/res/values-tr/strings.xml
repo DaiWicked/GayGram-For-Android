@@ -195,10 +195,8 @@
     <string name="settings_folders_add">Yeni klasör</string>
     <string name="settings_folders_refresh">Klasörleri yenile</string>
     <string name="settings_save">Kaydet</string>
-    <string name="settings_monogram_channel">Kanal</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">Sohbet</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Telegram SSS</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">Soru sor</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">Tamam</string>
     <string name="settings_notifications_stories_popup">Hikayeler için açılır</string>
     <string name="settings_notifications_reactions_popup">Tepkiler için açılır</string>
-    <string name="settings_section_sponsors">Sponsorlar</string>
-    <string name="settings_sponsors">Sponsorlar</string>
-    <string name="settings_sponsors_count">%1$d sponsor</string>
-    <string name="settings_sponsor_promo">Sponsor ol</string>
-    <string name="settings_sponsor_promo_sub">GayGram\'ı destekleyin ve rozet kazanın</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Proxy üzerinden bağlan</string>
     <string name="settings_proxy_type">Proxy türü</string>

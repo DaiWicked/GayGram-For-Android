@@ -195,10 +195,8 @@
     <string name="settings_folders_add">新建文件夹</string>
     <string name="settings_folders_refresh">刷新文件夹</string>
     <string name="settings_save">保存</string>
-    <string name="settings_monogram_channel">频道</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">聊天</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Telegram 常见问题</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">提问</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">完成</string>
     <string name="settings_notifications_stories_popup">动态弹出通知</string>
     <string name="settings_notifications_reactions_popup">表情回应弹出通知</string>
-    <string name="settings_section_sponsors">赞助者</string>
-    <string name="settings_sponsors">赞助者</string>
-    <string name="settings_sponsors_count">%1$d 位赞助者</string>
-    <string name="settings_sponsor_promo">成为赞助者</string>
-    <string name="settings_sponsor_promo_sub">支持 GayGram 并获得徽章</string>
     <string name="settings_proxy">代理</string>
     <string name="settings_proxy_sub">通过代理连接</string>
     <string name="settings_proxy_type">代理类型</string>

@@ -11,14 +11,12 @@ import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.VpnKey
@@ -50,7 +48,7 @@ import org.monogram.feature.settings.SettingsComponent
 import org.monogram.feature.settings.SettingsPage
 import java.io.File
 
-private const val SPONSOR_BOOSTY_URL = "https://boosty.to/monogram"
+private const val GITHUB_URL = "https://github.com/DaiWicked/GayGram-For-Android"
 
 internal fun LazyListScope.homeItems(
     component: SettingsComponent,
@@ -148,56 +146,16 @@ internal fun LazyListScope.homeItems(
             trailingContent = { Chevron() },
         )
     }
-    item { SectionHeader(stringResource(R.string.settings_section_sponsors)) }
-    item {
-        val uriHandler = LocalUriHandler.current
-        val selfIsSponsor = selfPeerId != null && selfPeerId in sponsorIds
-        SettingsTile(
-            icon = Icons.Outlined.Favorite,
-            title = stringResource(R.string.settings_sponsors),
-            subtitle = stringResource(R.string.settings_sponsors_count, sponsorIds.size),
-            iconColor = MaterialTheme.colorScheme.tertiary,
-            position = if (selfIsSponsor) ItemPosition.STANDALONE else ItemPosition.TOP,
-            onClick = { uriHandler.openUri(SPONSOR_BOOSTY_URL) },
-            trailingContent = { Chevron() },
-        )
-    }
-    if (selfPeerId == null || selfPeerId !in sponsorIds) {
-        item {
-            val uriHandler = LocalUriHandler.current
-            SettingsTile(
-                icon = Icons.Outlined.Star,
-                title = stringResource(R.string.settings_sponsor_promo),
-                subtitle = stringResource(R.string.settings_sponsor_promo_sub),
-                iconColor = MaterialTheme.colorScheme.primary,
-                position = ItemPosition.BOTTOM,
-                onClick = { uriHandler.openUri(SPONSOR_BOOSTY_URL) },
-                trailingContent = { Chevron() },
-            )
-        }
-    }
     item { SectionHeader(stringResource(R.string.settings_section_help)) }
     item {
         val uri = LocalUriHandler.current
         SettingsTile(
-            icon = Icons.Outlined.Campaign,
-            title = stringResource(R.string.settings_monogram_channel),
-            subtitle = stringResource(R.string.settings_monogram_channel_sub),
+            icon = Icons.Outlined.Code,
+            title = stringResource(R.string.settings_github),
+            subtitle = stringResource(R.string.settings_github_sub),
             iconColor = MaterialTheme.colorScheme.tertiary,
             position = ItemPosition.TOP,
-            onClick = { uri.openUri("https://t.me/monogram_android") },
-            trailingContent = { Chevron() },
-        )
-    }
-    item {
-        val uri = LocalUriHandler.current
-        SettingsTile(
-            icon = Icons.AutoMirrored.Outlined.Chat,
-            title = stringResource(R.string.settings_monogram_chat),
-            subtitle = stringResource(R.string.settings_monogram_chat_sub),
-            iconColor = MaterialTheme.colorScheme.primary,
-            position = ItemPosition.MIDDLE,
-            onClick = { uri.openUri("https://t.me/monogram_discuss") },
+            onClick = { uri.openUri(GITHUB_URL) },
             trailingContent = { Chevron() },
         )
     }

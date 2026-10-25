@@ -197,10 +197,8 @@
     <string name="settings_save">Сохранить</string>
     <string name="settings_faq">FAQ Telegram</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
-    <string name="settings_monogram_channel">Канал</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">Чат</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_ask">Задать вопрос</string>
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Тема</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">Готово</string>
     <string name="settings_notifications_stories_popup">Всплывающие для историй</string>
     <string name="settings_notifications_reactions_popup">Всплывающие для реакций</string>
-    <string name="settings_section_sponsors">Спонсоры</string>
-    <string name="settings_sponsors">Спонсоры</string>
-    <string name="settings_sponsors_count">%1$d спонсоров</string>
-    <string name="settings_sponsor_promo">Стать спонсором</string>
-    <string name="settings_sponsor_promo_sub">Поддержите GayGram и получите значок</string>
     <string name="settings_proxy">Прокси</string>
     <string name="settings_proxy_sub">Подключение через прокси</string>
     <string name="settings_proxy_type">Тип прокси</string>

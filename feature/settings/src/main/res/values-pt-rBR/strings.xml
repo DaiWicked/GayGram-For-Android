@@ -195,10 +195,8 @@
     <string name="settings_folders_add">Nova pasta</string>
     <string name="settings_folders_refresh">Atualizar pastas</string>
     <string name="settings_save">Salvar</string>
-    <string name="settings_monogram_channel">Canal</string>
-    <string name="settings_monogram_channel_sub">@monogram_android</string>
-    <string name="settings_monogram_chat">Conversa</string>
-    <string name="settings_monogram_chat_sub">@monogram_discuss</string>
+    <string name="settings_github">GitHub</string>
+    <string name="settings_github_sub">github.com/DaiWicked/GayGram-For-Android</string>
     <string name="settings_faq">Perguntas frequentes do Telegram</string>
     <string name="settings_faq_sub">telegram.org/faq</string>
     <string name="settings_ask">Fazer uma pergunta</string>
@@ -342,11 +340,6 @@
     <string name="settings_notifications_chat_done">Concluir</string>
     <string name="settings_notifications_stories_popup">Pop-up para stories</string>
     <string name="settings_notifications_reactions_popup">Pop-up para reações</string>
-    <string name="settings_section_sponsors">Patrocinadores</string>
-    <string name="settings_sponsors">Patrocinadores</string>
-    <string name="settings_sponsors_count">%1$d patrocinadores</string>
-    <string name="settings_sponsor_promo">Torne-se um patrocinador</string>
-    <string name="settings_sponsor_promo_sub">Apoie o GayGram e ganhe um selo</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Conectar por proxy</string>
     <string name="settings_proxy_type">Tipo de proxy</string>
