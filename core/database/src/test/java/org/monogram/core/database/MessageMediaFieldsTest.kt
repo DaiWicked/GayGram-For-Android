@@ -12,6 +12,7 @@ import org.monogram.core.models.ReplyButton
 import org.monogram.core.models.ReplyButtonType
 import org.monogram.core.models.ReplyMarkup
 import org.monogram.core.models.ReplyMarkupKind
+import org.monogram.core.models.TextEntity
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 class MessageMediaFieldsTest {
     @Test
     fun schemaVersionIsCurrent() {
-        assertEquals(8, DatabaseProvider.SCHEMA_VERSION)
+        assertEquals(9, DatabaseProvider.SCHEMA_VERSION)
     }
 
     @Test
@@ -29,6 +30,7 @@ class MessageMediaFieldsTest {
         assertTrue(DatabaseProvider.hasMigrationPath(1, 2))
         assertTrue(DatabaseProvider.hasMigrationPath(2, 3))
         assertTrue(DatabaseProvider.hasMigrationPath(3, 4))
+        assertTrue(DatabaseProvider.hasMigrationPath(8, 9))
         assertFalse(DatabaseProvider.hasMigrationPath(32))
         assertFalse(DatabaseProvider.hasMigrationPath(3, 2))
     }
@@ -64,6 +66,8 @@ class MessageMediaFieldsTest {
             mediaHeight = 720,
             fileSize = 8_000_000,
             supportsStreaming = true,
+            replyQuote = "bold",
+            replyQuoteEntities = listOf(TextEntity("bold", 0, 4)),
             replyToMsgId = 3,
             replyToTopId = 42,
             forumTopic = true,
@@ -89,6 +93,8 @@ class MessageMediaFieldsTest {
         assertEquals(720, back.mediaHeight)
         assertEquals("video", back.mediaKind)
         assertEquals("doc:1:thumb", back.thumbCacheKey)
+        assertEquals("bold", back.replyQuote)
+        assertEquals(listOf(TextEntity("bold", 0, 4)), back.replyQuoteEntities)
         assertEquals(3, back.replyToMsgId)
         assertEquals(42, back.replyToTopId)
         assertEquals(true, back.forumTopic)

@@ -205,6 +205,8 @@ pub struct MessageDto {
     pub media_width: Option<i32>,
     pub media_height: Option<i32>,
     pub reply_quote: Option<String>,
+    /// Compact JSON list of `{kind,offset,length,url?}` entities for `reply_quote`.
+    pub reply_quote_entities_json: Option<String>,
     /// Compact JSON list of `{kind,offset,length,url?}` message entities.
     pub entities_json: Option<String>,
     pub noforwards: bool,

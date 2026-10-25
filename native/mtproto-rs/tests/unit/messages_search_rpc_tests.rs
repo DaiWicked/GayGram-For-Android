@@ -37,6 +37,7 @@ fn next_page_uses_last_message_and_rate() {
         media_width: None,
         media_height: None,
         reply_quote: None,
+        reply_quote_entities_json: None,
         entities_json: None,
         noforwards: false,
         reply_to_msg_id: None,

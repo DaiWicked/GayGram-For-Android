@@ -218,6 +218,7 @@ data class Message(
     val read: Boolean = false,
     val failed: Boolean = false,
     val replyQuote: String? = null,
+    val replyQuoteEntities: List<TextEntity> = emptyList(),
     val entities: List<TextEntity> = emptyList(),
     val noforwards: Boolean = false,
     val replyToMsgId: Int? = null,

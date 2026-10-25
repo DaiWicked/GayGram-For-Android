@@ -3567,6 +3567,11 @@ data class MessageDto (
     var `replyQuote`: kotlin.String?
     ,
     /**
+     * Compact JSON list of `{kind,offset,length,url?}` entities for `reply_quote`.
+     */
+    var `replyQuoteEntitiesJson`: kotlin.String?
+    ,
+    /**
      * Compact JSON list of `{kind,offset,length,url?}` message entities.
      */
     var `entitiesJson`: kotlin.String?
@@ -3650,6 +3655,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterOptionalInt.read(buf),
             FfiConverterOptionalInt.read(buf),
@@ -3688,6 +3694,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.allocationSize(value.`mediaWidth`) +
             FfiConverterOptionalInt.allocationSize(value.`mediaHeight`) +
             FfiConverterOptionalString.allocationSize(value.`replyQuote`) +
+            FfiConverterOptionalString.allocationSize(value.`replyQuoteEntitiesJson`) +
             FfiConverterOptionalString.allocationSize(value.`entitiesJson`) +
             FfiConverterBoolean.allocationSize(value.`noforwards`) +
             FfiConverterOptionalInt.allocationSize(value.`replyToMsgId`) +
@@ -3726,6 +3733,7 @@ public object FfiConverterTypeMessageDto: FfiConverterRustBuffer<MessageDto> {
             FfiConverterOptionalInt.write(value.`mediaWidth`, buf)
             FfiConverterOptionalInt.write(value.`mediaHeight`, buf)
             FfiConverterOptionalString.write(value.`replyQuote`, buf)
+            FfiConverterOptionalString.write(value.`replyQuoteEntitiesJson`, buf)
             FfiConverterOptionalString.write(value.`entitiesJson`, buf)
             FfiConverterBoolean.write(value.`noforwards`, buf)
             FfiConverterOptionalInt.write(value.`replyToMsgId`, buf)

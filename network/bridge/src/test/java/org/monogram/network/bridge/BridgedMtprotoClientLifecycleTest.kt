@@ -1485,6 +1485,7 @@ class BridgedMtprotoClientLifecycleTest {
         mediaWidth = null,
         mediaHeight = null,
         replyQuote = null,
+        replyQuoteEntitiesJson = null,
         entitiesJson = null,
         noforwards = false,
         replyToMsgId = null,
