@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalInspectionMode
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -35,7 +36,8 @@ fun LiquidGlassSurface(
     fallback: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val tier = PlatformCapabilities.tier(enabled)
+    // Layoutlib renders neither RenderEffect nor AGSL, so the preview gets the tier that draws.
+    val tier = if (LocalInspectionMode.current) GlassTier.Tint else PlatformCapabilities.tier(enabled)
     if (tier == GlassTier.Off || tier == GlassTier.Tint) {
         val fill = if (tier == GlassTier.Off) fallback else fallback.copy(alpha = GlassTokens.TintAlpha)
         Box(modifier.clip(shape).background(fill), content = content)
