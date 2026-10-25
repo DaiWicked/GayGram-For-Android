@@ -53,7 +53,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.monogram"
+        applicationId = "org.gaygram"
         minSdk = 24
         targetSdk = 37
         versionCode = appVersionCode

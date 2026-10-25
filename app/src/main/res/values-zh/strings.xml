@@ -9,7 +9,7 @@
     <string name="recipient_error">无法完成。请重试以继续</string>
     <string name="recipient_retry">重试</string>
     <string name="recipient_interrupted">发送已中断。再次发送前请检查目标聊天</string>
-    <string name="app_name">Monogram</string>
+    <string name="app_name">GayGram</string>
     <string name="app_description">非官方 Telegram 客户端</string>
     <string name="home_tab_chats">聊天</string>
     <string name="home_tab_folders">文件夹</string>
@@ -41,13 +41,13 @@
         <item quantity="other">%1$d 条新消息</item>
     </plurals>
     <string name="crash_title">出了点问题</string>
-    <string name="crash_subtitle">Monogram 遇到了意外错误。下方报告有助于修复</string>
+    <string name="crash_subtitle">GayGram 遇到了意外错误。下方报告有助于修复</string>
     <string name="crash_log_label">崩溃日志</string>
     <string name="crash_copy">复制详情</string>
     <string name="crash_copied">已复制崩溃详情</string>
     <string name="crash_share">分享</string>
     <string name="crash_share_title">分享崩溃报告</string>
-    <string name="crash_restart">重新启动 Monogram</string>
+    <string name="crash_restart">重新启动 GayGram</string>
     <string name="update_prompt_title">更新至 %1$s</string>
     <string name="update_prompt_skip">跳过</string>
     <string name="update_prompt_update">更新</string>
