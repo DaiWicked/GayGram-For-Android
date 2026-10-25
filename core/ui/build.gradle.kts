@@ -39,6 +39,7 @@ dependencies {
     implementation(project(":native:mtproto"))
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+    api(libs.kyant.backdrop)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.media3.exoplayer)

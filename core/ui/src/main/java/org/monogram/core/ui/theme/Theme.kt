@@ -8,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -20,6 +21,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import org.monogram.core.ui.AccentPreset
+// Aliased: the bare name resolves to kotlin.text.Typography inside a default-value expression.
+import org.monogram.core.ui.theme.Typography as MonogramTypography
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryDark,
@@ -91,7 +94,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceContainerHighest = SurfaceContainerHighestLight,
 )
 
-private val MonogramShapes = Shapes(
+val MonogramShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
@@ -100,7 +103,8 @@ private val MonogramShapes = Shapes(
 )
 
 /**
- * Material 3 Expressive theme. Surfaces stay opaque (no liquid glass).
+ * Material 3 Expressive theme. Surfaces stay opaque: liquid glass is an added layer above a
+ * surface, picked per call site, so anything that never asks for glass is unchanged.
  * Motion uses [MotionScheme.expressive] from the installed Material3 artifact.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -109,6 +113,7 @@ fun MonogramTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     accentPreset: AccentPreset = AccentPreset.Monogram,
+    typography: Typography = MonogramTypography,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -138,7 +143,7 @@ fun MonogramTheme(
 
     MaterialTheme(
         colorScheme = targetScheme,
-        typography = Typography,
+        typography = typography,
         shapes = MonogramShapes,
         motionScheme = motionScheme,
         content = content,
