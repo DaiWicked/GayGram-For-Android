@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Telegram-ի պաստառներ</string>
     <string name="settings_wallpaper_catalog_error">Չհաջողվեց թարմացնել պաստառները։ Ստուգեք կապը և փորձեք կրկին</string>
     <string name="settings_wallpaper_item">Պաստառ %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram (կանխադրված)</string>
+    <string name="settings_wallpaper_reset">GayGram (կանխադրված)</string>
     <string name="settings_wallpaper_none">Առանց պաստառի</string>
     <string name="settings_wallpaper_selected">Ընտրված պաստառ</string>
     <string name="settings_wallpaper_dim">Մգեցում՝ %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Գունային թեմա</string>
     <string name="settings_accent">Ընդգծող գույն</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">Սակուրա</string>
     <string name="settings_accent_ocean">Օվկիանոս</string>
     <string name="settings_accent_forest">Անտառ</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter-ը ուղարկում է, Shift+Enter-ը՝ նոր տող</string>
     <string name="settings_input_bar_fix_previews">Հղումների նախադիտման ուղղում</string>
     <string name="settings_input_bar_fix_previews_sub">Ուղղել հղումների նախադիտումները X-ի, Bluesky-ի, TikTok-ի, Reddit-ի և Pixiv-ի համար</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">API շերտ %1$d</string>
     <string name="settings_update_beta">Բետա թարմացումներ</string>
     <string name="settings_update_beta_sub">Տեղադրել CI տարբերակներ GitHub Actions-ից</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">Հովանավորներ</string>
     <string name="settings_sponsors_count">%1$d հովանավոր</string>
     <string name="settings_sponsor_promo">Դառնալ հովանավոր</string>
-    <string name="settings_sponsor_promo_sub">Աջակցեք Monogram-ին և ստացեք նշիչ</string>
+    <string name="settings_sponsor_promo_sub">Աջակցեք GayGram-ին և ստացեք նշիչ</string>
     <string name="settings_proxy">Պրոքսի</string>
     <string name="settings_proxy_sub">Միանալ պրոքսիի միջոցով</string>
     <string name="settings_proxy_type">Տեսակ</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">Չհաջողվեց բեռնել կամ թարմացնել անցաբանալիները</string>
     <string name="settings_passkeys_retry">Կրկին փորձել</string>
     <string name="settings_passkeys_unsupported">Անցաբանալիների համար պահանջվում է Android 9 կամ ավելի նոր տարբերակ</string>
-    <string name="settings_passkeys_provider_error">Ստուգեք, որ մատակարարն աջակցում է Telegram-ին և վստահում է այս հավելվածին։ KeePassDX-ում միացրեք Monogram-ը՝ Կարգավորումներ → Ձևերի լրացում → Անցաբանալիների կարգավորումներ → Արտոնյալ հավելվածներ, ապա կրկին փորձեք</string>
+    <string name="settings_passkeys_provider_error">Ստուգեք, որ մատակարարն աջակցում է Telegram-ին և վստահում է այս հավելվածին։ KeePassDX-ում միացրեք GayGram-ը՝ Կարգավորումներ → Ձևերի լրացում → Անցաբանալիների կարգավորումներ → Արտոնյալ հավելվածներ, ապա կրկին փորձեք</string>
     <string name="settings_passkeys_unavailable_hint">Մուտք գործեք մատնահետքով՝ SMS կոդի փոխարեն</string>
     <string name="settings_passkeys_help_show">Ինչու է անհրաժեշտ մատակարար</string>
     <string name="settings_passkeys_help_hide">Թաքցնել մանրամասները</string>
     <string name="settings_passkeys_help_title">Google-ը թույլ չի տալիս անցաբանալիներ ոչ պաշտոնական հաճախորդների համար</string>
-    <string name="settings_passkeys_help_text">Monogram-ը չի օգտագործում Telegram-ի ստորագրության բանալին, ուստի Google Password Manager-ը մերժում է Telegram-ի անցաբանալիները, և դուք դեռ չեք կարող ավելացնել դրանք։ Google-ը ձեր հեռախոսում ներկառուցված միակ անցաբանալիների մատակարարն է, այնպես որ անցեք սեփական մատակարարի, օրինակ՝ KeePassDX-ի։ Կարգավորումը որոշակի տեխնիկական գիտելիքներ է պահանջում, բայց դրանից հետո կկարողանաք անցաբանալիներ ավելացնել այստեղ և մուտք գործել մատնահետքով՝ SMS կոդի փոխարեն</string>
+    <string name="settings_passkeys_help_text">GayGram-ը չի օգտագործում Telegram-ի ստորագրության բանալին, ուստի Google Password Manager-ը մերժում է Telegram-ի անցաբանալիները, և դուք դեռ չեք կարող ավելացնել դրանք։ Google-ը ձեր հեռախոսում ներկառուցված միակ անցաբանալիների մատակարարն է, այնպես որ անցեք սեփական մատակարարի, օրինակ՝ KeePassDX-ի։ Կարգավորումը որոշակի տեխնիկական գիտելիքներ է պահանջում, բայց դրանից հետո կկարողանաք անցաբանալիներ ավելացնել այստեղ և մուտք գործել մատնահետքով՝ SMS կոդի փոխարեն</string>
     <string name="settings_passkeys_help_open">Բացել անցաբանալիների կարգավորումները</string>
     <string name="settings_passkeys_provider_open">Բացել KeePassDX-ը</string>
     <string name="settings_devices_current_title">Այս սարքը</string>

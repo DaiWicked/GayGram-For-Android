@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Papéis de parede do Telegram</string>
     <string name="settings_wallpaper_catalog_error">Não foi possível atualizar os papéis de parede. Verifique a conexão e tente de novo</string>
     <string name="settings_wallpaper_item">Papel de parede %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram (padrão)</string>
+    <string name="settings_wallpaper_reset">GayGram (padrão)</string>
     <string name="settings_wallpaper_none">Sem papel de parede</string>
     <string name="settings_wallpaper_selected">Papel de parede selecionado</string>
     <string name="settings_wallpaper_dim">Escurecimento: %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Tema de cores</string>
     <string name="settings_accent">Cor de destaque</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">Sakura</string>
     <string name="settings_accent_ocean">Oceano</string>
     <string name="settings_accent_forest">Floresta</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter envia a mensagem; Shift+Enter insere uma linha</string>
     <string name="settings_input_bar_fix_previews">Corrigir prévias de links</string>
     <string name="settings_input_bar_fix_previews_sub">Corrigir prévias de links para X, Bluesky, TikTok, Reddit e Pixiv</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">Camada de API %1$d</string>
     <string name="settings_update_beta">Atualizações beta</string>
     <string name="settings_update_beta_sub">Instalar compilações de CI do GitHub Actions</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">Patrocinadores</string>
     <string name="settings_sponsors_count">%1$d patrocinadores</string>
     <string name="settings_sponsor_promo">Torne-se um patrocinador</string>
-    <string name="settings_sponsor_promo_sub">Apoie o Monogram e ganhe um selo</string>
+    <string name="settings_sponsor_promo_sub">Apoie o GayGram e ganhe um selo</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Conectar por proxy</string>
     <string name="settings_proxy_type">Tipo de proxy</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">Não foi possível carregar ou atualizar as chaves de acesso</string>
     <string name="settings_passkeys_retry">Tentar novamente</string>
     <string name="settings_passkeys_unsupported">As chaves de acesso exigem Android 9 ou superior</string>
-    <string name="settings_passkeys_provider_error">Verifique se o provedor aceita Telegram e confia neste aplicativo. No KeePassDX, ative Monogram em Configurações → Preenchimento de formulários → Configurações de chaves de acesso → Aplicativos privilegiados e tente novamente</string>
+    <string name="settings_passkeys_provider_error">Verifique se o provedor aceita Telegram e confia neste aplicativo. No KeePassDX, ative GayGram em Configurações → Preenchimento de formulários → Configurações de chaves de acesso → Aplicativos privilegiados e tente novamente</string>
     <string name="settings_passkeys_unavailable_hint">Entre com sua digital em vez de um código SMS</string>
     <string name="settings_passkeys_help_show">Por que é preciso um provedor</string>
     <string name="settings_passkeys_help_hide">Ocultar detalhes</string>
     <string name="settings_passkeys_help_title">O Google não permite chaves de acesso em clientes não oficiais</string>
-    <string name="settings_passkeys_help_text">O Monogram não usa a chave de assinatura do Telegram, então o Gerenciador de senhas do Google recusa as chaves de acesso do Telegram e você ainda não pode adicionar uma. O Google é o único provedor de chaves de acesso integrado ao seu celular, então mude para um provedor próprio, como o KeePassDX. A configuração exige um pouco de conhecimento técnico, mas depois disso você poderá adicionar chaves de acesso aqui e entrar com sua digital em vez do código SMS</string>
+    <string name="settings_passkeys_help_text">O GayGram não usa a chave de assinatura do Telegram, então o Gerenciador de senhas do Google recusa as chaves de acesso do Telegram e você ainda não pode adicionar uma. O Google é o único provedor de chaves de acesso integrado ao seu celular, então mude para um provedor próprio, como o KeePassDX. A configuração exige um pouco de conhecimento técnico, mas depois disso você poderá adicionar chaves de acesso aqui e entrar com sua digital em vez do código SMS</string>
     <string name="settings_passkeys_help_open">Abrir ajustes de chaves de acesso</string>
     <string name="settings_passkeys_provider_open">Abrir o KeePassDX</string>
     <string name="settings_devices_current_title">Este dispositivo</string>

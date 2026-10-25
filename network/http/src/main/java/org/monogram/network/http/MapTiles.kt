@@ -75,7 +75,7 @@ class MapTileStore(
 
     companion object {
         const val TILE_ENDPOINT = "https://tile.openstreetmap.org"
-        const val USER_AGENT = "Monogram/1.0 (Android; +https://github.com/monogram-android/monogram)"
+        const val USER_AGENT = "GayGram/1.0 (Android; +https://github.com/monogram-android/monogram)"
         const val MAX_CONCURRENT = 2
         const val TTL_MS = 7L * 24 * 60 * 60 * 1000
 

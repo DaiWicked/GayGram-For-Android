@@ -309,5 +309,5 @@
     <string name="media_action_save_as">Uložiť ako…</string>
     <string name="media_copy_hdr_warning">Obrázok skopírovaný. Niektoré aplikácie nemusia podporovať HDR</string>
     <string name="status_fresh_authorization">Z bezpečnostných dôvodov táto akcia nie je dostupná hneď po prihlásení. Skúste to po 24 hodinách alebo použite staršiu reláciu</string>
-    <string name="passkey_client_data_mismatch">Poskytovateľ podpísal iné prihlasovacie údaje. Skontrolujte jeho nastavenia privilegovaných aplikácií pre Monogram</string>
+    <string name="passkey_client_data_mismatch">Poskytovateľ podpísal iné prihlasovacie údaje. Skontrolujte jeho nastavenia privilegovaných aplikácií pre GayGram</string>
 </resources>

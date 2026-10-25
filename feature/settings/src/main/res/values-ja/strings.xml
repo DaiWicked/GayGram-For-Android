@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Telegram の壁紙</string>
     <string name="settings_wallpaper_catalog_error">壁紙を更新できませんでした。接続を確認して再試行してください</string>
     <string name="settings_wallpaper_item">壁紙 %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram（デフォルト）</string>
+    <string name="settings_wallpaper_reset">GayGram（デフォルト）</string>
     <string name="settings_wallpaper_none">壁紙なし</string>
     <string name="settings_wallpaper_selected">選択中の壁紙</string>
     <string name="settings_wallpaper_dim">暗さ: %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">カラーテーマ</string>
     <string name="settings_accent">アクセントカラー</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">桜</string>
     <string name="settings_accent_ocean">オーシャン</string>
     <string name="settings_accent_forest">フォレスト</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter で送信、Shift+Enter で改行</string>
     <string name="settings_input_bar_fix_previews">リンクのプレビュー修正</string>
     <string name="settings_input_bar_fix_previews_sub">X、Bluesky、TikTok、Reddit、Pixivのリンクプレビューを修正</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">APIレイヤー %1$d</string>
     <string name="settings_update_beta">ベータ版アップデート</string>
     <string name="settings_update_beta_sub">GitHub Actions から CI ビルドをインストール</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">スポンサー</string>
     <string name="settings_sponsors_count">スポンサー %1$d人</string>
     <string name="settings_sponsor_promo">スポンサーになる</string>
-    <string name="settings_sponsor_promo_sub">Monogram を支援してバッジを取得</string>
+    <string name="settings_sponsor_promo_sub">GayGram を支援してバッジを取得</string>
     <string name="settings_proxy">プロキシ</string>
     <string name="settings_proxy_sub">プロキシ経由で接続</string>
     <string name="settings_proxy_type">プロキシの種類</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">パスキーを読み込むか更新できませんでした</string>
     <string name="settings_passkeys_retry">再試行</string>
     <string name="settings_passkeys_unsupported">パスキーにはAndroid 9以降が必要です</string>
-    <string name="settings_passkeys_provider_error">認証情報プロバイダがTelegramに対応し、このアプリを信頼していることを確認してください。KeePassDXでは、設定 → フォーム入力 → パスキー設定 → 特権アプリでMonogramを有効にして再試行してください</string>
+    <string name="settings_passkeys_provider_error">認証情報プロバイダがTelegramに対応し、このアプリを信頼していることを確認してください。KeePassDXでは、設定 → フォーム入力 → パスキー設定 → 特権アプリでGayGramを有効にして再試行してください</string>
     <string name="settings_passkeys_unavailable_hint">SMSコードの代わりに指紋でログインできます</string>
     <string name="settings_passkeys_help_show">プロバイダーが必要な理由</string>
     <string name="settings_passkeys_help_hide">詳細を隠す</string>
     <string name="settings_passkeys_help_title">Googleは非公式クライアントのパスキーを許可していません</string>
-    <string name="settings_passkeys_help_text">MonogramはTelegramの署名キーを使用していないため、GoogleパスワードマネージャーはTelegramのパスキーを拒否し、まだ追加できません。端末に組み込まれているパスキープロバイダーはGoogleだけなので、KeePassDXなどの独自プロバイダーに切り替えてください。設定には少し専門知識が必要ですが、完了すればここでパスキーを追加し、SMSコードの代わりに指紋でログインできます</string>
+    <string name="settings_passkeys_help_text">GayGramはTelegramの署名キーを使用していないため、GoogleパスワードマネージャーはTelegramのパスキーを拒否し、まだ追加できません。端末に組み込まれているパスキープロバイダーはGoogleだけなので、KeePassDXなどの独自プロバイダーに切り替えてください。設定には少し専門知識が必要ですが、完了すればここでパスキーを追加し、SMSコードの代わりに指紋でログインできます</string>
     <string name="settings_passkeys_help_open">パスキー設定を開く</string>
     <string name="settings_passkeys_provider_open">KeePassDXを開く</string>
     <string name="settings_devices_current_title">このデバイス</string>

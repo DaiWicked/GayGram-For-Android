@@ -144,7 +144,7 @@ object DebugStats {
         if (!snap.enabled) return "debug stats disabled\n"
         val fmt = SimpleDateFormat("HH:mm:ss", Locale.US)
         return buildString {
-            appendLine("Monogram debug stats")
+            appendLine("GayGram debug stats")
             appendLine("records=${snap.records.size} cap=$MAX_RECORDS")
             appendLine()
             appendLine("Slowest RPCs")

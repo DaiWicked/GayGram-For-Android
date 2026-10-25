@@ -275,5 +275,5 @@
     <string name="media_action_save_as">Farklı kaydet…</string>
     <string name="media_copy_hdr_warning">Görüntü kopyalandı. Bazı uygulamalar HDR desteklemeyebilir</string>
     <string name="status_fresh_authorization">Güvenliğiniz için giriş yaptıktan hemen sonra bu işlem kullanılamaz. 24 saat sonra yeniden deneyin veya eski bir oturum kullanın</string>
-    <string name="passkey_client_data_mismatch">Kimlik bilgisi sağlayıcısı farklı giriş verilerini imzaladı. Monogram için ayrıcalıklı uygulama ayarlarını kontrol edin</string>
+    <string name="passkey_client_data_mismatch">Kimlik bilgisi sağlayıcısı farklı giriş verilerini imzaladı. GayGram için ayrıcalıklı uygulama ayarlarını kontrol edin</string>
 </resources>

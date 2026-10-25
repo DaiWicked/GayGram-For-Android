@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Обої Telegram</string>
     <string name="settings_wallpaper_catalog_error">Не вдалося оновити обої. Перевірте з\'єднання та повторіть</string>
     <string name="settings_wallpaper_item">Обої %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram (за замовчуванням)</string>
+    <string name="settings_wallpaper_reset">GayGram (за замовчуванням)</string>
     <string name="settings_wallpaper_none">Без обоїв</string>
     <string name="settings_wallpaper_selected">Вибрані обої</string>
     <string name="settings_wallpaper_dim">Затемнення: %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Тема</string>
     <string name="settings_accent">Колір акценту</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">Сакура</string>
     <string name="settings_accent_ocean">Океан</string>
     <string name="settings_accent_forest">Ліс</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter надсилає повідомлення, Shift+Enter додає новий рядок</string>
     <string name="settings_input_bar_fix_previews">Виправлення перегляду посилань</string>
     <string name="settings_input_bar_fix_previews_sub">Виправляти перегляд посилань для X, Bluesky, TikTok, Reddit та Pixiv</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">Шар API %1$d</string>
     <string name="settings_update_beta">Бета-оновлення</string>
     <string name="settings_update_beta_sub">Встановлювати збірки CI з GitHub Actions</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">Спонсори</string>
     <string name="settings_sponsors_count">%1$d спонсорів</string>
     <string name="settings_sponsor_promo">Стати спонсором</string>
-    <string name="settings_sponsor_promo_sub">Підтримайте Monogram і отримайте значок</string>
+    <string name="settings_sponsor_promo_sub">Підтримайте GayGram і отримайте значок</string>
     <string name="settings_proxy">Проксі</string>
     <string name="settings_proxy_sub">Підключення через проксі</string>
     <string name="settings_proxy_type">Тип проксі</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">Не вдалося завантажити або оновити ключі доступу</string>
     <string name="settings_passkeys_retry">Повторити</string>
     <string name="settings_passkeys_unsupported">Ключі доступу потребують Android 9 або новішої версії</string>
-    <string name="settings_passkeys_provider_error">Перевірте підтримку Telegram і довіру до застосунку в менеджері облікових даних. У KeePassDX увімкніть Monogram: Налаштування → Заповнення форм → Налаштування ключів доступу → Привілейовані застосунки. Потім повторіть спробу</string>
+    <string name="settings_passkeys_provider_error">Перевірте підтримку Telegram і довіру до застосунку в менеджері облікових даних. У KeePassDX увімкніть GayGram: Налаштування → Заповнення форм → Налаштування ключів доступу → Привілейовані застосунки. Потім повторіть спробу</string>
     <string name="settings_passkeys_unavailable_hint">Входьте за відбитком пальця замість коду з SMS</string>
     <string name="settings_passkeys_help_show">Чому потрібен провайдер</string>
     <string name="settings_passkeys_help_hide">Приховати подробиці</string>
     <string name="settings_passkeys_help_title">Google не дозволяє ключі доступу для неофіційних клієнтів</string>
-    <string name="settings_passkeys_help_text">Monogram не використовує ключ підпису Telegram, тому Менеджер паролів Google відхиляє ключі доступу Telegram, і додати ключ поки не можна. Google — єдиний вбудований у телефон провайдер ключів доступу, тож перейдіть на власний провайдер, наприклад KeePassDX. Налаштування потребує деяких технічних знань, але після нього ви зможете додавати ключі доступу тут і входити за відбитком пальця замість коду з SMS</string>
+    <string name="settings_passkeys_help_text">GayGram не використовує ключ підпису Telegram, тому Менеджер паролів Google відхиляє ключі доступу Telegram, і додати ключ поки не можна. Google — єдиний вбудований у телефон провайдер ключів доступу, тож перейдіть на власний провайдер, наприклад KeePassDX. Налаштування потребує деяких технічних знань, але після нього ви зможете додавати ключі доступу тут і входити за відбитком пальця замість коду з SMS</string>
     <string name="settings_passkeys_help_open">Відкрити налаштування ключів доступу</string>
     <string name="settings_passkeys_provider_open">Відкрити KeePassDX</string>
     <string name="settings_devices_current_title">Цей пристрій</string>

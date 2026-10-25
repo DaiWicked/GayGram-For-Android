@@ -127,9 +127,9 @@ internal object MediaShareActions {
             MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         }
         val relativePath = if (isVideo) {
-            "${Environment.DIRECTORY_MOVIES}/Monogram"
+            "${Environment.DIRECTORY_MOVIES}/GayGram"
         } else {
-            "${Environment.DIRECTORY_PICTURES}/Monogram"
+            "${Environment.DIRECTORY_PICTURES}/GayGram"
         }
         val values = android.content.ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, shareFileName(displayName))

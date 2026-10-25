@@ -309,5 +309,5 @@
     <string name="media_action_save_as">Зберегти як…</string>
     <string name="media_copy_hdr_warning">Зображення скопійовано. Деякі застосунки можуть не підтримувати HDR</string>
     <string name="status_fresh_authorization">З міркувань безпеки ця дія недоступна відразу після входу. Спробуйте через 24 години або використайте старішу сесію</string>
-    <string name="passkey_client_data_mismatch">Провайдер ключів підписав інші дані входу. Перевірте налаштування привілейованих застосунків для Monogram</string>
+    <string name="passkey_client_data_mismatch">Провайдер ключів підписав інші дані входу. Перевірте налаштування привілейованих застосунків для GayGram</string>
 </resources>

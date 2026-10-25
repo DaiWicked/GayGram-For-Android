@@ -275,5 +275,5 @@
     <string name="media_action_save_as">Guardar como…</string>
     <string name="media_copy_hdr_warning">Imagen copiada. Algunas apps pueden no ser compatibles con HDR</string>
     <string name="status_fresh_authorization">Por seguridad, esta acción no está disponible justo después de iniciar sesión. Inténtalo tras 24 horas o usa una sesión anterior</string>
-    <string name="passkey_client_data_mismatch">El proveedor firmó otros datos de acceso. Revisa sus ajustes de aplicaciones privilegiadas para Monogram</string>
+    <string name="passkey_client_data_mismatch">El proveedor firmó otros datos de acceso. Revisa sus ajustes de aplicaciones privilegiadas para GayGram</string>
 </resources>

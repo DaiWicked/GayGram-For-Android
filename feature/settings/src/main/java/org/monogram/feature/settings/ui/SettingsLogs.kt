@@ -65,7 +65,7 @@ internal fun shareDebugLog(context: Context, text: String): Boolean = runCatchin
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_SUBJECT, "Monogram logs")
+        putExtra(Intent.EXTRA_SUBJECT, "GayGram logs")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     val chooser = Intent.createChooser(send, null).apply {

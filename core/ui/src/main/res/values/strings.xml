@@ -275,5 +275,5 @@
     <string name="media_action_save_as">Save as…</string>
     <string name="media_copy_hdr_warning">Image copied. Some apps may not support HDR</string>
     <string name="status_fresh_authorization">For your security, this action is unavailable just after logging in. Try again after 24 hours or use an older session</string>
-    <string name="passkey_client_data_mismatch">The credential provider signed different login data. Check its privileged app settings for Monogram</string>
+    <string name="passkey_client_data_mismatch">The credential provider signed different login data. Check its privileged app settings for GayGram</string>
 </resources>

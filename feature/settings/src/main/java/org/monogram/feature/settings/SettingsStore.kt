@@ -218,7 +218,7 @@ internal class SettingsStoreFactory(
                     kind = "document",
                     mimeType = "text/plain",
                     fileName = "monogram-debug-stats.txt",
-                    caption = "Monogram debug stats",
+                    caption = "GayGram debug stats",
                 )
                 val result = client.sendUploadedMedia(self, item)
                 file.delete()

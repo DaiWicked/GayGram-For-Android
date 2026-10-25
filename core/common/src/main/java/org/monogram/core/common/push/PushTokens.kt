@@ -23,7 +23,7 @@ data class PushProviderPlan(
     val status: String? = null,
 )
 
-const val NO_PUSH_STATUS = "notifications will only arrive while Monogram is connected"
+const val NO_PUSH_STATUS = "notifications will only arrive while GayGram is connected"
 const val PLAY_SERVICES_UNAVAILABLE = "Play services unavailable"
 const val SIMPLE_PUSH_PUT_WARNING = "simple push depends on the distributor accepting PUT"
 const val PUSH_STATUS_UP_FAILED = "unifiedpush failed"

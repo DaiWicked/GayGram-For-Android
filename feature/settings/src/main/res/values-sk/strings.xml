@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Tapety Telegramu</string>
     <string name="settings_wallpaper_catalog_error">Tapety sa nepodarilo obnoviť. Skontrolujte pripojenie a skúste znova</string>
     <string name="settings_wallpaper_item">Tapeta %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram (predvolené)</string>
+    <string name="settings_wallpaper_reset">GayGram (predvolené)</string>
     <string name="settings_wallpaper_none">Bez tapety</string>
     <string name="settings_wallpaper_selected">Vybraná tapeta</string>
     <string name="settings_wallpaper_dim">Stmavenie: %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Farebný motív</string>
     <string name="settings_accent">Farebný akcent</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">Sakura</string>
     <string name="settings_accent_ocean">Oceán</string>
     <string name="settings_accent_forest">Les</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter odošle správu; Shift+Enter pridá nový riadok</string>
     <string name="settings_input_bar_fix_previews">Oprava náhľadov odkazov</string>
     <string name="settings_input_bar_fix_previews_sub">Opravovať náhľady odkazov pre X, Bluesky, TikTok, Reddit a Pixiv</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">Vrstva API %1$d</string>
     <string name="settings_update_beta">Beta aktualizácie</string>
     <string name="settings_update_beta_sub">Inštalovať CI zostavy z GitHub Actions</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">Sponzori</string>
     <string name="settings_sponsors_count">%1$d sponzorov</string>
     <string name="settings_sponsor_promo">Stať sa sponzorom</string>
-    <string name="settings_sponsor_promo_sub">Podporte Monogram a získajte odznak</string>
+    <string name="settings_sponsor_promo_sub">Podporte GayGram a získajte odznak</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Pripojiť cez proxy</string>
     <string name="settings_proxy_type">Typ proxy</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">Prístupové kľúče sa nepodarilo načítať alebo aktualizovať</string>
     <string name="settings_passkeys_retry">Skúsiť znova</string>
     <string name="settings_passkeys_unsupported">Prístupové kľúče vyžadujú Android 9 alebo novší</string>
-    <string name="settings_passkeys_provider_error">Overte podporu Telegramu a dôveru aplikácii u poskytovateľa. V KeePassDX povoľte Monogram v Nastavenia → Vypĺňanie formulárov → Nastavenia prístupových kľúčov → Privilegované aplikácie a skúste to znova</string>
+    <string name="settings_passkeys_provider_error">Overte podporu Telegramu a dôveru aplikácii u poskytovateľa. V KeePassDX povoľte GayGram v Nastavenia → Vypĺňanie formulárov → Nastavenia prístupových kľúčov → Privilegované aplikácie a skúste to znova</string>
     <string name="settings_passkeys_unavailable_hint">Prihlasujte sa odtlačkom prsta namiesto SMS kódu</string>
     <string name="settings_passkeys_help_show">Prečo je potrebný poskytovateľ</string>
     <string name="settings_passkeys_help_hide">Skryť podrobnosti</string>
     <string name="settings_passkeys_help_title">Google nepovoľuje prístupové kľúče pre neoficiálnych klientov</string>
-    <string name="settings_passkeys_help_text">Monogram nepoužíva podpisový kľúč Telegramu, preto Správca hesiel Google odmieta prístupové kľúče Telegramu a kľúč zatiaľ nemôžete pridať. Google je jediný poskytovateľ prístupových kľúčov zabudovaný v telefóne, preto prejdite na vlastného poskytovateľa, napríklad KeePassDX. Nastavenie vyžaduje určité technické znalosti, no potom budete môcť pridávať kľúče tu a prihlasovať sa odtlačkom prsta namiesto SMS kódu</string>
+    <string name="settings_passkeys_help_text">GayGram nepoužíva podpisový kľúč Telegramu, preto Správca hesiel Google odmieta prístupové kľúče Telegramu a kľúč zatiaľ nemôžete pridať. Google je jediný poskytovateľ prístupových kľúčov zabudovaný v telefóne, preto prejdite na vlastného poskytovateľa, napríklad KeePassDX. Nastavenie vyžaduje určité technické znalosti, no potom budete môcť pridávať kľúče tu a prihlasovať sa odtlačkom prsta namiesto SMS kódu</string>
     <string name="settings_passkeys_help_open">Otvoriť nastavenia prístupových kľúčov</string>
     <string name="settings_passkeys_provider_open">Otvoriť KeePassDX</string>
     <string name="settings_devices_current_title">Toto zariadenie</string>

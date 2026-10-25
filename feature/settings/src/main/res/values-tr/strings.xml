@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Telegram duvar kağıtları</string>
     <string name="settings_wallpaper_catalog_error">Duvar kağıtları yenilenemedi. Bağlantınızı kontrol edip tekrar deneyin</string>
     <string name="settings_wallpaper_item">Duvar kağıdı %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram (varsayılan)</string>
+    <string name="settings_wallpaper_reset">GayGram (varsayılan)</string>
     <string name="settings_wallpaper_none">Duvar kağıdı yok</string>
     <string name="settings_wallpaper_selected">Seçili duvar kağıdı</string>
     <string name="settings_wallpaper_dim">Karartma: %1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">Renk teması</string>
     <string name="settings_accent">Vurgu rengi</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">Sakura</string>
     <string name="settings_accent_ocean">Okyanus</string>
     <string name="settings_accent_forest">Orman</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter mesajı gönderir; Shift+Enter yeni satır ekler</string>
     <string name="settings_input_bar_fix_previews">Bağlantı önizlemelerini düzelt</string>
     <string name="settings_input_bar_fix_previews_sub">X, Bluesky, TikTok, Reddit ve Pixiv için bağlantı önizlemelerini düzelt</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">API katmanı %1$d</string>
     <string name="settings_update_beta">Beta güncellemeleri</string>
     <string name="settings_update_beta_sub">GitHub Actions üzerinden CI sürümlerini yükle</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">Sponsorlar</string>
     <string name="settings_sponsors_count">%1$d sponsor</string>
     <string name="settings_sponsor_promo">Sponsor ol</string>
-    <string name="settings_sponsor_promo_sub">Monogram\'ı destekleyin ve rozet kazanın</string>
+    <string name="settings_sponsor_promo_sub">GayGram\'ı destekleyin ve rozet kazanın</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_sub">Proxy üzerinden bağlan</string>
     <string name="settings_proxy_type">Proxy türü</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">Geçiş anahtarları yüklenemedi veya güncellenemedi</string>
     <string name="settings_passkeys_retry">Yeniden dene</string>
     <string name="settings_passkeys_unsupported">Geçiş anahtarları Android 9 veya üzerini gerektirir</string>
-    <string name="settings_passkeys_provider_error">Sağlayıcınızın Telegram desteğini ve bu uygulamaya güvenini kontrol edin. KeePassDX içinde Ayarlar → Form doldurma → Geçiş anahtarı ayarları → Ayrıcalıklı uygulamalar bölümünde Monogram uygulamasını etkinleştirip yeniden deneyin</string>
+    <string name="settings_passkeys_provider_error">Sağlayıcınızın Telegram desteğini ve bu uygulamaya güvenini kontrol edin. KeePassDX içinde Ayarlar → Form doldurma → Geçiş anahtarı ayarları → Ayrıcalıklı uygulamalar bölümünde GayGram uygulamasını etkinleştirip yeniden deneyin</string>
     <string name="settings_passkeys_unavailable_hint">SMS kodu yerine parmak iziyle giriş yapın</string>
     <string name="settings_passkeys_help_show">Neden sağlayıcı gerekiyor</string>
     <string name="settings_passkeys_help_hide">Ayrıntıları gizle</string>
     <string name="settings_passkeys_help_title">Google resmi olmayan istemciler için geçiş anahtarlarına izin vermiyor</string>
-    <string name="settings_passkeys_help_text">Monogram, Telegram imzalama anahtarını kullanmadığından Google Parola Yöneticisi Telegram geçiş anahtarlarını reddediyor ve henüz bir anahtar ekleyemiyorsunuz. Telefonunuzda yerleşik tek geçiş anahtarı sağlayıcısı Google olduğundan KeePassDX gibi kendi sağlayıcınıza geçin. Kurulum biraz teknik bilgi gerektirir, ancak tamamlandığında burada geçiş anahtarı ekleyip SMS kodu yerine parmak iziyle giriş yapabilirsiniz</string>
+    <string name="settings_passkeys_help_text">GayGram, Telegram imzalama anahtarını kullanmadığından Google Parola Yöneticisi Telegram geçiş anahtarlarını reddediyor ve henüz bir anahtar ekleyemiyorsunuz. Telefonunuzda yerleşik tek geçiş anahtarı sağlayıcısı Google olduğundan KeePassDX gibi kendi sağlayıcınıza geçin. Kurulum biraz teknik bilgi gerektirir, ancak tamamlandığında burada geçiş anahtarı ekleyip SMS kodu yerine parmak iziyle giriş yapabilirsiniz</string>
     <string name="settings_passkeys_help_open">Geçiş anahtarı ayarlarını aç</string>
     <string name="settings_passkeys_provider_open">KeePassDXʼi aç</string>
     <string name="settings_devices_current_title">Bu cihaz</string>

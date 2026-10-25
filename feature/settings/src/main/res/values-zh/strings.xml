@@ -9,7 +9,7 @@
     <string name="settings_wallpaper_telegram">Telegram 壁纸</string>
     <string name="settings_wallpaper_catalog_error">无法刷新壁纸。请检查网络并重试</string>
     <string name="settings_wallpaper_item">壁纸 %1$d</string>
-    <string name="settings_wallpaper_reset">Monogram（默认）</string>
+    <string name="settings_wallpaper_reset">GayGram（默认）</string>
     <string name="settings_wallpaper_none">无壁纸</string>
     <string name="settings_wallpaper_selected">已选壁纸</string>
     <string name="settings_wallpaper_dim">变暗：%1$d%%</string>
@@ -205,7 +205,7 @@
     <string name="settings_ask_sub">telegram.org/support</string>
     <string name="settings_theme">颜色主题</string>
     <string name="settings_accent">强调色</string>
-    <string name="settings_accent_monogram">Monogram</string>
+    <string name="settings_accent_monogram">GayGram</string>
     <string name="settings_accent_sakura">樱花</string>
     <string name="settings_accent_ocean">海洋</string>
     <string name="settings_accent_forest">森林</string>
@@ -272,7 +272,7 @@
     <string name="settings_input_bar_send_by_enter_sub">Enter 发送消息；Shift+Enter 换行</string>
     <string name="settings_input_bar_fix_previews">修复链接预览</string>
     <string name="settings_input_bar_fix_previews_sub">修复 X、Bluesky、TikTok、Reddit 和 Pixiv 的链接预览</string>
-    <string name="settings_about">Monogram</string>
+    <string name="settings_about">GayGram</string>
     <string name="settings_api_layer">API 层 %1$d</string>
     <string name="settings_update_beta">Beta 测试版更新</string>
     <string name="settings_update_beta_sub">从 GitHub Actions 安装 CI 构建版本</string>
@@ -346,7 +346,7 @@
     <string name="settings_sponsors">赞助者</string>
     <string name="settings_sponsors_count">%1$d 位赞助者</string>
     <string name="settings_sponsor_promo">成为赞助者</string>
-    <string name="settings_sponsor_promo_sub">支持 Monogram 并获得徽章</string>
+    <string name="settings_sponsor_promo_sub">支持 GayGram 并获得徽章</string>
     <string name="settings_proxy">代理</string>
     <string name="settings_proxy_sub">通过代理连接</string>
     <string name="settings_proxy_type">代理类型</string>
@@ -437,12 +437,12 @@
     <string name="settings_passkeys_error">无法加载或更新通行密钥</string>
     <string name="settings_passkeys_retry">重试</string>
     <string name="settings_passkeys_unsupported">通行密钥需要 Android 9 或更高版本</string>
-    <string name="settings_passkeys_provider_error">请确认凭据提供程序支持 Telegram 并信任此应用。在 KeePassDX 的设置 → 表单填充 → 通行密钥设置 → 特权应用中启用 Monogram，然后重试</string>
+    <string name="settings_passkeys_provider_error">请确认凭据提供程序支持 Telegram 并信任此应用。在 KeePassDX 的设置 → 表单填充 → 通行密钥设置 → 特权应用中启用 GayGram，然后重试</string>
     <string name="settings_passkeys_unavailable_hint">用指纹登录，无需短信验证码</string>
     <string name="settings_passkeys_help_show">为什么需要通行密钥提供程序</string>
     <string name="settings_passkeys_help_hide">隐藏详情</string>
     <string name="settings_passkeys_help_title">Google 不允许非官方客户端使用通行密钥</string>
-    <string name="settings_passkeys_help_text">Monogram 未使用 Telegram 的签名密钥，因此 Google 密码管理工具会拒绝 Telegram 通行密钥，你暂时无法添加。Google 是手机中唯一内置的通行密钥提供程序，请切换到 KeePassDX 等自定义提供程序。设置需要一些技术知识，但完成后即可在此添加通行密钥，并用指纹代替短信验证码登录</string>
+    <string name="settings_passkeys_help_text">GayGram 未使用 Telegram 的签名密钥，因此 Google 密码管理工具会拒绝 Telegram 通行密钥，你暂时无法添加。Google 是手机中唯一内置的通行密钥提供程序，请切换到 KeePassDX 等自定义提供程序。设置需要一些技术知识，但完成后即可在此添加通行密钥，并用指纹代替短信验证码登录</string>
     <string name="settings_passkeys_help_open">打开通行密钥设置</string>
     <string name="settings_passkeys_provider_open">打开 KeePassDX</string>
     <string name="settings_devices_current_title">此设备</string>

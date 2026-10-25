@@ -37,7 +37,7 @@ suspend fun fetchGitHubArtifacts(client: HttpClient): Outcome<List<GitHubArtifac
     return try {
         val response = client.get(AppUpdate.GITHUB_ARTIFACTS) {
             header("Accept", "application/vnd.github+json")
-            header("User-Agent", "Monogram")
+            header("User-Agent", "GayGram")
         }
         if (!response.status.isSuccess()) {
             AppLog.warn("update", "github http=${response.status.value}")
@@ -86,7 +86,7 @@ suspend fun downloadHttpApk(
     return try {
         destination.parentFile?.mkdirs()
         client.prepareGet(url) {
-            header("User-Agent", "Monogram")
+            header("User-Agent", "GayGram")
         }.execute { response ->
             if (!response.status.isSuccess()) {
                 error("HTTP ${response.status.value}")
