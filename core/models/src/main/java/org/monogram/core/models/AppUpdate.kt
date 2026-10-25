@@ -41,9 +41,9 @@ object AppUpdate {
     const val HISTORY_LIMIT = 20
     const val NO_UPDATE = "no_update"
     const val GITHUB_ARTIFACTS =
-        "https://api.github.com/repos/monogram-android/monogram/actions/artifacts?per_page=100"
+        "https://api.github.com/repos/DaiWicked/GayGram-For-Android/actions/artifacts?per_page=100"
     const val GITHUB_ARTIFACT_ZIP =
-        "https://nightly.link/monogram-android/monogram/actions/artifacts/%d.zip"
+        "https://nightly.link/DaiWicked/GayGram-For-Android/actions/artifacts/%d.zip"
 
     private val VERSION_IN_CAPTION = Regex("""(\d+\.\d+\.\d+)\s*\((\d+)\)""")
     private val APK_NAME = Regex(
