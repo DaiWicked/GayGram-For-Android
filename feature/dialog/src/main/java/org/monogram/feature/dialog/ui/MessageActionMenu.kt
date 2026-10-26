@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,12 +24,15 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.monogram.core.models.Message
+import org.monogram.core.ui.glass.BlurBehindWindow
+import org.monogram.core.ui.glass.isWindowBlurEnabled
 import org.monogram.core.ui.menu.AppMenuDefaults
 import org.monogram.core.ui.menu.AppMenuGroup
 import org.monogram.core.ui.menu.AppMenuGrowth
 import org.monogram.core.ui.menu.AppMenuItem
 import org.monogram.core.ui.menu.AppMenuMotion
 import org.monogram.core.ui.menu.AppMenuSurface
+import org.monogram.core.ui.menu.LocalMenuWindowBlurred
 import org.monogram.feature.dialog.R
 
 data class MessageMenuActions(
@@ -64,97 +68,102 @@ fun MessageActionMenu(
     visible.targetState = expanded && message != null
     if (visible.isIdle && !visible.currentState && !visible.targetState) return
     val target = message ?: return
+    // The caller draws this menu in its own popup window, so the app behind it can only be blurred at
+    // the window level — a backdrop cannot reach across that boundary.
+    BlurBehindWindow(radius = AppMenuDefaults.BlurBehindRadius)
     val origin = TransformOrigin(
         pivotFractionX = if (alignToAnchorEnd) 1f else 0f,
         pivotFractionY = if (growth == AppMenuGrowth.Above) 1f else 0f,
     )
-    AnimatedVisibility(
-        visibleState = visible,
-        enter = fadeIn(AppMenuMotion.OpenSpec) +
-            scaleIn(AppMenuMotion.OpenSpec, initialScale = AppMenuMotion.InitialScale, transformOrigin = origin),
-        exit = fadeOut(AppMenuMotion.CloseSpec),
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier.widthIn(min = 196.dp, max = AppMenuDefaults.MaxWidth),
-            horizontalAlignment = if (alignToAnchorEnd) Alignment.End else Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(AppMenuDefaults.SurfaceGap),
+    CompositionLocalProvider(LocalMenuWindowBlurred provides isWindowBlurEnabled()) {
+        AnimatedVisibility(
+            visibleState = visible,
+            enter = fadeIn(AppMenuMotion.OpenSpec) +
+                scaleIn(AppMenuMotion.OpenSpec, initialScale = AppMenuMotion.InitialScale, transformOrigin = origin),
+            exit = fadeOut(AppMenuMotion.CloseSpec),
+            modifier = modifier,
         ) {
-            if (onReact != null) {
-                ReactionPickerStrip(
-                    recent = recentReactions,
-                    compact = true,
-                    onReact = { emoji, doc ->
-                        onReact(emoji, doc)
-                        onDismiss()
-                    },
-                )
-            }
-            seenByRow?.invoke()
-            AppMenuSurface(modifier = Modifier.fillMaxWidth()) {
-                AppMenuGroup {
-                    if (actions.canReply) {
-                        AppMenuItem(
-                            text = stringResource(R.string.dialog_reply),
-                            icon = Icons.AutoMirrored.Outlined.Reply,
-                            onClick = {
-                                onReply(target)
-                                onDismiss()
-                            },
-                        )
-                    }
-                    if (actions.forwardRestricted || actions.canForward) {
-                        AppMenuItem(
-                            text = stringResource(R.string.dialog_forward),
-                            icon = Icons.AutoMirrored.Outlined.Forward,
-                            enabled = actions.canForward,
-                            contentDescription = if (actions.forwardRestricted && !actions.canForward) {
-                                stringResource(R.string.dialog_forward_restricted)
-                            } else {
-                                null
-                            },
-                            onClick = {
-                                onForward(target)
-                                onDismiss()
-                            },
-                        )
-                    }
+            Column(
+                modifier = Modifier.widthIn(min = 196.dp, max = AppMenuDefaults.MaxWidth),
+                horizontalAlignment = if (alignToAnchorEnd) Alignment.End else Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(AppMenuDefaults.SurfaceGap),
+            ) {
+                if (onReact != null) {
+                    ReactionPickerStrip(
+                        recent = recentReactions,
+                        compact = true,
+                        onReact = { emoji, doc ->
+                            onReact(emoji, doc)
+                            onDismiss()
+                        },
+                    )
                 }
-                if (actions.canCopy || actions.canEdit) {
+                seenByRow?.invoke()
+                AppMenuSurface(modifier = Modifier.fillMaxWidth()) {
                     AppMenuGroup {
-                        if (actions.canCopy) {
+                        if (actions.canReply) {
                             AppMenuItem(
-                                text = stringResource(R.string.dialog_copy),
-                                icon = Icons.Outlined.ContentCopy,
+                                text = stringResource(R.string.dialog_reply),
+                                icon = Icons.AutoMirrored.Outlined.Reply,
                                 onClick = {
-                                    onCopy(target)
+                                    onReply(target)
                                     onDismiss()
                                 },
                             )
                         }
-                        if (actions.canEdit) {
+                        if (actions.forwardRestricted || actions.canForward) {
                             AppMenuItem(
-                                text = stringResource(R.string.dialog_edit),
-                                icon = Icons.Outlined.Edit,
+                                text = stringResource(R.string.dialog_forward),
+                                icon = Icons.AutoMirrored.Outlined.Forward,
+                                enabled = actions.canForward,
+                                contentDescription = if (actions.forwardRestricted && !actions.canForward) {
+                                    stringResource(R.string.dialog_forward_restricted)
+                                } else {
+                                    null
+                                },
                                 onClick = {
-                                    onEdit(target)
+                                    onForward(target)
                                     onDismiss()
                                 },
                             )
                         }
                     }
-                }
-                if (actions.canDelete) {
-                    AppMenuGroup {
-                        AppMenuItem(
-                            text = stringResource(R.string.dialog_delete),
-                            icon = Icons.Outlined.Delete,
-                            destructive = true,
-                            onClick = {
-                                onDelete(target)
-                                onDismiss()
-                            },
-                        )
+                    if (actions.canCopy || actions.canEdit) {
+                        AppMenuGroup {
+                            if (actions.canCopy) {
+                                AppMenuItem(
+                                    text = stringResource(R.string.dialog_copy),
+                                    icon = Icons.Outlined.ContentCopy,
+                                    onClick = {
+                                        onCopy(target)
+                                        onDismiss()
+                                    },
+                                )
+                            }
+                            if (actions.canEdit) {
+                                AppMenuItem(
+                                    text = stringResource(R.string.dialog_edit),
+                                    icon = Icons.Outlined.Edit,
+                                    onClick = {
+                                        onEdit(target)
+                                        onDismiss()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    if (actions.canDelete) {
+                        AppMenuGroup {
+                            AppMenuItem(
+                                text = stringResource(R.string.dialog_delete),
+                                icon = Icons.Outlined.Delete,
+                                destructive = true,
+                                onClick = {
+                                    onDelete(target)
+                                    onDismiss()
+                                },
+                            )
+                        }
                     }
                 }
             }

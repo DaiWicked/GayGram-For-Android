@@ -89,7 +89,7 @@ object AppMenuDefaults {
  * True only inside a popup whose window is blurred behind. A menu drawn in the app window has no
  * blurred window behind it, so its surface must stay opaque or the content behind shows through sharp.
  */
-internal val LocalMenuWindowBlurred = staticCompositionLocalOf { false }
+val LocalMenuWindowBlurred = staticCompositionLocalOf { false }
 
 object AppMenuMotion {
     private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)

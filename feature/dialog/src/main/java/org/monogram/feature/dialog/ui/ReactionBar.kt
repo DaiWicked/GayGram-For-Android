@@ -35,6 +35,8 @@ import org.monogram.core.models.MessageReaction
 import org.monogram.core.models.ReactionChoice
 import org.monogram.core.models.parseReactionsJson
 import org.monogram.core.models.reactionPickerChoices
+import org.monogram.core.ui.menu.AppMenuDefaults
+import org.monogram.core.ui.menu.LocalMenuWindowBlurred
 import org.monogram.feature.dialog.R
 
 private val ReactionGlyphSize = 18.dp
@@ -95,7 +97,9 @@ internal fun ReactionPickerStrip(
     Surface(
         modifier = modifier.wrapContentWidth(),
         shape = RoundedCornerShape(if (compact) 22.dp else 32.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(
+            alpha = if (LocalMenuWindowBlurred.current) AppMenuDefaults.BlurredSurfaceAlpha else 1f,
+        ),
         tonalElevation = 3.dp,
         shadowElevation = 0.dp,
     ) {
