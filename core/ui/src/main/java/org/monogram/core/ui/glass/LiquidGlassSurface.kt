@@ -38,12 +38,12 @@ fun LiquidGlassSurface(
 ) {
     // Layoutlib renders neither RenderEffect nor AGSL, so the preview gets the tier that draws.
     val tier = if (LocalInspectionMode.current) GlassTier.Tint else PlatformCapabilities.tier(enabled)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     if (tier == GlassTier.Off || tier == GlassTier.Tint) {
-        val fill = if (tier == GlassTier.Off) fallback else fallback.copy(alpha = GlassTokens.TintAlpha)
+        val fill = if (tier == GlassTier.Off) fallback else fallback.copy(alpha = GlassTokens.FallbackAlpha)
         Box(modifier.clip(shape).background(fill), content = content)
         return
     }
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val refracted = tier == GlassTier.Refraction && shape.canRefract()
     Box(
         modifier.drawBackdrop(
@@ -65,7 +65,7 @@ fun LiquidGlassSurface(
             onDrawSurface = {
                 if (tint != Color.Unspecified) {
                     drawRect(tint, blendMode = BlendMode.Hue)
-                    drawRect(tint.copy(alpha = GlassTokens.TintAlpha))
+                    drawRect(tint.copy(alpha = GlassTokens.tintAlpha(dark)))
                 }
             }
         ),

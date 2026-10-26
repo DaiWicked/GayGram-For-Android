@@ -62,6 +62,17 @@ object GlassTokens {
         depthEffect = true,
     )
 
-    /** Alpha of the tint layer laid over a glass surface. */
-    const val TintAlpha = 0.75f
+    // A tint absorbs part of the backdrop, so it has to absorb more of a bright one: the same alpha
+    // that stays readable over dark content washes a light surface out completely.
+    private const val LightTintAlpha = 0.22f
+    private const val DarkTintAlpha = 0.44f
+
+    /** Alpha of the tint layer drawn over a live glass surface. */
+    fun tintAlpha(dark: Boolean): Float = if (dark) DarkTintAlpha else LightTintAlpha
+
+    /**
+     * Alpha of the replacement surface when the platform cannot draw glass at all. This is not glass:
+     * it has to stay opaque enough for the text on it to survive without any blur underneath.
+     */
+    const val FallbackAlpha = 0.85f
 }
