@@ -41,8 +41,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,6 +84,12 @@ object AppMenuDefaults {
     val BlurBehindRadius = 20.dp
     const val BlurredSurfaceAlpha = 0.82f
 }
+
+/**
+ * True only inside a popup whose window is blurred behind. A menu drawn in the app window has no
+ * blurred window behind it, so its surface must stay opaque or the content behind shows through sharp.
+ */
+internal val LocalMenuWindowBlurred = staticCompositionLocalOf { false }
 
 object AppMenuMotion {
     private val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
@@ -126,7 +134,7 @@ fun AppMenuSurface(
         // Blur behind a window shows through the surface, so a menu that is being blurred behind has
         // to let some of it through — an opaque fill would hide the whole effect.
         color = MaterialTheme.colorScheme.surfaceContainer.copy(
-            alpha = if (isWindowBlurEnabled()) AppMenuDefaults.BlurredSurfaceAlpha else 1f,
+            alpha = if (LocalMenuWindowBlurred.current) AppMenuDefaults.BlurredSurfaceAlpha else 1f,
         ),
         tonalElevation = 3.dp,
         shadowElevation = 3.dp,
@@ -402,7 +410,9 @@ fun AppMenuPopup(
             exit = fadeOut(AppMenuMotion.CloseSpec),
             modifier = modifier,
         ) {
-            content()
+            CompositionLocalProvider(LocalMenuWindowBlurred provides isWindowBlurEnabled()) {
+                content()
+            }
         }
     }
 }
