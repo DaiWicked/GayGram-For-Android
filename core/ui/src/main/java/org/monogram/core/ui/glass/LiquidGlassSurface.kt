@@ -20,6 +20,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 
 /**
  * Draws what is behind this composable, so [backdrop] must be recorded by an ancestor through
@@ -60,7 +61,7 @@ fun LiquidGlassSurface(
                     )
                 }
             },
-            highlight = { Highlight.Default },
+            highlight = { glassHighlight(dark) },
             shadow = null,
             onDrawSurface = {
                 if (tint != Color.Unspecified) {
@@ -75,3 +76,18 @@ fun LiquidGlassSurface(
 
 // lens() throws for any shape it cannot derive a rounded-rect signed distance field from.
 private fun Shape.canRefract(): Boolean = this is CornerBasedShape || this is AbsoluteRoundedCornerShape
+
+/**
+ * A lit rim, not a white outline. On a light surface a white line has nowhere to go — the increment is
+ * alpha times the remaining headroom, which is under 20 of 255 on a near-white background — so the light
+ * theme gets a dark hairline instead, the way a physical edge reads there.
+ */
+private fun glassHighlight(dark: Boolean): Highlight =
+    Highlight(
+        alpha = if (dark) 0.5f else 0.24f,
+        style = if (dark) {
+            HighlightStyle.Default
+        } else {
+            HighlightStyle.Default(color = Color.Black, blendMode = BlendMode.SrcOver)
+        },
+    )

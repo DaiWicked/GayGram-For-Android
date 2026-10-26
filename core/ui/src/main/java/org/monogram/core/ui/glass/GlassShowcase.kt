@@ -63,10 +63,10 @@ fun GlassShowcase(modifier: Modifier = Modifier) {
             PresetRow(
                 backdrop,
                 dark,
-                "TabBar tinted",
+                "TabBar + surface tint",
                 GlassTokens.TabBar,
                 RoundedCornerShape(24.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.surface,
             )
             PresetRow(backdrop, dark, "Dialog", GlassTokens.Dialog, RoundedCornerShape(28.dp))
         }
