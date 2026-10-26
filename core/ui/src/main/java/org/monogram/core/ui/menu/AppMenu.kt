@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupPositionProvider
 import org.monogram.core.ui.components.PeerAvatar
+import org.monogram.core.ui.glass.BlurBehindWindow
+import org.monogram.core.ui.glass.isWindowBlurEnabled
 import java.io.File
 
 object AppMenuDefaults {
@@ -75,6 +77,10 @@ object AppMenuDefaults {
     val MinWidth = 112.dp
     val MaxWidth = 280.dp
     const val ScrimAlpha = 0.32f
+
+    /** Enough to read as frosted rather than clear, and still leaves the text on an opaque enough bed. */
+    val BlurBehindRadius = 20.dp
+    const val BlurredSurfaceAlpha = 0.82f
 }
 
 object AppMenuMotion {
@@ -117,7 +123,11 @@ fun AppMenuSurface(
             },
         ),
         shape = AppMenuDefaults.ContainerShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        // Blur behind a window shows through the surface, so a menu that is being blurred behind has
+        // to let some of it through — an opaque fill would hide the whole effect.
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(
+            alpha = if (isWindowBlurEnabled()) AppMenuDefaults.BlurredSurfaceAlpha else 1f,
+        ),
         tonalElevation = 3.dp,
         shadowElevation = 3.dp,
     ) {
@@ -380,6 +390,7 @@ fun AppMenuPopup(
             clippingEnabled = false,
         ),
     ) {
+        BlurBehindWindow(radius = AppMenuDefaults.BlurBehindRadius)
         val origin = TransformOrigin(
             pivotFractionX = if (alignToAnchorEnd) 1f else 0f,
             pivotFractionY = if (placement.growth == AppMenuGrowth.Above) 1f else 0f,
