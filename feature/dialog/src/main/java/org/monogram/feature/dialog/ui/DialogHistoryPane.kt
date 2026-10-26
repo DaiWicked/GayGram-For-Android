@@ -837,38 +837,27 @@ internal fun ColumnScope.DialogHistoryPane(
                             enter = fadeIn(),
                             exit = fadeOut(),
                         ) {
-                            // Badge lives outside the button: the surface is clipped to its shape,
-                            // which cut the overhanging counter off.
-                            Box {
-                                JumpToLatestButton(
-                                    backdrop = glassBackdrop,
-                                    icon = Icons.Outlined.KeyboardArrowDown,
-                                    label = if (unreadRow != null && firstVisible > unreadRow) {
-                                        stringResource(R.string.dialog_jump_unread)
+                            JumpToLatestButton(
+                                backdrop = glassBackdrop,
+                                icon = Icons.Outlined.KeyboardArrowDown,
+                                label = if (unreadRow != null && firstVisible > unreadRow) {
+                                    stringResource(R.string.dialog_jump_unread)
+                                } else {
+                                    stringResource(R.string.dialog_jump_latest)
+                                },
+                                count = if (unreadAt != null) state.unreadCount else 0,
+                                onClick = {
+                                    if (unreadRow != null && firstVisible > unreadRow) {
+                                        component.onJumpUnread()
                                     } else {
-                                        stringResource(R.string.dialog_jump_latest)
-                                    },
-                                    onClick = {
-                                        if (unreadRow != null && firstVisible > unreadRow) {
-                                            component.onJumpUnread()
-                                        } else {
-                                            followBottom = true
-                                            if (!state.hasNewer) {
-                                                listScope.launch { listState.scrollToItem(0) }
-                                            }
-                                            component.onJumpLatest()
+                                        followBottom = true
+                                        if (!state.hasNewer) {
+                                            listScope.launch { listState.scrollToItem(0) }
                                         }
-                                    },
-                                )
-                                UnreadBadge(
-                                    count = if (unreadAt != null) state.unreadCount else 0,
-                                    muted = false,
-                                    compact = true,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 8.dp, y = (-8).dp),
-                                )
-                            }
+                                        component.onJumpLatest()
+                                    }
+                                },
+                            )
                         }
                     }
                 }
