@@ -1,5 +1,8 @@
 package org.monogram.core.ui.glass
 
+import androidx.compose.ui.Modifier
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.isRenderEffectSupported
 import com.kyant.backdrop.isRuntimeShaderSupported
 
@@ -36,3 +39,11 @@ object PlatformCapabilities {
 
     fun tier(glassEnabled: Boolean): GlassTier = if (glassEnabled) supportedTier else GlassTier.Off
 }
+
+/**
+ * Marks the content a glass surface samples — a descendant of it is never allowed, or the surface
+ * would record itself. Skipped below [GlassTier.Blur]: a device that only draws the tinted fallback
+ * gains nothing from an offscreen pass of the whole surface every frame.
+ */
+fun Modifier.glassSource(backdrop: LayerBackdrop): Modifier =
+    if (PlatformCapabilities.supportedTier == GlassTier.Tint) this else layerBackdrop(backdrop)

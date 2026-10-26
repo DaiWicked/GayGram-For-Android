@@ -12,6 +12,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -89,6 +91,7 @@ import org.monogram.core.ui.components.ChatWallpaper
 import org.monogram.core.ui.components.MediaScrollGate
 import org.monogram.core.ui.components.MessageListSkeleton
 import org.monogram.core.ui.components.UnreadBadge
+import org.monogram.core.ui.glass.glassSource
 import org.monogram.core.ui.loading.MonogramLoading
 import org.monogram.core.ui.loading.MonogramLoadingListSize
 import org.monogram.core.ui.menu.AppMenuPlacementState
@@ -131,6 +134,11 @@ internal fun ColumnScope.DialogHistoryPane(
     val listState = rememberLazyListState(
         cacheWindow = LazyLayoutCacheWindow(ahead = 1000.dp, behind = 1000.dp),
     )
+    // Two sources, not one: the wallpaper is drawn outside the list, and a gap between bubbles would
+    // otherwise sample as transparent. Both are siblings of the glass, never its ancestors.
+    val wallpaperBackdrop = rememberLayerBackdrop()
+    val listBackdrop = rememberLayerBackdrop()
+    val glassBackdrop = rememberCombinedBackdrop(wallpaperBackdrop, listBackdrop)
     var lastScrolledAnchorRequest by rememberSaveable(state.chatId.value) {
         mutableStateOf<String?>(
             null
@@ -216,7 +224,7 @@ internal fun ColumnScope.DialogHistoryPane(
     ) {
         ChatWallpaper(
             appearance.wallpaperPath, appearance.wallpaperDim,
-            appearance.wallpaperMode, Modifier.fillMaxSize(),
+            appearance.wallpaperMode, Modifier.fillMaxSize().glassSource(wallpaperBackdrop),
         )
         if (state.messages.isEmpty()) {
             if (state.loading) {
@@ -425,7 +433,8 @@ internal fun ColumnScope.DialogHistoryPane(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clipToBounds(),
+                            .clipToBounds()
+                            .glassSource(listBackdrop),
                         state = listState,
                         contentPadding = PaddingValues(
                             top = topPadding,
@@ -823,13 +832,22 @@ internal fun ColumnScope.DialogHistoryPane(
                         }
                         androidx.compose.animation.AnimatedVisibility(
                             visible = firstVisible > 0,
-                            enter = fadeIn() + scaleIn(initialScale = 0.82f),
-                            exit = fadeOut() + scaleOut(targetScale = 0.82f),
+                            // Glass may fade but must not scale: the surface samples a fixed region
+                            // of what is behind it, so animating its bounds would slide the sample.
+                            enter = fadeIn(),
+                            exit = fadeOut(),
                         ) {
-                            // Badge lives outside the button: FAB content is clipped to the
-                            // button shape, which cut the overhanging counter off.
+                            // Badge lives outside the button: the surface is clipped to its shape,
+                            // which cut the overhanging counter off.
                             Box {
-                                SmallFloatingActionButton(
+                                JumpToLatestButton(
+                                    backdrop = glassBackdrop,
+                                    icon = Icons.Outlined.KeyboardArrowDown,
+                                    label = if (unreadRow != null && firstVisible > unreadRow) {
+                                        stringResource(R.string.dialog_jump_unread)
+                                    } else {
+                                        stringResource(R.string.dialog_jump_latest)
+                                    },
                                     onClick = {
                                         if (unreadRow != null && firstVisible > unreadRow) {
                                             component.onJumpUnread()
@@ -841,18 +859,7 @@ internal fun ColumnScope.DialogHistoryPane(
                                             component.onJumpLatest()
                                         }
                                     },
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.KeyboardArrowDown,
-                                        contentDescription = if (unreadRow != null && firstVisible > unreadRow) {
-                                            stringResource(R.string.dialog_jump_unread)
-                                        } else {
-                                            stringResource(R.string.dialog_jump_latest)
-                                        },
-                                    )
-                                }
+                                )
                                 UnreadBadge(
                                     count = if (unreadAt != null) state.unreadCount else 0,
                                     muted = false,
