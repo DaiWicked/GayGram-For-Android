@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -32,19 +33,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.launch
 import org.monogram.core.models.GeoPlace
 import org.monogram.core.models.PeerId
@@ -320,45 +327,15 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
         loadingNewer = state.loadingNewer,
         prefetchingOlder = state.prefetchingOlder,
     )
+    val wallpaperBackdrop = rememberLayerBackdrop()
+    val listBackdrop = rememberLayerBackdrop()
+    val chatGlassBackdrop = rememberCombinedBackdrop(wallpaperBackdrop, listBackdrop)
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            DialogTopBar(
-                component = component,
-                state = state,
-                title = title,
-                syncStatus = syncStatus,
-                showSearch = showSearch,
-                onToggleSearch = {
-                    if (showSearch) {
-                        component.onClearSearch()
-                        showSearch = false
-                    } else {
-                        showSearch = true
-                    }
-                },
-                onOpenEmojiStatus = {
-                    openedPack.value = OpenedPack(it, emojiPack = true)
-                },
-                selectedMessageCount = selectedMessageIds.value.size,
-                canForwardSelected = forwardableSelectedMessages.isNotEmpty() && forwardableSelectedMessages.size == selectedMessageIds.value.size,
-                canDeleteSelected = deleteOffer(
-                    state,
-                    state.messages.filter { it.id.id in selectedMessageIds.value },
-                    System.currentTimeMillis() / 1000,
-                ).visible,
-                onClearSelectedMessages = { selectedMessageIds.value = emptyList() },
-                onForwardSelectedMessages = {
-                    component.onForwardMessages(forwardableSelectedMessages)
-                    selectedMessageIds.value = emptyList()
-                },
-                onDeleteSelectedMessages = { pendingDeleteIds.value = selectedMessageIds.value },
-            )
-        },
-    ) { inner ->
+    ) { _ ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val composerFillsScreen = sheetScrimKeepsComposerClear(
                 maxWidth.value.roundToInt(),
@@ -368,36 +345,14 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                 LocalComposerChrome provides composerChrome,
                 LocalComposerFillsScreen provides composerFillsScreen,
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = inner.calculateTopPadding())
                         .imePadding(),
                 ) {
-                    AnimatedVisibility(
-                        visible = showSearch,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically(),
-                    ) {
-                        SearchField(
-                            query = state.searchQuery,
-                            onQueryChanged = component::onSearch,
-                            placeholder = stringResource(R.string.dialog_search),
-                            closeLabel = stringResource(R.string.dialog_search_clear),
-                            focusRequester = searchFocus,
-                            busy = state.searching,
-                            busyLabel = stringResource(R.string.dialog_inline_loading),
-                        )
-                    }
-                    AppStatusBanner(
-                        sync = if (state.messages.isEmpty() && state.loading) {
-                            AppSyncStatus.Hidden
-                        } else {
-                            syncStatus
-                        },
-                        error = state.error,
-                        onRetry = component::onRefresh,
-                    )
+                    val density = LocalDensity.current
+                    var chromeHeight by remember { mutableStateOf(0.dp) }
+                    Column(modifier = Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
                         if (state.composerPanel == ComposerPanels.ATTACH) {
                             AttachSheet(
@@ -602,6 +557,9 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                             peerListFilter = peerListFilter,
                             clipboard = clipboard,
                             attachScope = attachScope,
+                            wallpaperBackdrop = wallpaperBackdrop,
+                            listBackdrop = listBackdrop,
+                            topInset = chromeHeight,
                         )
                         DialogScreenDialogs(
                             component = component,
@@ -623,6 +581,69 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                             onCloseAttachAnimated = {
                                 attachHide.value?.invoke() ?: component.onCloseAttachSheet()
                             },
+                        )
+                    }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onSizeChanged { chromeHeight = with(density) { it.height.toDp() } },
+                    ) {
+                        DialogTopBar(
+                            component = component,
+                            state = state,
+                            backdrop = chatGlassBackdrop,
+                            title = title,
+                            syncStatus = syncStatus,
+                            showSearch = showSearch,
+                            onToggleSearch = {
+                                if (showSearch) {
+                                    component.onClearSearch()
+                                    showSearch = false
+                                } else {
+                                    showSearch = true
+                                }
+                            },
+                            onOpenEmojiStatus = {
+                                openedPack.value = OpenedPack(it, emojiPack = true)
+                            },
+                            selectedMessageCount = selectedMessageIds.value.size,
+                            canForwardSelected = forwardableSelectedMessages.isNotEmpty() && forwardableSelectedMessages.size == selectedMessageIds.value.size,
+                            canDeleteSelected = deleteOffer(
+                                state,
+                                state.messages.filter { it.id.id in selectedMessageIds.value },
+                                System.currentTimeMillis() / 1000,
+                            ).visible,
+                            onClearSelectedMessages = { selectedMessageIds.value = emptyList() },
+                            onForwardSelectedMessages = {
+                                component.onForwardMessages(forwardableSelectedMessages)
+                                selectedMessageIds.value = emptyList()
+                            },
+                            onDeleteSelectedMessages = { pendingDeleteIds.value = selectedMessageIds.value },
+                        )
+                        AnimatedVisibility(
+                            visible = showSearch,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically(),
+                        ) {
+                            SearchField(
+                                query = state.searchQuery,
+                                onQueryChanged = component::onSearch,
+                                placeholder = stringResource(R.string.dialog_search),
+                                closeLabel = stringResource(R.string.dialog_search_clear),
+                                focusRequester = searchFocus,
+                                busy = state.searching,
+                                busyLabel = stringResource(R.string.dialog_inline_loading),
+                            )
+                        }
+                        AppStatusBanner(
+                            sync = if (state.messages.isEmpty() && state.loading) {
+                                AppSyncStatus.Hidden
+                            } else {
+                                syncStatus
+                            },
+                            error = state.error,
+                            onRetry = component::onRefresh,
                         )
                     }
                 }

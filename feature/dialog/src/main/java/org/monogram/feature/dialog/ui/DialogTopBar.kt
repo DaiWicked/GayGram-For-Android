@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,17 +59,32 @@ import org.monogram.core.ui.components.typingStatusText
 import org.monogram.core.ui.components.uiLabel
 import org.monogram.core.ui.rememberEnsuredFile
 import org.monogram.core.ui.rememberStrippedPreview
+import com.kyant.backdrop.Backdrop
+import org.monogram.core.ui.glass.GlassTokens
+import org.monogram.core.ui.glass.LiquidGlassSurface
 import org.monogram.feature.dialog.DialogComponent
 import org.monogram.feature.dialog.DialogStore
 import org.monogram.feature.dialog.R
 import org.monogram.network.http.MediaPriority
 import org.monogram.network.http.UserDownload
 
+@Composable
+private fun GlassTopBar(backdrop: Backdrop, content: @Composable () -> Unit) {
+    LiquidGlassSurface(
+        backdrop = backdrop,
+        shape = RectangleShape,
+        surface = GlassTokens.TabBar,
+    ) {
+        content()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DialogTopBar(
     component: DialogComponent,
     state: DialogStore.State,
+    backdrop: Backdrop,
     title: String,
     syncStatus: AppSyncStatus,
     showSearch: Boolean,
@@ -81,6 +98,7 @@ internal fun DialogTopBar(
     onDeleteSelectedMessages: () -> Unit,
 ) {
     if (selectedMessageCount > 0) {
+        GlassTopBar(backdrop = backdrop) {
         TopAppBar(
             windowInsets = WindowInsets.statusBars,
             title = {
@@ -122,9 +140,10 @@ internal fun DialogTopBar(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                containerColor = Color.Transparent,
             ),
         )
+        }
         return
     }
     CompositionLocalProvider(
@@ -139,6 +158,7 @@ internal fun DialogTopBar(
     }.collectAsState()
     var showDownloads by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
+    GlassTopBar(backdrop = backdrop) {
     TopAppBar(
         windowInsets = WindowInsets.statusBars,
         title = {
@@ -268,9 +288,10 @@ internal fun DialogTopBar(
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = Color.Transparent,
         ),
     )
+    }
         DialogDownloadProgressBar(
             downloads = userDownloads,
             progress = downloadProgress,

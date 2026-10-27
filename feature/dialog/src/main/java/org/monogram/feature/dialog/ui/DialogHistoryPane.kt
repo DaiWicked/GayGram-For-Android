@@ -12,8 +12,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -78,6 +78,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -130,14 +131,15 @@ internal fun ColumnScope.DialogHistoryPane(
     peerListFilter: MutableState<String?>,
     clipboard: androidx.compose.ui.platform.Clipboard,
     attachScope: kotlinx.coroutines.CoroutineScope,
+    wallpaperBackdrop: LayerBackdrop,
+    listBackdrop: LayerBackdrop,
+    topInset: Dp = 0.dp,
 ) {
     val listState = rememberLazyListState(
         cacheWindow = LazyLayoutCacheWindow(ahead = 1000.dp, behind = 1000.dp),
     )
     // Two sources, not one: the wallpaper is drawn outside the list, and a gap between bubbles would
     // otherwise sample as transparent. Both are siblings of the glass, never its ancestors.
-    val wallpaperBackdrop = rememberLayerBackdrop()
-    val listBackdrop = rememberLayerBackdrop()
     val glassBackdrop = rememberCombinedBackdrop(wallpaperBackdrop, listBackdrop)
     var lastScrolledAnchorRequest by rememberSaveable(state.chatId.value) {
         mutableStateOf<String?>(
@@ -209,11 +211,13 @@ internal fun ColumnScope.DialogHistoryPane(
     val showPinned = !state.isCommentThread && pinned != null
     // A bar we already had on the first frame must not slide in again on the next open.
     val pinWasReady = remember { showPinned }
-    val topPadding by animateDpAsState(
+    val pinnedInset by animateDpAsState(
         targetValue = if (showPinned) 88.dp else 8.dp,
         animationSpec = if (pinWasReady) snap() else tween(),
         label = "pinned-top-padding",
     )
+    // The list runs under the chrome now, so everything inside it clears the chrome by this much.
+    val topPadding = topInset + pinnedInset
     Box(
         modifier = Modifier
             .weight(1f)
@@ -921,7 +925,7 @@ internal fun ColumnScope.DialogHistoryPane(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = if (showPinned) 88.dp else 8.dp),
+                    .padding(top = topPadding),
             ) {
                 dateOverlayEpoch?.let { epoch ->
                     DialogDateSeparator(epochSeconds = epoch, zone = overlayZone)
@@ -931,7 +935,9 @@ internal fun ColumnScope.DialogHistoryPane(
                 visible = showPinned,
                 enter = if (pinWasReady) EnterTransition.None else fadeIn() + slideInVertically { -it },
                 exit = fadeOut() + slideOutVertically { -it },
-                modifier = Modifier.align(Alignment.TopCenter),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = topInset),
             ) {
                 if (pinned != null) {
                     PinnedMessageBar(
