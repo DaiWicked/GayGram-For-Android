@@ -14,6 +14,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -528,34 +529,6 @@ fun ChatsContent(
                     .padding(bottom = inner.calculateBottomPadding()),
             ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                    if (!archive && !searchOpen && !foldersAtBottom && showFolderChips) {
-                        Box {
-                            FolderChipRow(
-                                chips = chipItems,
-                                selectedId = homeFolderId,
-                                onSelect = stableSelectFolder,
-                                onManage = if (selectingRecipient) null else stableOpenFolders,
-                                manageContentDescription = if (selectingRecipient) null else manageFoldersLabel,
-                                onLongPress = if (selectingRecipient) null else stableChipLongPress,
-                            )
-                            if (!selectingRecipient) {
-                                AppMenuPopup(
-                                    expanded = folderMenu != null,
-                                    onDismiss = stableDismissFolderMenu,
-                                ) {
-                                    FolderChipMenu(
-                                        chats = allChats.items(),
-                                        folders = folders,
-                                        folderId = folderMenu?.id,
-                                        markReadLabel = markReadLabel,
-                                        editLabel = manageFoldersLabel,
-                                        onMarkRead = stableMarkFolderRead,
-                                        onEditFolders = stableEditFolders,
-                                    )
-                                }
-                            }
-                        }
-                    }
                     Box(modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()) {
@@ -794,6 +767,38 @@ fun ChatsContent(
                         component::onRefresh
                     },
                 )
+                if (!archive && !searchOpen && !foldersAtBottom && showFolderChips) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface),
+                    ) {
+                        FolderChipRow(
+                            chips = chipItems,
+                            selectedId = homeFolderId,
+                            onSelect = stableSelectFolder,
+                            onManage = if (selectingRecipient) null else stableOpenFolders,
+                            manageContentDescription = if (selectingRecipient) null else manageFoldersLabel,
+                            onLongPress = if (selectingRecipient) null else stableChipLongPress,
+                        )
+                        if (!selectingRecipient) {
+                            AppMenuPopup(
+                                expanded = folderMenu != null,
+                                onDismiss = stableDismissFolderMenu,
+                            ) {
+                                FolderChipMenu(
+                                    chats = allChats.items(),
+                                    folders = folders,
+                                    folderId = folderMenu?.id,
+                                    markReadLabel = markReadLabel,
+                                    editLabel = manageFoldersLabel,
+                                    onMarkRead = stableMarkFolderRead,
+                                    onEditFolders = stableEditFolders,
+                                )
+                            }
+                        }
+                    }
+                }
             }
             }
         }
