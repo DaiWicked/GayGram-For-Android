@@ -74,6 +74,9 @@ private fun GlassTopBar(backdrop: Backdrop, content: @Composable () -> Unit) {
         backdrop = backdrop,
         shape = RectangleShape,
         surface = GlassTokens.TabBar,
+        // A toolbar carries text over whatever the chat is showing; without the neutral wash a bright
+        // wallpaper leaves the title unreadable. Handbook §8: adaptive tint, not a fixed alpha.
+        tint = MaterialTheme.colorScheme.surface,
     ) {
         content()
     }
