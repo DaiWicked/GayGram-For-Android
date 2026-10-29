@@ -35,12 +35,19 @@ import org.monogram.core.ui.perf.RecompositionProbe
 import org.monogram.feature.chats.recipientPaneIds
 import org.monogram.feature.chats.shouldPageChats
 import org.monogram.network.http.MediaRepository
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.Dp
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import org.monogram.core.ui.glass.glassSource
 
 @Composable
 internal fun ChatsLazyList(
     chats: ChatListSnapshot,
     listState: LazyListState,
+    glassBackdrop: LayerBackdrop,
     archive: Boolean,
+    topInset: Dp = 0.dp,
     searchOpen: Boolean,
     query: String,
     homeFolderId: Int?,
@@ -178,8 +185,12 @@ internal fun ChatsLazyList(
     }
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .glassSource(glassBackdrop)
+            .background(MaterialTheme.colorScheme.surface),
         contentPadding = PaddingValues(
+            top = topInset,
             bottom = 8.dp + miniPlayerPad +
                 (if (foldersAtBottom && !archive && !searchOpen) 72.dp else 0.dp) +
                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),

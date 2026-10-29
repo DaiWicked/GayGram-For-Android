@@ -125,6 +125,9 @@ import org.monogram.feature.chats.unreadChatIds
 import org.monogram.feature.chats.visibleChats
 import org.monogram.network.http.MediaPriority
 import org.monogram.network.http.MediaRepository
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -435,11 +438,10 @@ fun ChatsContent(
         }
         val markAllIds = remember(state.chats, archive) { unreadChatIds(state.chats, archive) }
 
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            topBar = {
+        val density = LocalDensity.current
+        var chromeHeight by remember { mutableStateOf(0.dp) }
+        val listBackdrop = rememberLayerBackdrop()
+        val appBarContent: @Composable () -> Unit = {
                 if (selectingRecipient) {
                     androidx.compose.material3.TopAppBar(
                         title = {
@@ -474,6 +476,7 @@ fun ChatsContent(
                     )
                 } else {
                     ChatsTopBar(
+                        backdrop = listBackdrop,
                         atTop = atTop,
                         brandTitle = if (archive) archiveLabel else brandLabel,
                         brandEmojiDocumentId = if (archive) null else state.self?.emojiStatusDocumentId,
@@ -509,46 +512,22 @@ fun ChatsContent(
                         proxyStatusLabel = stringResource(R.string.chats_proxy_status),
                     )
                 }
-            },
+        }
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {},
             bottomBar = {
                 if (selectingRecipient) selectionBottomBar()
             },
         ) { inner ->
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(
-                        top = inner.calculateTopPadding(),
-                        bottom = inner.calculateBottomPadding(),
-                    ),
+                    .padding(bottom = inner.calculateBottomPadding()),
             ) {
-                AnimatedVisibility(
-                    visible = searchOpen,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    SearchField(
-                        query = state.query,
-                        onQueryChanged = component::onQueryChanged,
-                        placeholder = stringResource(R.string.chats_search),
-                        closeLabel = stringResource(R.string.chats_search_close),
-                        focusRequester = searchFocus,
-                        busy = state.searchLoading && !state.searchLoadingMore,
-                        busyLabel = stringResource(R.string.chats_loading),
-                    )
-                }
-                AppStatusBanner(
-                    sync = syncStatus,
-                    error = if (state.query.isNotBlank()) state.searchError else state.error,
-                    onRetry = if (state.query.isNotBlank()) {
-                        component::onRetrySearch
-                    } else {
-                        component::onRefresh
-                    },
-                )
-                Column(modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                     if (!archive && !searchOpen && !foldersAtBottom && showFolderChips) {
                         Box {
                             FolderChipRow(
@@ -592,6 +571,8 @@ fun ChatsContent(
                             ChatsLazyList(
                                 chats = paneChats,
                                 listState = paneListState,
+                                    glassBackdrop = listBackdrop,
+                                    topInset = chromeHeight,
                                 archive = true,
                                 searchOpen = searchOpen,
                                 query = state.query,
@@ -692,6 +673,8 @@ fun ChatsContent(
                                 ChatsLazyList(
                                     chats = pageChats,
                                     listState = pageListState,
+                                        glassBackdrop = listBackdrop,
+                                        topInset = chromeHeight,
                                     archive = false,
                                     searchOpen = searchOpen,
                                     query = state.query,
@@ -780,6 +763,38 @@ fun ChatsContent(
                         }
                     }
                 }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .onSizeChanged { chromeHeight = with(density) { it.height.toDp() } },
+            ) {
+                appBarContent()
+                AnimatedVisibility(
+                    visible = searchOpen,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    SearchField(
+                        query = state.query,
+                        onQueryChanged = component::onQueryChanged,
+                        placeholder = stringResource(R.string.chats_search),
+                        closeLabel = stringResource(R.string.chats_search_close),
+                        focusRequester = searchFocus,
+                        busy = state.searchLoading && !state.searchLoadingMore,
+                        busyLabel = stringResource(R.string.chats_loading),
+                    )
+                }
+                AppStatusBanner(
+                    sync = syncStatus,
+                    error = if (state.query.isNotBlank()) state.searchError else state.error,
+                    onRetry = if (state.query.isNotBlank()) {
+                        component::onRetrySearch
+                    } else {
+                        component::onRefresh
+                    },
+                )
+            }
             }
         }
     }

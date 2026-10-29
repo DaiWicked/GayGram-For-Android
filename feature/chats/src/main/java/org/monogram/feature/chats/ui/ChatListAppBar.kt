@@ -52,6 +52,12 @@ import org.monogram.core.ui.menu.AppMenuSurface
 import org.monogram.network.bridge.session.ProxyConnectionStatus
 import org.monogram.network.http.MediaRepository
 import java.io.File
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import com.kyant.backdrop.Backdrop
+import org.monogram.core.ui.glass.GlassTokens
+import org.monogram.core.ui.glass.LiquidGlassSurface
 
 /**
  * One single-row header. At the top of the list it shows the product name (with the account's
@@ -62,6 +68,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChatsTopBar(
+    backdrop: Backdrop,
     atTop: Boolean,
     brandTitle: String,
     brandEmojiDocumentId: Long?,
@@ -106,8 +113,15 @@ internal fun ChatsTopBar(
         AppBarSubtitle(text = subtitleText)
     }
 
-    TopAppBar(
-        title = {
+    LiquidGlassSurface(
+        backdrop = backdrop,
+        shape = RectangleShape,
+        surface = GlassTokens.TabBar,
+        tint = containerColor,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        TopAppBar(
+            title = {
             AppBarTitle(
                 brandTitle = brandTitle,
                 brandEmojiDocumentId = brandEmojiDocumentId,
@@ -164,11 +178,12 @@ internal fun ChatsTopBar(
                 onMarkAllRead = onMarkAllRead,
             )
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = containerColor,
-            scrolledContainerColor = containerColor,
-        ),
-    )
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
+            ),
+        )
+    }
 }
 
 /**
