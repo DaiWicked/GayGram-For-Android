@@ -1,8 +1,10 @@
 package org.monogram.core.ui.glass
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,10 +87,13 @@ fun GlassBottomBar(
     val indicatorFill = if (dark) {
         Color.White.copy(alpha = 0.10f)
     } else {
-        Color.Black.copy(alpha = 0.06f)
+        Color.Black.copy(alpha = 0.10f)
     }
     val density = LocalDensity.current
     val selected = selectedIndex.coerceIn(0, tabs.lastIndex)
+    // The gesture lambda outlives the composition that created it, so it has to read the latest
+    // selection through a state holder instead of capturing the value it started with.
+    val currentSelected by rememberUpdatedState(selected)
 
     var dragging by remember { mutableStateOf(false) }
     var pressStartIndex by remember { mutableIntStateOf(selected) }
@@ -111,11 +117,17 @@ fun GlassBottomBar(
             val slot = maxWidth / tabs.size
             val slotPx = with(density) { slot.toPx() }
             val travelPx = with(density) { (maxWidth - slot).toPx() }
+            // A tap glides to its tab; a drag follows the finger, so it must not be animated at all.
+            val restOffset by animateDpAsState(
+                targetValue = slot * selected,
+                animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+                label = "indicatorOffset",
+            )
             val indicatorOffset = if (dragging && slotPx > 0f) {
                 with(density) { (pressStartIndex * slotPx + dragPx).toDp() }
                     .coerceIn(0.dp, maxWidth - slot)
             } else {
-                slot * selected
+                restOffset
             }
             val rubberBand = if (travelPx > 0f) {
                 val fraction = (dragPx / (travelPx + slotPx)).coerceIn(-1f, 1f)
@@ -130,7 +142,7 @@ fun GlassBottomBar(
                     .pointerInput(tabs.size, slotPx) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
-                            pressStartIndex = selected
+                            pressStartIndex = currentSelected
                             dragPx = 0f
                             var lastX = down.position.x
                             var moved = false
@@ -155,12 +167,12 @@ fun GlassBottomBar(
                                 val target = if (slotPx > 0f) {
                                     (pressStartIndex + dragPx / slotPx).roundToInt()
                                 } else {
-                                    selected
+                                    currentSelected
                                 }
                                 dragPx = 0f
                                 dragging = false
                                 val index = target.coerceIn(0, tabs.lastIndex)
-                                if (index != selected) onSelect(index)
+                                if (index != currentSelected) onSelect(index)
                             }
                         }
                     },
@@ -170,8 +182,14 @@ fun GlassBottomBar(
                         .offset(x = indicatorOffset)
                         .width(slot)
                         .height(IndicatorHeight)
+                        .graphicsLayer { alpha = 1f - pressProgress * 0.85f }
                         .clip(BarShape)
                         .background(indicatorFill)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            shape = BarShape,
+                        )
                 )
                 if (pressProgress > 0.01f) {
                     Box(
