@@ -75,6 +75,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -113,6 +115,9 @@ import org.monogram.core.ui.ComposerSlotAction
 import org.monogram.core.ui.ExpressiveDefaults
 import org.monogram.core.ui.canSend
 import org.monogram.core.ui.components.ChatComposerLayout
+import org.monogram.core.ui.glass.GlassTokens
+import org.monogram.core.ui.glass.LiquidGlassSurface
+import org.monogram.core.ui.glass.LocalGlassBackdrop
 import org.monogram.core.ui.theme.MonogramTheme
 import org.monogram.feature.dialog.R
 import org.monogram.feature.dialog.ReadOnlyBarAction
@@ -225,12 +230,23 @@ internal fun DialogWriteBar(
                 (pendingAttach.isNotEmpty() && canSendPhotos)
     }
     val scheme = MaterialTheme.colorScheme
+    val glassBackdrop = LocalGlassBackdrop.current
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = scheme.surfaceContainer,
-        contentColor = scheme.onSurface,
-    ) {
+    Box(modifier = modifier.fillMaxWidth()) {
+        if (glassBackdrop != null) {
+            LiquidGlassSurface(
+                backdrop = glassBackdrop,
+                shape = RectangleShape,
+                surface = GlassTokens.TabBar,
+                tint = scheme.surface,
+                modifier = Modifier.matchParentSize(),
+            ) {}
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = if (glassBackdrop != null) Color.Transparent else scheme.surfaceContainer,
+            contentColor = scheme.onSurface,
+        ) {
         Column(
             modifier = Modifier
                 .navigationBarsPadding()
@@ -524,6 +540,7 @@ internal fun DialogWriteBar(
                 }
             }
         }
+    }
     }
 }
 

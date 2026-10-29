@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +62,7 @@ import org.monogram.core.models.remapTextEntities
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
 import org.monogram.core.ui.components.SearchField
+import org.monogram.core.ui.glass.LocalGlassBackdrop
 import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.DialogComponent
 import org.monogram.feature.dialog.R
@@ -344,6 +346,7 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
             CompositionLocalProvider(
                 LocalComposerChrome provides composerChrome,
                 LocalComposerFillsScreen provides composerFillsScreen,
+                LocalGlassBackdrop provides chatGlassBackdrop,
             ) {
                 Box(
                     modifier = Modifier
@@ -352,6 +355,7 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                 ) {
                     val density = LocalDensity.current
                     var chromeHeight by remember { mutableStateOf(0.dp) }
+                    var composerHeight by remember { mutableStateOf(0.dp) }
                     Column(modifier = Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
                         if (state.composerPanel == ComposerPanels.ATTACH) {
@@ -560,29 +564,39 @@ internal fun DialogScreen(component: DialogComponent, modifier: Modifier) {
                             wallpaperBackdrop = wallpaperBackdrop,
                             listBackdrop = listBackdrop,
                             topInset = chromeHeight,
-                        )
-                        DialogScreenDialogs(
-                            component = component,
-                            state = state,
-                            composer = composer,
-                            openedPack = openedPack,
-                            instantViewUrl = instantViewUrl,
-                            instantViewHash = instantViewHash,
-                            pendingDeleteIds = pendingDeleteIds,
-                            taskDraftFor = taskDraftFor,
-                            taskDraft = taskDraft,
-                            onPhotos = {
-                                photoPicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
-                                )
-                            },
-                            onFile = { filePicker.launch(arrayOf("*/*")) },
-                            onLocation = sendLocation,
-                            onCloseAttachAnimated = {
-                                attachHide.value?.invoke() ?: component.onCloseAttachSheet()
-                            },
+                            bottomInset = composerHeight,
                         )
                     }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .onSizeChanged { composerHeight = with(density) { it.height.toDp() } },
+                    ) {
+                        CompositionLocalProvider(LocalDialogMedia provides component.mediaRepository) {
+                            DialogScreenDialogs(
+                                component = component,
+                                state = state,
+                                composer = composer,
+                                openedPack = openedPack,
+                                instantViewUrl = instantViewUrl,
+                                instantViewHash = instantViewHash,
+                                pendingDeleteIds = pendingDeleteIds,
+                                taskDraftFor = taskDraftFor,
+                                taskDraft = taskDraft,
+                                onPhotos = {
+                                    photoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
+                                    )
+                                },
+                                onFile = { filePicker.launch(arrayOf("*/*")) },
+                                onLocation = sendLocation,
+                                onCloseAttachAnimated = {
+                                    attachHide.value?.invoke() ?: component.onCloseAttachSheet()
+                                },
+                            )
+                        }
                     }
                     Column(
                         modifier = Modifier

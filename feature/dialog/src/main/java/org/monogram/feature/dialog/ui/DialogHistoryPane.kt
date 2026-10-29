@@ -134,6 +134,7 @@ internal fun ColumnScope.DialogHistoryPane(
     wallpaperBackdrop: LayerBackdrop,
     listBackdrop: LayerBackdrop,
     topInset: Dp = 0.dp,
+    bottomInset: Dp = 0.dp,
 ) {
     val listState = rememberLazyListState(
         cacheWindow = LazyLayoutCacheWindow(ahead = 1000.dp, behind = 1000.dp),
@@ -442,7 +443,7 @@ internal fun ColumnScope.DialogHistoryPane(
                         state = listState,
                         contentPadding = PaddingValues(
                             top = topPadding,
-                            bottom = 8.dp,
+                            bottom = 8.dp + bottomInset,
                         ),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         reverseLayout = true,
