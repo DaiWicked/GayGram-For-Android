@@ -1,6 +1,5 @@
 package org.monogram.core.ui.glass
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -52,8 +51,6 @@ import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sign
-import kotlin.math.sin
 
 /** One destination in [GlassBottomBar]. The label is user-visible, so it arrives translated. */
 data class GlassBarTab(val icon: ImageVector, val label: String)
@@ -62,16 +59,19 @@ private val BarHeight = 64.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val BarInnerPadding = 4.dp
 private val IndicatorHeight = BarHeight - BarInnerPadding * 2
-private val RubberBand = 4.dp
+
+// Critically damped: the indicator must arrive without overshooting. A bouncy spring reads as the
+// chip snapping back rather than as the finger having placed it.
+private val IndicatorSpring = spring<Float>(dampingRatio = 1f, stiffness = 500f)
 
 /**
  * The floating bar from the design guide: a capsule of glass with one indicator that can be dragged
  * across it, used for the app's top-level destinations. It samples [backdrop], so the content it
  * floats over has to keep scrolling underneath instead of stopping above the bar.
  *
- * The indicator is glass only while a finger is on it. At rest it is a flat scrim: a lens that never
- * turns off would bend the labels and the page into each other, which reads as noise rather than as
- * a selected tab.
+ * The indicator is glass only while a finger is on it. At rest it is a flat scrim with a hairline
+ * edge: a lens that never turns off would bend the labels and the page into each other, which reads
+ * as noise rather than as a selected tab.
  */
 @Composable
 fun GlassBottomBar(
@@ -95,11 +95,12 @@ fun GlassBottomBar(
     // selection through a state holder instead of capturing the value it started with.
     val currentSelected by rememberUpdatedState(selected)
 
+    var pressed by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
     var pressStartIndex by remember { mutableIntStateOf(selected) }
     var dragPx by remember { mutableFloatStateOf(0f) }
     val pressProgress by animateFloatAsState(
-        targetValue = if (dragging) 1f else 0f,
+        targetValue = if (pressed) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
         label = "barPress",
     )
@@ -117,33 +118,28 @@ fun GlassBottomBar(
             val slot = maxWidth / tabs.size
             val slotPx = with(density) { slot.toPx() }
             val travelPx = with(density) { (maxWidth - slot).toPx() }
-            // A tap glides to its tab; a drag follows the finger, so it must not be animated at all.
-            val restOffset by animateDpAsState(
-                targetValue = slot * selected,
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
+            // One animated value drives both cases: while dragging it chases the finger, and on
+            // release it is already standing where the finger left it, so nothing jumps back.
+            val targetOffsetPx = if (dragging && slotPx > 0f) {
+                (pressStartIndex * slotPx + dragPx).coerceIn(0f, travelPx)
+            } else {
+                (selected * slotPx).coerceIn(0f, travelPx)
+            }
+            val offsetPx by animateFloatAsState(
+                targetValue = targetOffsetPx,
+                animationSpec = IndicatorSpring,
                 label = "indicatorOffset",
             )
-            val indicatorOffset = if (dragging && slotPx > 0f) {
-                with(density) { (pressStartIndex * slotPx + dragPx).toDp() }
-                    .coerceIn(0.dp, maxWidth - slot)
-            } else {
-                restOffset
-            }
-            val rubberBand = if (travelPx > 0f) {
-                val fraction = (dragPx / (travelPx + slotPx)).coerceIn(-1f, 1f)
-                with(density) { RubberBand.toPx() } * fraction.sign * sin(abs(fraction) * Math.PI / 2).toFloat()
-            } else {
-                0f
-            }
+            val indicatorOffset = with(density) { offsetPx.toDp() }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .graphicsLayer { translationX = rubberBand }
                     .pointerInput(tabs.size, slotPx) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             pressStartIndex = currentSelected
                             dragPx = 0f
+                            pressed = true
                             var lastX = down.position.x
                             var moved = false
                             while (true) {
@@ -163,6 +159,7 @@ fun GlassBottomBar(
                                     change.consume()
                                 }
                             }
+                            pressed = false
                             if (moved) {
                                 val target = if (slotPx > 0f) {
                                     (pressStartIndex + dragPx / slotPx).roundToInt()
@@ -182,7 +179,7 @@ fun GlassBottomBar(
                         .offset(x = indicatorOffset)
                         .width(slot)
                         .height(IndicatorHeight)
-                        .graphicsLayer { alpha = 1f - pressProgress * 0.85f }
+                        .graphicsLayer { alpha = 1f - pressProgress * 0.4f }
                         .clip(BarShape)
                         .background(indicatorFill)
                         .border(
