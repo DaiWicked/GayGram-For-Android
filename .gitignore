@@ -53,3 +53,18 @@ google-services.json
 *firebase-adminsdk*
 /native/mtproto/src/main/jniLibs
 /native/target
+
+# Working notes / progress snapshots / review reports (not source)
+项目交流/
+progress*.md
+PROGRESS*.md
+*_review*.md
+*审查*.md
+build*.log
+*.log.txt
+.deepseek*/
+.agents/
+.claude/
+.cursor/
+*.patch
+worktree_backup*/
