@@ -2,7 +2,6 @@ package org.monogram.core.ui.glass
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,23 +22,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.shadow.InnerShadow
 
 /** One destination in [GlassBottomBar]. The label is user-visible, so it arrives translated. */
 data class GlassBarTab(val icon: ImageVector, val label: String)
 
-private val BarHeight = 56.dp
+private val BarHeight = 64.dp
 private val BarShape = RoundedCornerShape(percent = 50)
-private val BarInnerPadding = 6.dp
+private val BarInnerPadding = 4.dp
 private val IndicatorHeight = BarHeight - BarInnerPadding * 2
 
 /**
  * The floating bar from the design guide: a capsule of glass with one sliding indicator, used for
  * the app's top-level destinations. It samples [backdrop], so the content it floats over has to
  * keep scrolling underneath it instead of stopping above the bar.
+ *
+ * The indicator is glass of its own rather than a painted pill: it refracts the page behind the bar,
+ * which is what separates a swimming capsule from a grey rounded rectangle.
  */
 @Composable
 fun GlassBottomBar(
@@ -50,12 +61,20 @@ fun GlassBottomBar(
     modifier: Modifier = Modifier,
 ) {
     if (tabs.isEmpty()) return
-    val indicatorColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.40f)
+    val indicatorFill = if (dark) {
+        Color.White.copy(alpha = 0.10f)
+    } else {
+        Color.Black.copy(alpha = 0.08f)
+    }
     LiquidGlassSurface(
         backdrop = backdrop,
         shape = BarShape,
         surface = GlassTokens.TabBar,
-        tint = MaterialTheme.colorScheme.surface,
+        flatTint = barFill,
+        thickness = 6.dp,
+        lift = 10.dp,
         modifier = modifier.height(BarHeight),
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(BarInnerPadding)) {
@@ -71,13 +90,32 @@ fun GlassBottomBar(
                     .offset(x = indicatorOffset)
                     .width(slot)
                     .height(IndicatorHeight)
-                    .background(indicatorColor, BarShape),
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { BarShape },
+                        effects = {
+                            padding = maxOf(padding, 24.dp.toPx())
+                            vibrancy()
+                            lens(
+                                refractionHeight = 10.dp.toPx(),
+                                refractionAmount = 14.dp.toPx(),
+                                depthEffect = true,
+                                chromaticAberration = true,
+                            )
+                        },
+                        highlight = { indicatorHighlight(dark) },
+                        shadow = null,
+                        innerShadow = {
+                            InnerShadow(radius = 6.dp, color = Color.Black.copy(alpha = 0.10f))
+                        },
+                        onDrawSurface = { drawRect(indicatorFill) },
+                    ),
             )
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { index, tab ->
                     val active = index == selected
                     val color = if (active) {
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -91,7 +129,7 @@ fun GlassBottomBar(
                                 onClick = { onSelect(index) },
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                        verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
                     ) {
                         Icon(
                             imageVector = tab.icon,
@@ -111,3 +149,14 @@ fun GlassBottomBar(
         }
     }
 }
+
+// The indicator sits inside a lit capsule, so it gets a tighter rim than the bar around it.
+private fun indicatorHighlight(dark: Boolean): Highlight = Highlight(
+    width = 1.dp,
+    alpha = if (dark) 0.75f else 0.5f,
+    style = if (dark) {
+        HighlightStyle.Default
+    } else {
+        HighlightStyle.Default(color = Color.Black, blendMode = BlendMode.SrcOver)
+    },
+)
