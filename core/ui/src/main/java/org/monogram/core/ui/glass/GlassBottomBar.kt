@@ -1,7 +1,10 @@
 package org.monogram.core.ui.glass
 
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,12 +23,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
@@ -35,6 +47,10 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlin.math.sign
+import kotlin.math.sin
 
 /** One destination in [GlassBottomBar]. The label is user-visible, so it arrives translated. */
 data class GlassBarTab(val icon: ImageVector, val label: String)
@@ -43,14 +59,16 @@ private val BarHeight = 64.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val BarInnerPadding = 4.dp
 private val IndicatorHeight = BarHeight - BarInnerPadding * 2
+private val RubberBand = 4.dp
 
 /**
- * The floating bar from the design guide: a capsule of glass with one sliding indicator, used for
- * the app's top-level destinations. It samples [backdrop], so the content it floats over has to
- * keep scrolling underneath it instead of stopping above the bar.
+ * The floating bar from the design guide: a capsule of glass with one indicator that can be dragged
+ * across it, used for the app's top-level destinations. It samples [backdrop], so the content it
+ * floats over has to keep scrolling underneath instead of stopping above the bar.
  *
- * The indicator is glass of its own rather than a painted pill: it refracts the page behind the bar,
- * which is what separates a swimming capsule from a grey rounded rectangle.
+ * The indicator is glass only while a finger is on it. At rest it is a flat scrim: a lens that never
+ * turns off would bend the labels and the page into each other, which reads as noise rather than as
+ * a selected tab.
  */
 @Composable
 fun GlassBottomBar(
@@ -62,12 +80,24 @@ fun GlassBottomBar(
 ) {
     if (tabs.isEmpty()) return
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.40f)
+    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
     val indicatorFill = if (dark) {
         Color.White.copy(alpha = 0.10f)
     } else {
-        Color.Black.copy(alpha = 0.08f)
+        Color.Black.copy(alpha = 0.06f)
     }
+    val density = LocalDensity.current
+    val selected = selectedIndex.coerceIn(0, tabs.lastIndex)
+
+    var dragging by remember { mutableStateOf(false) }
+    var pressStartIndex by remember { mutableIntStateOf(selected) }
+    var dragPx by remember { mutableFloatStateOf(0f) }
+    val pressProgress by animateFloatAsState(
+        targetValue = if (dragging) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "barPress",
+    )
+
     LiquidGlassSurface(
         backdrop = backdrop,
         shape = BarShape,
@@ -79,70 +109,131 @@ fun GlassBottomBar(
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(BarInnerPadding)) {
             val slot = maxWidth / tabs.size
-            val selected = selectedIndex.coerceIn(0, tabs.lastIndex)
-            val indicatorOffset by animateDpAsState(
-                targetValue = slot * selected,
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
-                label = "barIndicator",
-            )
+            val slotPx = with(density) { slot.toPx() }
+            val travelPx = with(density) { (maxWidth - slot).toPx() }
+            val indicatorOffset = if (dragging && slotPx > 0f) {
+                with(density) { (pressStartIndex * slotPx + dragPx).toDp() }
+                    .coerceIn(0.dp, maxWidth - slot)
+            } else {
+                slot * selected
+            }
+            val rubberBand = if (travelPx > 0f) {
+                val fraction = (dragPx / (travelPx + slotPx)).coerceIn(-1f, 1f)
+                with(density) { RubberBand.toPx() } * fraction.sign * sin(abs(fraction) * Math.PI / 2).toFloat()
+            } else {
+                0f
+            }
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
-                    .width(slot)
-                    .height(IndicatorHeight)
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { BarShape },
-                        effects = {
-                            padding = maxOf(padding, 24.dp.toPx())
-                            vibrancy()
-                            lens(
-                                refractionHeight = 10.dp.toPx(),
-                                refractionAmount = 14.dp.toPx(),
-                                depthEffect = true,
-                                chromaticAberration = true,
-                            )
-                        },
-                        highlight = { indicatorHighlight(dark) },
-                        shadow = null,
-                        innerShadow = {
-                            InnerShadow(radius = 6.dp, color = Color.Black.copy(alpha = 0.10f))
-                        },
-                        onDrawSurface = { drawRect(indicatorFill) },
-                    ),
-            )
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                tabs.forEachIndexed { index, tab ->
-                    val active = index == selected
-                    val color = if (active) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Column(
+                    .fillMaxWidth()
+                    .graphicsLayer { translationX = rubberBand }
+                    .pointerInput(tabs.size, slotPx) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            pressStartIndex = selected
+                            dragPx = 0f
+                            var lastX = down.position.x
+                            var moved = false
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+                                val dx = change.position.x - lastX
+                                lastX = change.position.x
+                                if (!moved && abs(change.position.x - down.position.x) >
+                                    viewConfiguration.touchSlop
+                                ) {
+                                    moved = true
+                                    dragging = true
+                                }
+                                if (moved) {
+                                    dragPx += dx
+                                    change.consume()
+                                }
+                            }
+                            if (moved) {
+                                val target = if (slotPx > 0f) {
+                                    (pressStartIndex + dragPx / slotPx).roundToInt()
+                                } else {
+                                    selected
+                                }
+                                dragPx = 0f
+                                dragging = false
+                                val index = target.coerceIn(0, tabs.lastIndex)
+                                if (index != selected) onSelect(index)
+                            }
+                        }
+                    },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = indicatorOffset)
+                        .width(slot)
+                        .height(IndicatorHeight)
+                        .clip(BarShape)
+                        .background(indicatorFill)
+                )
+                if (pressProgress > 0.01f) {
+                    Box(
                         modifier = Modifier
+                            .offset(x = indicatorOffset)
                             .width(slot)
                             .height(IndicatorHeight)
-                            .selectable(
-                                selected = active,
-                                role = Role.Tab,
-                                onClick = { onSelect(index) },
+                            .graphicsLayer { alpha = pressProgress }
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { BarShape },
+                                effects = {
+                                    padding = maxOf(padding, 24.dp.toPx())
+                                    vibrancy()
+                                    lens(
+                                        refractionHeight = 10.dp.toPx() * pressProgress,
+                                        refractionAmount = 14.dp.toPx() * pressProgress,
+                                        depthEffect = true,
+                                        chromaticAberration = true,
+                                    )
+                                },
+                                highlight = { indicatorHighlight(dark) },
+                                shadow = null,
+                                innerShadow = {
+                                    InnerShadow(radius = 6.dp, color = Color.Black.copy(alpha = 0.10f))
+                                },
                             ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
-                    ) {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = tab.label,
-                            tint = color,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Text(
-                            text = tab.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = color,
-                            maxLines = 1,
-                        )
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    tabs.forEachIndexed { index, tab ->
+                        val active = index == selected
+                        val color = if (active) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        Column(
+                            modifier = Modifier
+                                .width(slot)
+                                .height(IndicatorHeight)
+                                .selectable(
+                                    selected = active,
+                                    role = Role.Tab,
+                                    onClick = { onSelect(index) },
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
+                        ) {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                tint = color,
+                                modifier = Modifier.size(22.dp),
+                            )
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = color,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
