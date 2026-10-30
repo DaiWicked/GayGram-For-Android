@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -136,14 +137,17 @@ fun GlassBottomBar(
                     .fillMaxWidth()
                     .pointerInput(tabs.size, slotPx) {
                         awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial,
+                            )
                             pressStartIndex = currentSelected
                             dragPx = 0f
                             pressed = true
                             var lastX = down.position.x
                             var moved = false
                             while (true) {
-                                val event = awaitPointerEvent()
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                 if (!change.pressed) break
                                 val dx = change.position.x - lastX
@@ -228,6 +232,11 @@ fun GlassBottomBar(
                             modifier = Modifier
                                 .width(slot)
                                 .height(IndicatorHeight)
+                                .graphicsLayer {
+                                    val grown = 1f + 0.2f * pressProgress
+                                    scaleX = grown
+                                    scaleY = grown
+                                }
                                 .selectable(
                                     selected = active,
                                     role = Role.Tab,
