@@ -59,6 +59,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -69,6 +70,7 @@ private val BarHeight = 64.dp
 private val BarShape = RoundedCornerShape(percent = 50)
 private val BarInnerPadding = 4.dp
 private val IndicatorHeight = BarHeight - BarInnerPadding * 2
+private val CopyBlurRadius = 4.dp
 
 // Critically damped: the indicator must arrive without overshooting. A bouncy spring reads as the
 // chip snapping back rather than as the finger having placed it.
@@ -216,7 +218,8 @@ fun GlassBottomBar(
                 // Recorded before the indicator so the layer is there on the first frame that draws
                 // it. The copy rebuilds the bar's own material — same blur, same fill — instead of
                 // leaving the page showing behind the labels: the indicator has to refract the bar
-                // it sits on, not the conversation underneath the bar.
+                // it sits on, not the conversation underneath the bar. Its blur is shallower than
+                // the bar's so the sampled material keeps enough structure for the lens to bend.
                 CompositionLocalProvider(
                     LocalBarTabScale provides { 1f + 0.2f * pressProgress },
                 ) {
@@ -235,12 +238,9 @@ fun GlassBottomBar(
                                 backdrop = backdrop,
                                 shape = { BarShape },
                                 effects = {
-                                    padding = maxOf(
-                                        padding,
-                                        GlassTokens.TabBar.blurRadius(dark).toPx(),
-                                    )
+                                    padding = maxOf(padding, CopyBlurRadius.toPx())
                                     vibrancy()
-                                    blur(GlassTokens.TabBar.blurRadius(dark).toPx())
+                                    blur(CopyBlurRadius.toPx())
                                 },
                                 highlight = null,
                                 shadow = null,
@@ -248,6 +248,18 @@ fun GlassBottomBar(
                             ),
                     )
                 }
+                // Under the indicator on purpose: once the glass covers this slot the labels inside
+                // it are the scaled copy, and drawing the crisp row on top would leave a double
+                // image of every glyph.
+                TabRow(
+                    tabs = tabs,
+                    selected = selected,
+                    slot = slot,
+                    itemHeight = IndicatorHeight,
+                    colorFor = { index -> if (index == selected) accent else resting },
+                    interaction = true,
+                    onSelect = onSelect,
+                )
                 if (pressProgress > 0.01f) {
                     Box(
                         modifier = Modifier
@@ -262,29 +274,25 @@ fun GlassBottomBar(
                                     padding = maxOf(padding, 24.dp.toPx())
                                     vibrancy()
                                     lens(
-                                        refractionHeight = 10.dp.toPx() * pressProgress,
-                                        refractionAmount = 14.dp.toPx() * pressProgress,
+                                        refractionHeight = 12.dp.toPx() * pressProgress,
+                                        refractionAmount = 18.dp.toPx() * pressProgress,
                                         depthEffect = true,
                                         chromaticAberration = true,
                                     )
                                 },
                                 highlight = { indicatorHighlight(dark) },
-                                shadow = null,
+                                shadow = {
+                                    Shadow(
+                                        radius = 8.dp,
+                                        color = Color.Black.copy(alpha = if (dark) 0.20f else 0.10f),
+                                    )
+                                },
                                 innerShadow = {
                                     InnerShadow(radius = 6.dp, color = Color.Black.copy(alpha = 0.10f))
                                 },
                             ),
                     )
                 }
-                TabRow(
-                    tabs = tabs,
-                    selected = selected,
-                    slot = slot,
-                    itemHeight = IndicatorHeight,
-                    colorFor = { index -> if (index == selected) accent else resting },
-                    interaction = true,
-                    onSelect = onSelect,
-                )
             }
         }
     }
