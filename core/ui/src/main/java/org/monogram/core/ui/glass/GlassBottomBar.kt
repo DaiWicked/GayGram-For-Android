@@ -53,6 +53,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
@@ -212,6 +213,41 @@ fun GlassBottomBar(
                             shape = BarShape,
                         )
                 )
+                // Recorded before the indicator so the layer is there on the first frame that draws
+                // it. The copy rebuilds the bar's own material — same blur, same fill — instead of
+                // leaving the page showing behind the labels: the indicator has to refract the bar
+                // it sits on, not the conversation underneath the bar.
+                CompositionLocalProvider(
+                    LocalBarTabScale provides { 1f + 0.2f * pressProgress },
+                ) {
+                    TabRow(
+                        tabs = tabs,
+                        selected = selected,
+                        slot = slot,
+                        itemHeight = IndicatorHeight,
+                        colorFor = { accent },
+                        interaction = false,
+                        onSelect = onSelect,
+                        modifier = Modifier
+                            .alpha(0f)
+                            .layerBackdrop(tabsBackdrop)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { BarShape },
+                                effects = {
+                                    padding = maxOf(
+                                        padding,
+                                        GlassTokens.TabBar.blurRadius(dark).toPx(),
+                                    )
+                                    vibrancy()
+                                    blur(GlassTokens.TabBar.blurRadius(dark).toPx())
+                                },
+                                highlight = null,
+                                shadow = null,
+                                onDrawSurface = { drawRect(barFill) },
+                            ),
+                    )
+                }
                 if (pressProgress > 0.01f) {
                     Box(
                         modifier = Modifier
@@ -249,22 +285,6 @@ fun GlassBottomBar(
                     interaction = true,
                     onSelect = onSelect,
                 )
-                CompositionLocalProvider(
-                    LocalBarTabScale provides { 1f + 0.2f * pressProgress },
-                ) {
-                    TabRow(
-                        tabs = tabs,
-                        selected = selected,
-                        slot = slot,
-                        itemHeight = IndicatorHeight,
-                        colorFor = { accent },
-                        interaction = false,
-                        onSelect = onSelect,
-                        modifier = Modifier
-                            .alpha(0f)
-                            .layerBackdrop(tabsBackdrop),
-                    )
-                }
             }
         }
     }
