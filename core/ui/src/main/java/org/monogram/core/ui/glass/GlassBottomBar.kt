@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -30,8 +31,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -41,9 +44,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -64,6 +72,10 @@ private val IndicatorHeight = BarHeight - BarInnerPadding * 2
 // Critically damped: the indicator must arrive without overshooting. A bouncy spring reads as the
 // chip snapping back rather than as the finger having placed it.
 private val IndicatorSpring = spring<Float>(dampingRatio = 1f, stiffness = 500f)
+
+// Only the copy of the row that the indicator samples is scaled up. Scaling the row the user sees
+// would move the labels under the finger instead of inside the glass.
+private val LocalBarTabScale = staticCompositionLocalOf { { 1f } }
 
 /**
  * The floating bar from the design guide: a capsule of glass with one indicator that can be dragged
@@ -90,11 +102,19 @@ fun GlassBottomBar(
     } else {
         Color.Black.copy(alpha = 0.10f)
     }
+    val accent = MaterialTheme.colorScheme.primary
+    val resting = MaterialTheme.colorScheme.onSurfaceVariant
     val density = LocalDensity.current
     val selected = selectedIndex.coerceIn(0, tabs.lastIndex)
     // The gesture lambda outlives the composition that created it, so it has to read the latest
     // selection through a state holder instead of capturing the value it started with.
     val currentSelected by rememberUpdatedState(selected)
+
+    // The indicator refracts the labels it sits on, not just the page behind the bar, so the row is
+    // drawn twice: once for the eye and once, invisible, into a layer the glass samples. The hidden
+    // copy is the one that grows on press, which is why the labels only swell inside the pill.
+    val tabsBackdrop = rememberLayerBackdrop()
+    val indicatorBackdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop)
 
     var pressed by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
@@ -200,7 +220,7 @@ fun GlassBottomBar(
                             .height(IndicatorHeight)
                             .graphicsLayer { alpha = pressProgress }
                             .drawBackdrop(
-                                backdrop = backdrop,
+                                backdrop = indicatorBackdrop,
                                 shape = { BarShape },
                                 effects = {
                                     padding = maxOf(padding, 24.dp.toPx())
@@ -220,46 +240,85 @@ fun GlassBottomBar(
                             ),
                     )
                 }
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    tabs.forEachIndexed { index, tab ->
-                        val active = index == selected
-                        val color = if (active) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        Column(
-                            modifier = Modifier
-                                .width(slot)
-                                .height(IndicatorHeight)
-                                .graphicsLayer {
-                                    val grown = 1f + 0.2f * pressProgress
-                                    scaleX = grown
-                                    scaleY = grown
-                                }
-                                .selectable(
-                                    selected = active,
-                                    role = Role.Tab,
-                                    onClick = { onSelect(index) },
-                                ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
-                        ) {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = tab.label,
-                                tint = color,
-                                modifier = Modifier.size(22.dp),
-                            )
-                            Text(
-                                text = tab.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = color,
-                                maxLines = 1,
-                            )
-                        }
-                    }
+                TabRow(
+                    tabs = tabs,
+                    selected = selected,
+                    slot = slot,
+                    itemHeight = IndicatorHeight,
+                    colorFor = { index -> if (index == selected) accent else resting },
+                    interaction = true,
+                    onSelect = onSelect,
+                )
+                CompositionLocalProvider(
+                    LocalBarTabScale provides { 1f + 0.2f * pressProgress },
+                ) {
+                    TabRow(
+                        tabs = tabs,
+                        selected = selected,
+                        slot = slot,
+                        itemHeight = IndicatorHeight,
+                        colorFor = { accent },
+                        interaction = false,
+                        onSelect = onSelect,
+                        modifier = Modifier
+                            .alpha(0f)
+                            .layerBackdrop(tabsBackdrop),
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabRow(
+    tabs: List<GlassBarTab>,
+    selected: Int,
+    slot: Dp,
+    itemHeight: Dp,
+    colorFor: (Int) -> Color,
+    interaction: Boolean,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scale = LocalBarTabScale.current
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        tabs.forEachIndexed { index, tab ->
+            val active = index == selected
+            val color = colorFor(index)
+            Column(
+                modifier = Modifier
+                    .width(slot)
+                    .height(itemHeight)
+                    .then(
+                        if (interaction) {
+                            Modifier.selectable(selected = active, role = Role.Tab) {
+                                onSelect(index)
+                            }
+                        } else {
+                            Modifier.clearAndSetSemantics {}
+                        },
+                    )
+                    .graphicsLayer {
+                        val grown = scale()
+                        scaleX = grown
+                        scaleY = grown
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
+            ) {
+                Icon(
+                    imageVector = tab.icon,
+                    contentDescription = if (interaction) tab.label else null,
+                    tint = color,
+                    modifier = Modifier.size(22.dp),
+                )
+                Text(
+                    text = tab.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    maxLines = 1,
+                )
             }
         }
     }
