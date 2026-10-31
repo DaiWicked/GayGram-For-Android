@@ -137,13 +137,7 @@ fun GlassBottomBar(
         flatTint = barFill,
         thickness = 6.dp,
         lift = 10.dp,
-        modifier = modifier
-            .height(BarHeight)
-            .graphicsLayer {
-                val grown = 1f + BarPressGrowth * pressProgress
-                scaleX = grown
-                scaleY = grown
-            },
+        modifier = modifier.height(BarHeight),
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(BarInnerPadding)) {
             val slot = maxWidth / tabs.size
@@ -166,15 +160,18 @@ fun GlassBottomBar(
                 label = "indicatorOffset",
             )
             val indicatorOffset = with(density) { offsetPx.toDp() }
-            // The pill answers the finger instead of being a painted rectangle: it swells while held
-            // and stretches along the direction it is being thrown. The spring on the velocity is
-            // what lets the stretch relax on release rather than snapping back in one frame.
+            // The pill answers the finger instead of being a painted rectangle. Every scale goes
+            // through `layerBlock`, never through a `graphicsLayer` of our own: the library scales
+            // the node's layer with it *and* inverse-scales the sampled backdrop, so the capsule
+            // grows while the material inside it stays aligned. Scaling with `graphicsLayer`
+            // instead stretches the sample and then feeds that stretched sample back into the lens,
+            // which smears the pill into a blob.
             val relaxedVelocity by animateFloatAsState(
                 targetValue = if (dragging) dragVelocity else 0f,
                 animationSpec = spring(dampingRatio = 1f, stiffness = 900f),
                 label = "barDragVelocity",
             )
-            val pillScale = 1f + PillPressGrowth * pressProgress
+            val pillGrowth = 1f + PillPressGrowth * pressProgress
             val stretchX = (relaxedVelocity / 10f * 0.75f).coerceIn(-0.2f, 0.2f)
             val stretchY = (relaxedVelocity / 10f * 0.25f).coerceIn(-0.2f, 0.2f)
             Box(
@@ -235,8 +232,6 @@ fun GlassBottomBar(
                         .height(IndicatorHeight)
                         .graphicsLayer {
                             alpha = 1f - pressProgress * 0.4f
-                            scaleX = pillScale / (1f - stretchX)
-                            scaleY = pillScale * (1f - stretchY)
                         }
                         .clip(BarShape)
                         .background(indicatorFill)
@@ -299,8 +294,6 @@ fun GlassBottomBar(
                             .height(IndicatorHeight)
                             .graphicsLayer {
                                 alpha = pressProgress
-                                scaleX = pillScale / (1f - stretchX)
-                                scaleY = pillScale * (1f - stretchY)
                             }
                             .drawBackdrop(
                                 backdrop = indicatorBackdrop,
@@ -316,6 +309,10 @@ fun GlassBottomBar(
                                     )
                                 },
                                 highlight = { indicatorHighlight(dark) },
+                                layerBlock = {
+                                    scaleX = pillGrowth / (1f - stretchX)
+                                    scaleY = pillGrowth * (1f - stretchY)
+                                },
                                 shadow = {
                                     Shadow(
                                         radius = 8.dp * pressProgress,
@@ -389,9 +386,9 @@ private fun TabRow(
     }
 }
 
-// The pill grows more than the bar does: it is the thing under the finger.
-private const val PillPressGrowth = 0.18f
-private const val BarPressGrowth = 0.04f
+// The pill swells while held and stretches along the throw. Both live in the backdrop's
+// `layerBlock`, which grows the capsule and compensates the sampled backdrop at the same time.
+private const val PillPressGrowth = 0.15f
 // The copy the glass samples is tinted lighter than the bar itself, so the pill reads as a lit
 // spot on the bar instead of a second, darker layer stacked on top of it.
 private const val CopyTintAlpha = 0.30f
