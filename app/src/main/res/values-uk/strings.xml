@@ -63,4 +63,9 @@
     <string name="update_prompt_ready">Готово до встановлення</string>
     <string name="update_prompt_installing">Встановлення оновлення</string>
     <string name="update_prompt_installing_body">Встановлюється %1$s</string>
+    <string name="tab_chats">Чати</string>
+    <string name="tab_settings">Налаштування</string>
+    <string name="tab_me">Я</string>
+    <string name="tab_more">Ще</string>
+    <string name="extensions_coming_soon">Тут з’являться розширення GayGram.</string>
 </resources>

@@ -63,4 +63,9 @@
     <string name="update_prompt_ready">Pripravené na inštaláciu</string>
     <string name="update_prompt_installing">Inštaluje sa aktualizácia</string>
     <string name="update_prompt_installing_body">Inštaluje sa %1$s</string>
+    <string name="tab_chats">Chaty</string>
+    <string name="tab_settings">Nastavenia</string>
+    <string name="tab_me">Ja</string>
+    <string name="tab_more">Viac</string>
+    <string name="extensions_coming_soon">Rozšírenia GayGram budú tu.</string>
 </resources>

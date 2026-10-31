@@ -60,4 +60,9 @@
     <string name="update_prompt_ready">インストールの準備完了</string>
     <string name="update_prompt_installing">アップデートをインストール中</string>
     <string name="update_prompt_installing_body">%1$s をインストールしています</string>
+    <string name="tab_chats">チャット</string>
+    <string name="tab_settings">設定</string>
+    <string name="tab_me">マイページ</string>
+    <string name="tab_more">その他</string>
+    <string name="extensions_coming_soon">GayGram の拡張機能はここに追加されます。</string>
 </resources>

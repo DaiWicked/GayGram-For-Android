@@ -60,4 +60,9 @@
     <string name="update_prompt_ready">已准备好安装</string>
     <string name="update_prompt_installing">正在安装更新</string>
     <string name="update_prompt_installing_body">正在安装 %1$s</string>
+    <string name="tab_chats">聊天</string>
+    <string name="tab_settings">设置</string>
+    <string name="tab_me">我的</string>
+    <string name="tab_more">更多</string>
+    <string name="extensions_coming_soon">GayGram 的拓展功能会放在这里。</string>
 </resources>

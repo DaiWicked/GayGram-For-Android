@@ -111,6 +111,30 @@ class RootComponent(
     }
 
     private val navigation = StackNavigation<Config>()
+
+    /** Null while a deeper screen is open: the bar only belongs to a tab root. */
+    val activeTab: Tab?
+        get() = when (val config = stack.value.active.configuration) {
+            Config.Home -> Tab.Chats
+            Config.Extensions -> Tab.More
+            is Config.Profile -> if (config.peerId == 0L) Tab.Me else null
+            is Config.Settings -> if (
+                config.openFolders || config.openProxy || config.openNotifications
+            ) null else Tab.Settings
+
+            else -> null
+        }
+
+    fun selectTab(tab: Tab) {
+        val destination = when (tab) {
+            Tab.Chats -> Config.Home
+            Tab.Settings -> Config.Settings()
+            Tab.Me -> Config.Profile(0L)
+            Tab.More -> Config.Extensions
+        }
+        if (stack.value.active.configuration == destination) return
+        navigation.replaceAll(destination)
+    }
     private var expiringSession = false
     private var accountFlagsVersion = 0L
     private var listDetailVisible = false
@@ -540,6 +564,8 @@ class RootComponent(
 
         Config.Proxy -> Child.Proxy
 
+        Config.Extensions -> Child.Extensions()
+
         Config.Home -> Child.Home(
             HomeComponent(
                 componentContext = context,
@@ -664,6 +690,8 @@ class RootComponent(
             val component: SettingsComponent,
             val folders: FoldersComponent,
         ) : Child()
+
+        class Extensions : Child()
     }
 
     @Serializable
@@ -699,7 +727,13 @@ class RootComponent(
             val openProxy: Boolean = false,
             val openNotifications: Boolean = false,
         ) : Config
+
+        @Serializable
+        data object Extensions : Config
     }
+
+    /** The four roots the floating bar can land on. */
+    enum class Tab { Chats, Settings, Me, More }
 }
 
 internal fun RootComponent.Config.isAuthArea(): Boolean =

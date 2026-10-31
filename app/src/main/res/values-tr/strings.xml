@@ -61,4 +61,9 @@
     <string name="update_prompt_ready">Yüklemeye hazır</string>
     <string name="update_prompt_installing">Güncelleme yükleniyor</string>
     <string name="update_prompt_installing_body">%1$s yükleniyor</string>
+    <string name="tab_chats">Sohbetler</string>
+    <string name="tab_settings">Ayarlar</string>
+    <string name="tab_me">Ben</string>
+    <string name="tab_more">Daha fazla</string>
+    <string name="extensions_coming_soon">GayGram eklentileri burada olacak.</string>
 </resources>

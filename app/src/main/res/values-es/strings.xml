@@ -61,4 +61,9 @@
     <string name="update_prompt_ready">Listo para instalar</string>
     <string name="update_prompt_installing">Instalando actualización</string>
     <string name="update_prompt_installing_body">Se está instalando %1$s</string>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_settings">Ajustes</string>
+    <string name="tab_me">Yo</string>
+    <string name="tab_more">Más</string>
+    <string name="extensions_coming_soon">Las extensiones de GayGram vivirán aquí.</string>
 </resources>

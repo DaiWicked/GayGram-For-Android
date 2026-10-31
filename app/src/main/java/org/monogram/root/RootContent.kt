@@ -27,6 +27,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -106,6 +110,10 @@ import org.monogram.feature.chats.ui.ChatsContent
 import org.monogram.feature.dialog.DialogComponent
 import org.monogram.feature.dialog.ui.AudioMessagePlaybackScope
 import org.monogram.feature.dialog.ui.DialogContent
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import org.monogram.core.ui.glass.GlassBarTab
+import org.monogram.core.ui.glass.GlassBottomBar
 import org.monogram.feature.profile.ui.ProfileContent
 import org.monogram.feature.settings.ui.ProxySettingsContent
 import org.monogram.feature.settings.ui.SettingsContent
@@ -165,8 +173,11 @@ private fun RootPlaybackContent(
                 ?.configuration as? RootComponent.Config.Dialog)?.chatId
         }
     }
+    val tabBarBackdrop = rememberLayerBackdrop()
+    val activeTab = component.activeTab
     val homeState = rememberSaveableStateHolder()
     val recipient by rememberUpdatedState((currentStack.active.instance as? RootComponent.Child.Recipients)?.component)
+    val showTabBar = currentStack.backStack.isEmpty() && activeTab != null && recipient == null
     val homeContent = remember {
         movableContentOf<HomeComponent, Long?, Boolean> { homeComponent, selected, listActive ->
             homeState.SaveableStateProvider("home") {
@@ -415,6 +426,13 @@ private fun RootPlaybackContent(
                             stack = component.stack,
                             modifier = Modifier
                                 .fillMaxSize()
+                                .then(
+                                    if (showTabBar) {
+                                        Modifier.layerBackdrop(tabBarBackdrop)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
                                 .chatBackGesture(
                                     gestureDispatcher, layoutDirection,
                                     prioritizeChildren = { true },
@@ -478,6 +496,7 @@ private fun RootPlaybackContent(
                                     key(instance.component) { dialogContent(instance.component) }
                                 }
 
+                                is RootComponent.Child.Extensions -> ExtensionsContent()
                                 is RootComponent.Child.Profile -> ProfileContent(instance.component)
                                 is RootComponent.Child.Settings -> SettingsContent(
                                     component = instance.component,
@@ -505,6 +524,9 @@ private fun RootPlaybackContent(
                             }
                         }
                         var restoreMiniPlayer by remember { mutableStateOf(false) }
+                        val playbackVisible = recipient == null &&
+                                currentStack.active.instance !is RootComponent.Child.Dialog &&
+                                !restoreMiniPlayer
                         if (restoreMiniPlayer) {
                             val context = LocalContext.current
                             val session = remember(context) { MediaPlaybackHolder.session(context) }
@@ -514,11 +536,42 @@ private fun RootPlaybackContent(
                             )
                         }
                         PlaybackBar(
-                            visible = recipient == null && currentStack.active.instance !is RootComponent.Child.Dialog &&
-                                    !restoreMiniPlayer,
+                            visible = playbackVisible,
                             onExpand = { restoreMiniPlayer = true },
                             modifier = Modifier.align(Alignment.BottomCenter),
                         )
+                        if (showTabBar && !playbackVisible) {
+                            val tabs = listOf(
+                                RootComponent.Tab.Chats to GlassBarTab(
+                                    Icons.AutoMirrored.Outlined.Chat,
+                                    stringResource(R.string.tab_chats),
+                                ),
+                                RootComponent.Tab.Settings to GlassBarTab(
+                                    Icons.Outlined.Settings,
+                                    stringResource(R.string.tab_settings),
+                                ),
+                                RootComponent.Tab.Me to GlassBarTab(
+                                    Icons.Outlined.Person,
+                                    stringResource(R.string.tab_me),
+                                ),
+                                RootComponent.Tab.More to GlassBarTab(
+                                    Icons.Outlined.Extension,
+                                    stringResource(R.string.tab_more),
+                                ),
+                            )
+                            GlassBottomBar(
+                                backdrop = tabBarBackdrop,
+                                tabs = tabs.map { it.second },
+                                selectedIndex = tabs.indexOfFirst { it.first == activeTab }
+                                    .coerceAtLeast(0),
+                                onSelect = { index -> component.selectTab(tabs[index].first) },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

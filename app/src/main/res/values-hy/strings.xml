@@ -61,4 +61,9 @@
     <string name="update_prompt_ready">Պատրաստ է տեղադրման</string>
     <string name="update_prompt_installing">Թարմացումը տեղադրվում է</string>
     <string name="update_prompt_installing_body">%1$s-ը տեղադրվում է</string>
+    <string name="tab_chats">Զրույցներ</string>
+    <string name="tab_settings">Կարգավորումներ</string>
+    <string name="tab_me">Ես</string>
+    <string name="tab_more">Ավելին</string>
+    <string name="extensions_coming_soon">GayGram-ի ընդլայնումները կլինեն այստեղ։</string>
 </resources>

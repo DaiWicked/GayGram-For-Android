@@ -61,4 +61,9 @@
     <string name="update_prompt_installing_body">%1$s is being installed</string>
     <string name="update_prompt_error">Couldn\'t download the update</string>
     <string name="update_prompt_retry">Retry</string>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_me">Me</string>
+    <string name="tab_more">More</string>
+    <string name="extensions_coming_soon">GayGram extensions will live here.</string>
 </resources>
