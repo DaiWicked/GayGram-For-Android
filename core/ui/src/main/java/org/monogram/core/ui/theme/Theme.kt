@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import org.monogram.core.ui.HapticsMode
+import org.monogram.core.ui.haptics.ProvideHaptics
 import org.monogram.core.ui.AccentPreset
 // Aliased: the bare name resolves to kotlin.text.Typography inside a default-value expression.
 import org.monogram.core.ui.theme.Typography as MonogramTypography
@@ -114,6 +116,7 @@ fun MonogramTheme(
     dynamicColor: Boolean = true,
     accentPreset: AccentPreset = AccentPreset.Monogram,
     typography: Typography = MonogramTypography,
+    haptics: HapticsMode = HapticsMode.System,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -146,6 +149,6 @@ fun MonogramTheme(
         typography = typography,
         shapes = MonogramShapes,
         motionScheme = motionScheme,
-        content = content,
+        content = { ProvideHaptics(haptics) { content() } },
     )
 }

@@ -17,6 +17,8 @@ enum class WallpaperMode { Monogram, None, Image }
 enum class AccentPreset { Monogram, Sakura, Ocean, Forest, Sunset, Violet, Amber, Rose, Slate, Teal }
 enum class ComposerStyle { IOS, Material }
 
+enum class HapticsMode { System, On, Off }
+
 enum class ComposerSlotAction {
     None,
     Emoji,
@@ -75,6 +77,7 @@ data class AppearanceState(
     val messageTextSize: Int = AppearanceSettings.DEFAULT_MESSAGE_TEXT_SIZE,
     val lineSpacing: Float = AppearanceSettings.DEFAULT_LINE_SPACING,
     val letterSpacing: Float = AppearanceSettings.DEFAULT_LETTER_SPACING,
+    val haptics: HapticsMode = HapticsMode.System,
     /** List-detail pane width in dp; 0 means "use the responsive default". */
     val listPaneWidth: Int = AppearanceSettings.DEFAULT_LIST_PANE_WIDTH,
 ) {
@@ -123,6 +126,7 @@ object AppearanceSettings {
     private const val KEY_FIX_LINK_PREVIEWS = "fix_link_previews"
     private const val KEY_IV_FONT_SIZE = "iv_font_size"
     private const val KEY_LIST_PANE_WIDTH = "list_pane_width"
+    private const val KEY_HAPTICS = "haptics"
 
     private val mutable = MutableStateFlow(AppearanceState())
     val state: StateFlow<AppearanceState> = mutable.asStateFlow()
@@ -171,6 +175,7 @@ object AppearanceSettings {
                 prefs.getFloat(KEY_LETTER_SPACING, DEFAULT_LETTER_SPACING),
             ),
             listPaneWidth = parseListPaneWidth(prefs.getInt(KEY_LIST_PANE_WIDTH, DEFAULT_LIST_PANE_WIDTH)),
+            haptics = parseHapticsMode(prefs.getString(KEY_HAPTICS, null)),
         )
     }
 
@@ -284,6 +289,11 @@ object AppearanceSettings {
         persist()
     }
 
+    fun setHaptics(mode: HapticsMode) {
+        mutable.update { it.copy(haptics = mode) }
+        persist()
+    }
+
     private fun persist() {
         val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE) ?: return
         val current = mutable.value
@@ -311,6 +321,7 @@ object AppearanceSettings {
                 .putFloat(KEY_LINE_SPACING, current.lineSpacing)
                 .putFloat(KEY_LETTER_SPACING, current.letterSpacing)
                 .putInt(KEY_LIST_PANE_WIDTH, current.listPaneWidth)
+                .putString(KEY_HAPTICS, current.haptics.name)
         }
     }
 
@@ -342,6 +353,10 @@ object AppearanceSettings {
         val clamped = raw.coerceIn(MIN_LETTER_SPACING, MAX_LETTER_SPACING)
         return kotlin.math.round(clamped * 100f) / 100f
     }
+
+    internal fun parseHapticsMode(raw: String?): HapticsMode =
+        HapticsMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+            ?: HapticsMode.System
 
     internal fun parseComposerStyle(raw: String?): ComposerStyle = when {
         raw.equals(ComposerStyle.IOS.name, ignoreCase = true) -> ComposerStyle.IOS

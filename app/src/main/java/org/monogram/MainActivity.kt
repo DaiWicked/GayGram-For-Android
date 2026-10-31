@@ -173,6 +173,7 @@ open class MainActivity : ComponentActivity() {
                     darkTheme = darkTheme,
                     dynamicColor = appearance.dynamicColor,
                     accentPreset = appearance.accentPreset,
+                    haptics = appearance.haptics,
                 ) {
                     val pip = remember { pictureInPicture }
                     CompositionLocalProvider(
