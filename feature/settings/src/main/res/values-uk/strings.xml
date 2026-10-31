@@ -451,6 +451,5 @@
     </plurals>
     <string name="settings_haptics">Тактильний відгук</string>
     <string name="settings_haptics_system">Як у системі</string>
-    <string name="settings_haptics_on">Увімкнено</string>
     <string name="settings_haptics_off">Вимкнено</string>
 </resources>

@@ -163,7 +163,6 @@ internal fun LazyListScope.appearanceItems(
                     SettingsChoice(
                         label = when (mode) {
                             HapticsMode.System -> stringResource(R.string.settings_haptics_system)
-                            HapticsMode.On -> stringResource(R.string.settings_haptics_on)
                             HapticsMode.Off -> stringResource(R.string.settings_haptics_off)
                         },
                     )

@@ -449,6 +449,5 @@
     </plurals>
     <string name="settings_haptics">Respuesta háptica</string>
     <string name="settings_haptics_system">Seguir el sistema</string>
-    <string name="settings_haptics_on">Activada</string>
     <string name="settings_haptics_off">Desactivada</string>
 </resources>

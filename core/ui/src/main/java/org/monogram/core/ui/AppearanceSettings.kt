@@ -17,7 +17,7 @@ enum class WallpaperMode { Monogram, None, Image }
 enum class AccentPreset { Monogram, Sakura, Ocean, Forest, Sunset, Violet, Amber, Rose, Slate, Teal }
 enum class ComposerStyle { IOS, Material }
 
-enum class HapticsMode { System, On, Off }
+enum class HapticsMode { System, Off }
 
 enum class ComposerSlotAction {
     None,

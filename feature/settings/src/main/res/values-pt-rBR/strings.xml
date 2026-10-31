@@ -449,6 +449,5 @@
     </plurals>
     <string name="settings_haptics">Resposta tátil</string>
     <string name="settings_haptics_system">Seguir o sistema</string>
-    <string name="settings_haptics_on">Ativada</string>
     <string name="settings_haptics_off">Desativada</string>
 </resources>

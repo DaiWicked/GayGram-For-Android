@@ -450,6 +450,5 @@
     </plurals>
     <string name="settings_haptics">Haptická odozva</string>
     <string name="settings_haptics_system">Podľa systému</string>
-    <string name="settings_haptics_on">Zapnutá</string>
     <string name="settings_haptics_off">Vypnutá</string>
 </resources>

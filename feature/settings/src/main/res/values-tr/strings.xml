@@ -449,6 +449,5 @@
     </plurals>
     <string name="settings_haptics">Dokunsal geri bildirim</string>
     <string name="settings_haptics_system">Sistemi izle</string>
-    <string name="settings_haptics_on">Açık</string>
     <string name="settings_haptics_off">Kapalı</string>
 </resources>

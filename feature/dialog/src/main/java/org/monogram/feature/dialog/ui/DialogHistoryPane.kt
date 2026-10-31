@@ -111,7 +111,6 @@ import org.monogram.feature.dialog.shouldPageNewer
 import org.monogram.feature.dialog.shouldPageOlder
 import org.monogram.feature.dialog.unreadDividerIndex
 import org.monogram.feature.dialog.visibleAlbumMessageIds
-import org.monogram.core.ui.haptics.scrollEdgeHaptics
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -440,7 +439,6 @@ internal fun ColumnScope.DialogHistoryPane(
                         modifier = Modifier
                             .fillMaxSize()
                             .clipToBounds()
-                            .scrollEdgeHaptics(listState, reverseLayout = true)
                             .glassSource(listBackdrop),
                         state = listState,
                         contentPadding = PaddingValues(

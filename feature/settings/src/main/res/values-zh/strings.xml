@@ -448,6 +448,5 @@
     </plurals>
     <string name="settings_haptics">触感反馈</string>
     <string name="settings_haptics_system">跟随系统</string>
-    <string name="settings_haptics_on">开启</string>
     <string name="settings_haptics_off">关闭</string>
 </resources>

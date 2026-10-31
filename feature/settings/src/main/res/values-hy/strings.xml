@@ -449,6 +449,5 @@
     </plurals>
     <string name="settings_haptics">Հպումային արձագանք</string>
     <string name="settings_haptics_system">Հետևել համակարգին</string>
-    <string name="settings_haptics_on">Միացված</string>
     <string name="settings_haptics_off">Անջատված</string>
 </resources>

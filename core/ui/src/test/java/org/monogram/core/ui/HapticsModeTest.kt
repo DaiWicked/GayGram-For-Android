@@ -12,7 +12,12 @@ class HapticsModeTest {
     @Test
     fun storedNameRestoresTheMode() {
         assertEquals(HapticsMode.Off, AppearanceSettings.parseHapticsMode("Off"))
-        assertEquals(HapticsMode.On, AppearanceSettings.parseHapticsMode("on"))
+        assertEquals(HapticsMode.Off, AppearanceSettings.parseHapticsMode("off"))
+    }
+
+    @Test
+    fun theRetiredForcedModeReadsAsFollowingTheSystem() {
+        assertEquals(HapticsMode.System, AppearanceSettings.parseHapticsMode("On"))
     }
 
     @Test
