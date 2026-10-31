@@ -123,6 +123,7 @@ fun GlassBottomBar(
     var dragging by remember { mutableStateOf(false) }
     var pressStartIndex by remember { mutableIntStateOf(selected) }
     var dragPx by remember { mutableFloatStateOf(0f) }
+    var dragVelocity by remember { mutableFloatStateOf(0f) }
     val pressProgress by animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
@@ -136,7 +137,13 @@ fun GlassBottomBar(
         flatTint = barFill,
         thickness = 6.dp,
         lift = 10.dp,
-        modifier = modifier.height(BarHeight),
+        modifier = modifier
+            .height(BarHeight)
+            .graphicsLayer {
+                val grown = 1f + BarPressGrowth * pressProgress
+                scaleX = grown
+                scaleY = grown
+            },
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(BarInnerPadding)) {
             val slot = maxWidth / tabs.size
@@ -144,17 +151,32 @@ fun GlassBottomBar(
             val travelPx = with(density) { (maxWidth - slot).toPx() }
             // One animated value drives both cases: while dragging it chases the finger, and on
             // release it is already standing where the finger left it, so nothing jumps back.
-            val targetOffsetPx = if (dragging && slotPx > 0f) {
-                (pressStartIndex * slotPx + dragPx).coerceIn(0f, travelPx)
+            val rawOffsetPx = if (dragging && slotPx > 0f) {
+                pressStartIndex * slotPx + dragPx
             } else {
-                (selected * slotPx).coerceIn(0f, travelPx)
+                selected * slotPx
             }
+            // Past the first or the last tab the pill leans out by at most a few dp and snaps back.
+            // The give lives in the pill alone: moving the whole bar was the jitter this replaced.
+            val overshootPx = overshoot(rawOffsetPx, travelPx, with(density) { 4.dp.toPx() })
+            val targetOffsetPx = rawOffsetPx.coerceIn(0f, travelPx) + overshootPx
             val offsetPx by animateFloatAsState(
                 targetValue = targetOffsetPx,
                 animationSpec = IndicatorSpring,
                 label = "indicatorOffset",
             )
             val indicatorOffset = with(density) { offsetPx.toDp() }
+            // The pill answers the finger instead of being a painted rectangle: it swells while held
+            // and stretches along the direction it is being thrown. The spring on the velocity is
+            // what lets the stretch relax on release rather than snapping back in one frame.
+            val relaxedVelocity by animateFloatAsState(
+                targetValue = if (dragging) dragVelocity else 0f,
+                animationSpec = spring(dampingRatio = 1f, stiffness = 900f),
+                label = "barDragVelocity",
+            )
+            val pillScale = 1f + PillPressGrowth * pressProgress
+            val stretchX = (relaxedVelocity / 10f * 0.75f).coerceIn(-0.2f, 0.2f)
+            val stretchY = (relaxedVelocity / 10f * 0.25f).coerceIn(-0.2f, 0.2f)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -168,6 +190,7 @@ fun GlassBottomBar(
                             dragPx = 0f
                             pressed = true
                             var lastX = down.position.x
+                            var lastTime = down.uptimeMillis
                             var moved = false
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -182,11 +205,15 @@ fun GlassBottomBar(
                                     dragging = true
                                 }
                                 if (moved) {
+                                    val elapsed = (change.uptimeMillis - lastTime).coerceAtLeast(1L)
+                                    dragVelocity = dx / (elapsed / 1000f)
                                     dragPx += dx
                                     change.consume()
                                 }
+                                lastTime = change.uptimeMillis
                             }
                             pressed = false
+                            dragVelocity = 0f
                             if (moved) {
                                 val target = if (slotPx > 0f) {
                                     (pressStartIndex + dragPx / slotPx).roundToInt()
@@ -206,7 +233,11 @@ fun GlassBottomBar(
                         .offset(x = indicatorOffset)
                         .width(slot)
                         .height(IndicatorHeight)
-                        .graphicsLayer { alpha = 1f - pressProgress * 0.4f }
+                        .graphicsLayer {
+                            alpha = 1f - pressProgress * 0.4f
+                            scaleX = pillScale / (1f - stretchX)
+                            scaleY = pillScale * (1f - stretchY)
+                        }
                         .clip(BarShape)
                         .background(indicatorFill)
                         .border(
@@ -244,7 +275,7 @@ fun GlassBottomBar(
                                 },
                                 highlight = null,
                                 shadow = null,
-                                onDrawSurface = { drawRect(barFill) },
+                                onDrawSurface = { drawRect(barFill.copy(alpha = CopyTintAlpha)) },
                             ),
                     )
                 }
@@ -266,7 +297,11 @@ fun GlassBottomBar(
                             .offset(x = indicatorOffset)
                             .width(slot)
                             .height(IndicatorHeight)
-                            .graphicsLayer { alpha = pressProgress }
+                            .graphicsLayer {
+                                alpha = pressProgress
+                                scaleX = pillScale / (1f - stretchX)
+                                scaleY = pillScale * (1f - stretchY)
+                            }
                             .drawBackdrop(
                                 backdrop = indicatorBackdrop,
                                 shape = { BarShape },
@@ -283,8 +318,10 @@ fun GlassBottomBar(
                                 highlight = { indicatorHighlight(dark) },
                                 shadow = {
                                     Shadow(
-                                        radius = 8.dp,
-                                        color = Color.Black.copy(alpha = if (dark) 0.20f else 0.10f),
+                                        radius = 8.dp * pressProgress,
+                                        color = Color.Black.copy(
+                                            alpha = (if (dark) 0.20f else 0.10f) * pressProgress,
+                                        ),
                                     )
                                 },
                                 innerShadow = {
@@ -350,6 +387,25 @@ private fun TabRow(
             }
         }
     }
+}
+
+// The pill grows more than the bar does: it is the thing under the finger.
+private const val PillPressGrowth = 0.18f
+private const val BarPressGrowth = 0.04f
+// The copy the glass samples is tinted lighter than the bar itself, so the pill reads as a lit
+// spot on the bar instead of a second, darker layer stacked on top of it.
+private const val CopyTintAlpha = 0.30f
+
+// How far past either end the pill leans, eased so the pull stiffens the further it goes.
+private fun overshoot(offsetPx: Float, travelPx: Float, bandPx: Float): Float {
+    val past = when {
+        offsetPx < 0f -> offsetPx
+        offsetPx > travelPx -> offsetPx - travelPx
+        else -> return 0f
+    }
+    val t = (abs(past) / (bandPx * 3f)).coerceIn(0f, 1f)
+    val eased = 1f - (1f - t) * (1f - t)
+    return if (past < 0f) -bandPx * eased else bandPx * eased
 }
 
 // The indicator sits inside a lit capsule, so it gets a tighter rim than the bar around it.
