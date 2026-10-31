@@ -14,20 +14,27 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
- * Ticks once when the finger drags a list past its bottom edge.
+ * Ticks once when the finger drags a list past the edge the reader is pulling toward.
  *
  * Only a finger counts: a fling that coasts to the end stays silent, and a tap never ticks
  * because the finger has to travel past touch slop first.
+ *
+ * @param reverseLayout the list is drawn bottom-up, so index 0 sits at the bottom and the end
+ * the reader reaches by pulling down is the *backward* one.
  */
 @Composable
-fun Modifier.scrollEdgeHaptics(state: LazyListState): Modifier {
+fun Modifier.scrollEdgeHaptics(
+    state: LazyListState,
+    reverseLayout: Boolean = false,
+): Modifier {
     val haptics = LocalHaptics.current
     var dragging by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state, haptics) {
+    LaunchedEffect(state, haptics, reverseLayout) {
         snapshotFlow {
             val scrollable = state.canScrollForward || state.canScrollBackward
-            dragging && scrollable && !state.canScrollForward
+            val atEnd = if (reverseLayout) !state.canScrollBackward else !state.canScrollForward
+            dragging && scrollable && atEnd
         }
             .distinctUntilChanged()
             .collect { atEdge -> if (atEdge) haptics.perform(HapticIntent.Edge) }

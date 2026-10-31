@@ -93,6 +93,9 @@ import org.monogram.core.ui.components.MediaScrollGate
 import org.monogram.core.ui.components.MessageListSkeleton
 import org.monogram.core.ui.components.UnreadBadge
 import org.monogram.core.ui.glass.glassSource
+import org.monogram.core.ui.haptics.HapticIntent
+import org.monogram.core.ui.haptics.LocalHaptics
+import org.monogram.core.ui.haptics.scrollEdgeHaptics
 import org.monogram.core.ui.loading.MonogramLoading
 import org.monogram.core.ui.loading.MonogramLoadingListSize
 import org.monogram.core.ui.menu.AppMenuPlacementState
@@ -187,6 +190,7 @@ internal fun ColumnScope.DialogHistoryPane(
         selectingMessageId = effect.textSelectionId
         menuExpanded = effect.showMenu
     }
+    val haptics = LocalHaptics.current
     fun applyHistoryGesture(
         row: List<Message>,
         gesture: HistoryMessageGesture,
@@ -201,6 +205,9 @@ internal fun ColumnScope.DialogHistoryPane(
             menuTouch = touch
             menuMessageId = headId
             menuExpanded = true
+            if (gesture == HistoryMessageGesture.LongPress) {
+                haptics.perform(HapticIntent.LongPress)
+            }
             component.onLoadReadReceipts(headId)
         } else if (gesture == HistoryMessageGesture.LongPress) {
             menuExpanded = false
@@ -439,7 +446,8 @@ internal fun ColumnScope.DialogHistoryPane(
                         modifier = Modifier
                             .fillMaxSize()
                             .clipToBounds()
-                            .glassSource(listBackdrop),
+                            .glassSource(listBackdrop)
+                            .scrollEdgeHaptics(state = listState, reverseLayout = true),
                         state = listState,
                         contentPadding = PaddingValues(
                             top = topPadding,
