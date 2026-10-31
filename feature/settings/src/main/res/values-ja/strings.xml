@@ -446,4 +446,8 @@
     <plurals name="settings_devices_active_count">
         <item quantity="other">%1$d 台のアクティブなデバイス</item>
     </plurals>
+    <string name="settings_haptics">触覚フィードバック</string>
+    <string name="settings_haptics_system">システムに従う</string>
+    <string name="settings_haptics_on">オン</string>
+    <string name="settings_haptics_off">オフ</string>
 </resources>

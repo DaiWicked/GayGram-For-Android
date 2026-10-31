@@ -447,4 +447,8 @@
         <item quantity="one">%1$d dispositivo activo</item>
         <item quantity="other">%1$d dispositivos activos</item>
     </plurals>
+    <string name="settings_haptics">Respuesta háptica</string>
+    <string name="settings_haptics_system">Seguir el sistema</string>
+    <string name="settings_haptics_on">Activada</string>
+    <string name="settings_haptics_off">Desactivada</string>
 </resources>

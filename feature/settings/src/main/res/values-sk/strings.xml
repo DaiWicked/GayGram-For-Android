@@ -448,4 +448,8 @@
         <item quantity="few">%1$d aktívne zariadenia</item>
         <item quantity="other">%1$d aktívnych zariadení</item>
     </plurals>
+    <string name="settings_haptics">Haptická odozva</string>
+    <string name="settings_haptics_system">Podľa systému</string>
+    <string name="settings_haptics_on">Zapnutá</string>
+    <string name="settings_haptics_off">Vypnutá</string>
 </resources>

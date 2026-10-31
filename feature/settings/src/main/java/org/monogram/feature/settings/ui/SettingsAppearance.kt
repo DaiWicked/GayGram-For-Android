@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.monogram.core.ui.AccentPreset
 import org.monogram.core.ui.AppearanceSettings
+import org.monogram.core.ui.HapticsMode
 import org.monogram.core.ui.AppearanceState
 import org.monogram.core.ui.ComposerSlotAction
 import org.monogram.core.ui.ComposerStyle
@@ -151,6 +152,25 @@ internal fun LazyListScope.appearanceItems(
             )
             SettingsCardDivider()
             DynamicColorRow(appearance)
+        }
+    }
+
+    item { SectionHeader(stringResource(R.string.settings_haptics)) }
+    item {
+        SettingsCard(position = ItemPosition.STANDALONE) {
+            SettingsChoiceGroup(
+                options = HapticsMode.entries.map { mode ->
+                    SettingsChoice(
+                        label = when (mode) {
+                            HapticsMode.System -> stringResource(R.string.settings_haptics_system)
+                            HapticsMode.On -> stringResource(R.string.settings_haptics_on)
+                            HapticsMode.Off -> stringResource(R.string.settings_haptics_off)
+                        },
+                    )
+                },
+                selectedIndex = HapticsMode.entries.indexOf(appearance.haptics),
+                onSelect = { index -> AppearanceSettings.setHaptics(HapticsMode.entries[index]) },
+            )
         }
     }
 

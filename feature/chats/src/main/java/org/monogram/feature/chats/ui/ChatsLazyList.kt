@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.Dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import org.monogram.core.ui.glass.glassSource
+import org.monogram.core.ui.haptics.scrollEdgeHaptics
 
 @Composable
 internal fun ChatsLazyList(
@@ -188,6 +189,7 @@ internal fun ChatsLazyList(
         modifier = Modifier
             .fillMaxSize()
             .glassSource(glassBackdrop)
+            .scrollEdgeHaptics(listState)
             .background(MaterialTheme.colorScheme.surface),
         contentPadding = PaddingValues(
             top = topInset,

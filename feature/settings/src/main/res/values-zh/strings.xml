@@ -446,4 +446,8 @@
     <plurals name="settings_devices_active_count">
         <item quantity="other">%1$d 台活动设备</item>
     </plurals>
+    <string name="settings_haptics">触感反馈</string>
+    <string name="settings_haptics_system">跟随系统</string>
+    <string name="settings_haptics_on">开启</string>
+    <string name="settings_haptics_off">关闭</string>
 </resources>

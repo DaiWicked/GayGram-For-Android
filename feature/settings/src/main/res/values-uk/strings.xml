@@ -449,4 +449,8 @@
         <item quantity="many">%1$d активних пристроїв</item>
         <item quantity="other">%1$d активного пристрою</item>
     </plurals>
+    <string name="settings_haptics">Тактильний відгук</string>
+    <string name="settings_haptics_system">Як у системі</string>
+    <string name="settings_haptics_on">Увімкнено</string>
+    <string name="settings_haptics_off">Вимкнено</string>
 </resources>
