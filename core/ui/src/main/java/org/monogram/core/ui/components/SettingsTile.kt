@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.monogram.core.ui.haptics.HapticIntent
+import org.monogram.core.ui.haptics.LocalHaptics
 
 val SettingsGroupCorner: Dp = 24.dp
 val SettingsGroupGap: Dp = 8.dp
@@ -126,12 +128,16 @@ fun SettingsCardRow(
     trailingContent: @Composable (() -> Unit)? = null,
 ) {
     // A switch row is toggled by the whole row, not just the switch: tapping the title has to work.
+    val haptics = LocalHaptics.current
     val interaction = when {
         toggle != null && onToggle != null -> Modifier.toggleable(
             value = toggle,
             enabled = enabled,
             role = Role.Switch,
-            onValueChange = onToggle,
+            onValueChange = { next ->
+                haptics.perform(if (next) HapticIntent.ToggleOn else HapticIntent.ToggleOff)
+                onToggle(next)
+            },
         )
         onClick != null -> Modifier.clickable(enabled = enabled, onClick = onClick)
         else -> Modifier

@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import org.monogram.core.ui.haptics.HapticIntent
+import org.monogram.core.ui.haptics.LocalHaptics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -112,6 +114,7 @@ fun GlassBottomBar(
     // The gesture lambda outlives the composition that created it, so it has to read the latest
     // selection through a state holder instead of capturing the value it started with.
     val currentSelected by rememberUpdatedState(selected)
+    val haptics = LocalHaptics.current
 
     // The indicator refracts the labels it sits on, not just the page behind the bar, so the row is
     // drawn twice: once for the eye and once, invisible, into a layer the glass samples. The hidden
@@ -196,7 +199,10 @@ fun GlassBottomBar(
                                 dragPx = 0f
                                 dragging = false
                                 val index = target.coerceIn(0, tabs.lastIndex)
-                                if (index != currentSelected) onSelect(index)
+                                if (index != currentSelected) {
+                                    haptics.perform(HapticIntent.Tick)
+                                    onSelect(index)
+                                }
                             }
                         }
                     },
@@ -310,6 +316,7 @@ private fun TabRow(
     modifier: Modifier = Modifier,
 ) {
     val scale = LocalBarTabScale.current
+    val haptics = LocalHaptics.current
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         tabs.forEachIndexed { index, tab ->
             val active = index == selected
@@ -321,6 +328,7 @@ private fun TabRow(
                     .then(
                         if (interaction) {
                             Modifier.selectable(selected = active, role = Role.Tab) {
+                                haptics.perform(HapticIntent.Tick)
                                 onSelect(index)
                             }
                         } else {

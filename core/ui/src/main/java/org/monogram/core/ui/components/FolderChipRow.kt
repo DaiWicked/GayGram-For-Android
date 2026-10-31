@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.monogram.core.ui.perf.RecompositionProbe
+import org.monogram.core.ui.haptics.HapticIntent
+import org.monogram.core.ui.haptics.LocalHaptics
 
 /**
  * A dialog filter: an id (`null` is "All chats"), a label and unread counters.
@@ -160,6 +162,7 @@ private fun FolderChip(
     onLongPress: ((FolderChipItem) -> Unit)?,
 ) {
     RecompositionProbe("FolderChip", folder.id)
+    val haptics = LocalHaptics.current
     val latestFolder = rememberUpdatedState(folder)
     val latestOnLongPress = rememberUpdatedState(onLongPress)
     val longPress = remember(onLongPress == null) {
@@ -171,7 +174,10 @@ private fun FolderChip(
     }
     FilterChip(
         selected = selected,
-        onClick = { onSelect(folder.id) },
+        onClick = {
+            haptics.perform(HapticIntent.Tick)
+            onSelect(folder.id)
+        },
         label = {
             Text(
                 text = folder.label,

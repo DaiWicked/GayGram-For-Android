@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import org.monogram.core.ui.ComposerSlotAction
 import org.monogram.core.ui.ComposerStyle
+import org.monogram.core.ui.haptics.HapticIntent
+import org.monogram.core.ui.haptics.LocalHaptics
 import org.monogram.core.ui.loading.MonogramBusyIconButton
 
 fun composerSlotIcon(action: ComposerSlotAction, style: ComposerStyle): ImageVector = when (action) {
@@ -75,6 +77,7 @@ fun ChatComposerLayout(
     field: @Composable () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHaptics.current
     val ios = style == ComposerStyle.IOS
     val sendColor by animateColorAsState(
         if (sendEnabled) scheme.primary else scheme.surfaceContainerHighest,
@@ -127,7 +130,10 @@ fun ChatComposerLayout(
             }
         }
         MonogramBusyIconButton(
-            onClick = onSend,
+            onClick = {
+                haptics.perform(HapticIntent.Confirm)
+                onSend()
+            },
             busy = sending,
             enabled = sendEnabled,
             modifier = Modifier.size(48.dp),
