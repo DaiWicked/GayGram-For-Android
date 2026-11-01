@@ -40,6 +40,7 @@ import org.monogram.core.models.SearchPeer
 import org.monogram.core.models.TypingPresence
 import org.monogram.core.models.displayedChatAction
 import org.monogram.core.models.isPlaceholderPeerTitle
+import org.monogram.core.ui.GayGramSettings
 import org.monogram.core.ui.components.PeerPresence
 import org.monogram.network.bridge.MtprotoClient
 import org.monogram.network.bridge.MtprotoUpdate
@@ -264,6 +265,7 @@ internal class ChatsExecutor(
 
                     is MtprotoUpdate.MessagesDeleted -> {
                         scope.launch {
+                            if (GayGramSettings.state.value.keepRevokedMessages) return@launch
                             warmup?.deleteMessages(update.chatId, update.messageIds)
                             val ids = update.messageIds.toSet()
                             listPublicationMutex.withLock {

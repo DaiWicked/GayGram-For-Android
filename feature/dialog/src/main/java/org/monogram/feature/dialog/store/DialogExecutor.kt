@@ -26,6 +26,7 @@ import org.monogram.core.models.UploadItem
 import org.monogram.core.models.isPlaceholderPeerTitle
 import org.monogram.core.models.preferredPeerTitle
 import org.monogram.core.models.replaceComposedDialogSeed
+import org.monogram.core.ui.GayGramSettings
 import org.monogram.core.ui.components.PeerPresence
 import org.monogram.feature.dialog.ComposerPanels
 import org.monogram.feature.dialog.DialogStore
@@ -160,7 +161,7 @@ internal class DialogExecutor(
                     is MtprotoUpdate.MessagesDeleted -> {
                         if (update.chatId == null || update.chatId == chatId) {
                             val deleted = update.messageIds.toSet()
-                            if (deleted.isNotEmpty()) {
+                            if (deleted.isNotEmpty() && !GayGramSettings.state.value.keepRevokedMessages) {
                                 dispatch(Msg.MessagesDeleted(deleted))
                                 rememberPinned()
                                 scope.launch {

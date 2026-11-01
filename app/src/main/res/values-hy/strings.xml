@@ -66,4 +66,7 @@
     <string name="tab_me">Ես</string>
     <string name="tab_more">Ավելին</string>
     <string name="extensions_coming_soon">GayGram-ի ընդլայնումները կլինեն այստեղ։</string>
+    <string name="extensions_section_chat">Զրույց</string>
+    <string name="extensions_keep_revoked">Պահել հետ կանչված հաղորդագրությունները</string>
+    <string name="extensions_keep_revoked_sub">Այլոց հետ կանչած հաղորդագրությունները մնում են զրույցում</string>
 </resources>

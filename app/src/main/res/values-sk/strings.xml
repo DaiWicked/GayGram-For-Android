@@ -68,4 +68,7 @@
     <string name="tab_me">Ja</string>
     <string name="tab_more">Viac</string>
     <string name="extensions_coming_soon">Rozšírenia GayGram budú tu.</string>
+    <string name="extensions_section_chat">Chat</string>
+    <string name="extensions_keep_revoked">Zachovať odvolané správy</string>
+    <string name="extensions_keep_revoked_sub">Správy, ktoré iní odvolali, zostávajú v chate</string>
 </resources>

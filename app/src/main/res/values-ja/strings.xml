@@ -65,4 +65,7 @@
     <string name="tab_me">マイページ</string>
     <string name="tab_more">その他</string>
     <string name="extensions_coming_soon">GayGram の拡張機能はここに追加されます。</string>
+    <string name="extensions_section_chat">チャット</string>
+    <string name="extensions_keep_revoked">送信取消を保持</string>
+    <string name="extensions_keep_revoked_sub">相手が取り消したメッセージもチャットに残ります</string>
 </resources>

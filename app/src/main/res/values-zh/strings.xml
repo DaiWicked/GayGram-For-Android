@@ -65,4 +65,7 @@
     <string name="tab_me">我的</string>
     <string name="tab_more">更多</string>
     <string name="extensions_coming_soon">GayGram 的拓展功能会放在这里。</string>
+    <string name="extensions_section_chat">聊天</string>
+    <string name="extensions_keep_revoked">防撤回</string>
+    <string name="extensions_keep_revoked_sub">对方撤回的消息继续留在聊天里</string>
 </resources>

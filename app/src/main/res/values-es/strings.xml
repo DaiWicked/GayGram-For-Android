@@ -66,4 +66,7 @@
     <string name="tab_me">Yo</string>
     <string name="tab_more">Más</string>
     <string name="extensions_coming_soon">Las extensiones de GayGram vivirán aquí.</string>
+    <string name="extensions_section_chat">Chat</string>
+    <string name="extensions_keep_revoked">Conservar mensajes retirados</string>
+    <string name="extensions_keep_revoked_sub">Los mensajes que otros retiran siguen en el chat</string>
 </resources>

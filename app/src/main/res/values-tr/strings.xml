@@ -66,4 +66,7 @@
     <string name="tab_me">Ben</string>
     <string name="tab_more">Daha fazla</string>
     <string name="extensions_coming_soon">GayGram eklentileri burada olacak.</string>
+    <string name="extensions_section_chat">Sohbet</string>
+    <string name="extensions_keep_revoked">Silinen mesajları sakla</string>
+    <string name="extensions_keep_revoked_sub">Başkalarının sildiği mesajlar sohbette kalır</string>
 </resources>

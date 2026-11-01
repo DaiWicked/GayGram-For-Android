@@ -42,6 +42,7 @@ import org.monogram.core.models.AuthSession
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.requiresForwardPhotoRight
 import org.monogram.core.ui.DownloadSettings
+import org.monogram.core.ui.GayGramSettings
 import org.monogram.core.ui.ImageCache
 import org.monogram.core.ui.media.MediaPlaybackHolder
 import org.monogram.feature.auth.AuthComponent
@@ -354,10 +355,12 @@ class RootComponent(
                 cache.applyIncomingMessage(update.message, accountGeneration, acceptedOrder)
 
             is MtprotoUpdate.MessageEdited -> cache.applyMessageEdit(update.message)
-            is MtprotoUpdate.MessagesDeleted -> cache.deleteMessages(
-                update.chatId,
-                update.messageIds
-            )
+            is MtprotoUpdate.MessagesDeleted -> if (!GayGramSettings.state.value.keepRevokedMessages) {
+                cache.deleteMessages(
+                    update.chatId,
+                    update.messageIds
+                )
+            }
 
             is MtprotoUpdate.MessageReactions ->
                 cache.applyReactions(update.chatId, update.messageId, update.reactionsJson)

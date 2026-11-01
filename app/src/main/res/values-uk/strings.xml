@@ -68,4 +68,7 @@
     <string name="tab_me">Я</string>
     <string name="tab_more">Ще</string>
     <string name="extensions_coming_soon">Тут з’являться розширення GayGram.</string>
+    <string name="extensions_section_chat">Чат</string>
+    <string name="extensions_keep_revoked">Зберігати видалені повідомлення</string>
+    <string name="extensions_keep_revoked_sub">Повідомлення, видалені іншими, залишаються в чаті</string>
 </resources>
