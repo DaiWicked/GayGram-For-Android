@@ -509,7 +509,11 @@ private fun RootPlaybackContent(
                                 }
 
                                 is RootComponent.Child.Extensions -> ExtensionsContent()
-                                is RootComponent.Child.Profile -> ProfileContent(instance.component)
+                                is RootComponent.Child.Profile -> CompositionLocalProvider(
+                                    LocalBottomBarInset provides tabBarInset,
+                                ) {
+                                    ProfileContent(instance.component)
+                                }
                                 is RootComponent.Child.Settings -> CompositionLocalProvider(
                                     LocalBottomBarInset provides tabBarInset,
                                 ) {

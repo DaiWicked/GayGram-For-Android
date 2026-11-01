@@ -44,6 +44,7 @@ import org.monogram.core.common.Outcome
 import org.monogram.core.models.Message
 import org.monogram.core.models.PeerId
 import org.monogram.core.models.peerAvatarCacheKey
+import org.monogram.core.ui.LocalBottomBarInset
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
 import org.monogram.core.ui.components.MediaPreviewViewer
@@ -157,7 +158,7 @@ fun ProfileContent(component: ProfileComponent, modifier: Modifier = Modifier) {
                                 start = 16.dp,
                                 end = 16.dp,
                                 top = 8.dp,
-                                bottom = 24.dp,
+                                bottom = 24.dp + LocalBottomBarInset.current,
                             ),
                         ) {
                             item(key = "header") {
