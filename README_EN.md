@@ -9,38 +9,58 @@
 
 <p align="center"><a href="README.md">中文</a> · <a href="README_EN.md">English</a> · <a href="README_RU.md">Русский</a> · <a href="README_TR.md">Türkçe</a> · <a href="README_KOR.md">한국어</a> · <a href="README_UR.md">اُردو</a> · <a href="README_ES.md">Español</a></p>
 
-<p align="center"><strong>GayGram</strong> is a Telegram client I built for myself.</p>
+## About
 
-It grows on <a href="https://github.com/monogram-android/monogram">Monogram</a> — a native client written in Kotlin and Compose, with a Rust protocol layer. On top of that base I added two things: glass that really does refract what sits behind it, and a set of haptics that talk.
+**GayGram is an Android Telegram client from the 缺德组织 crew.**
 
-## Glass
+It's built on [Monogram](https://github.com/monogram-android/monogram) — a native client in Kotlin and Compose, with a Rust protocol layer. On top of that base we added two things: a layer of glass on the controls, and a haptic feedback layer.
 
-The top bars, the composer, the jump-to-latest pill, the window behind menus — those are glass, and what lies behind them genuinely bends and drifts.
+It's not "the official client with a pile of toggles bolted on." The UI is redone for a phone, and the features are being moved over one at a time from our own Windows desktop client.
 
-The messages never get glass. When you're reading messages, you only want the messages.
+## Features
 
-## Haptics
+| Category | What's in it |
+| --- | --- |
+| 🫧 Glass & haptics | Liquid glass on top bars, composer, pill, and behind menus; tactile feedback for taps, long presses, toggles, and list edge hits |
+| 👻 Privacy | Anti-recall, ghost mode (hide online / read receipts / typing), message history |
+| ✨ Extras | Local premium, auto-translate, message filters |
+| 🧱 Under the hood | Native Kotlin + Compose, Rust MTProto, folders, QR / passkey sign-in |
 
-A tap, a long press, a toggle, a confirmation, a rejection, dragging a list to its end — each one has its own feel, so you know what happened without looking.
+Still being moved over from the desktop build: appearance tweaks, custom fonts, aurora gradients, wallpaper blur, biometric lock, dynamic icon, home screen widgets.
 
-When the list already rests at the bottom and you pull further, it clicks once, like touching a wall. Fling it and let momentum carry it there and it stays quiet, because that pull wasn't yours.
+## What's different
 
-Don't want it? Turn it off in Settings → Appearance, or let it follow the system.
+### Glass
 
-## Still on the way
+The top bars, the composer, the jump-to-latest pill, the area behind menus — these controls are frosted. The messages scrolling underneath blur through, and the rounded bits show a little refraction.
 
-The Windows desktop client of the same lineage is being moved over one feature at a time — and not by copying screens. Each is redone for a phone:
+Messages themselves stay untouched. When you're reading, you want to read — not read through frosted glass.
 
-anti-recall, ghost mode, message history, local premium, translator, filters.
+### Haptics
 
-## Try it
+A tap, a long press, a toggle, dragging a list to the end — each has its own feel. When the list is already at the bottom and you pull harder, it clicks once, like hitting a wall. Fling it and let momentum carry it there and it stays quiet, because that pull wasn't yours.
 
-Grab the latest APK from [Releases](https://github.com/DaiWicked/GayGram-For-Android/releases), allow installing apps from unknown sources, and install. The first sign-in needs your own Telegram account; if you want push, give it notification permission in system settings.
+Too noisy? Turn it off in Settings → Appearance, or let it follow the system.
+
+## Download
+
+Grab the latest APK from [Releases](https://github.com/DaiWicked/GayGram-For-Android/releases) and allow installs from unknown sources. First sign-in needs your own Telegram account; if you want push, grant notification permission in system settings.
 
 Runs on Android 7.0 and up.
 
-> [!NOTE]
-> This is a personal project — not an official Telegram app, and not published in any store. If something feels off, open an issue and tell me.
+> A personal project — not an official Telegram app, not on any store. If something feels off, open an issue and tell us.
+
+## Building from source
+
+We ship via GitHub Actions. To build locally you'll need:
+
+- JDK 17+
+- Android SDK (Platform 37)
+- Rust + NDK (mtproto is Rust, via UniFFI bindings)
+- Your own Telegram `API_ID` / `API_HASH`
+- A `telers-mtproto-impl` checkout **next to** this repository (the Cargo manifests read `../telers-mtproto-impl`; the submodule under `vendor` is not enough)
+
+Build notes are in `AGENTS.md` at the repo root — written for AI collaborators, but readable by humans too.
 
 ## 缺德组织
 
@@ -50,7 +70,7 @@ GayGram is a **缺德组织** production — a name that isn't very proper, for 
 
 ## License
 
-GayGram is released under the [GNU General Public License v3.0](LICENSE), the license it inherits from Monogram.
+Released under [GNU GPL v3.0](LICENSE), inherited from Monogram.
 
 ---
 

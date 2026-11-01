@@ -9,38 +9,58 @@
 
 <p align="center"><a href="README.md">中文</a> · <a href="README_EN.md">English</a> · <a href="README_RU.md">Русский</a> · <a href="README_TR.md">Türkçe</a> · <a href="README_KOR.md">한국어</a> · <a href="README_UR.md">اُردو</a> · <a href="README_ES.md">Español</a></p>
 
-<p align="center"><strong>GayGram</strong> 是我给自己做的 Telegram 客户端。</p>
+## 简介
 
-它长在 <a href="https://github.com/monogram-android/monogram">Monogram</a> 上 —— 一个用 Kotlin 和 Compose 写的原生客户端，协议层是 Rust。我在这个底子上加了两样东西：一层真的会折射背景的玻璃，和一套会说话的震动。
+**GayGram 是缺德组织做的 Android Telegram 客户端。**
 
-## 玻璃
+基于 [Monogram](https://github.com/monogram-android/monogram) 改的——Monogram 是用 Kotlin + Compose 写的原生客户端，协议层是 Rust。我们在这个底子上加了两层东西：一层糊在控制层上的玻璃，和一套触感反馈。
 
-顶栏、输入框、跳到最新消息的胶囊、菜单背后的窗口 —— 这些地方是玻璃的，背后的内容在它们后面真实地弯折、流动。
+它不是在官方客户端上叠一堆开关那种路子。UI 是按手机重新做的，功能是从同一个组织的 Windows 桌面版一件件搬过来的。
 
-消息本身不盖玻璃。看消息的时候，你只想看消息。
+## 功能
 
-## 震动
+| 分类 | 有什么 |
+| --- | --- |
+| 🫧 玻璃与触感 | 顶栏/输入栏/胶囊/菜单背后的液态玻璃；点按、长按、拨开关、列表拖到底各有触感反馈 |
+| 👻 隐私增强 | 反撤回、幽灵模式（隐藏在线/已读/输入中）、消息历史 |
+| ✨ 体验增强 | 本地 Premium、自动翻译、消息过滤器 |
+| 🧱 底子 | 原生 Kotlin + Compose、Rust MTProto、文件夹、QR / passkey 登录 |
 
-点按、长按、拨动开关、确认、拒绝、把列表拖到底 —— 每一种都有自己的一下，不用看屏幕也知道发生了什么。
+正在从桌面版继续搬：外观增强、字体自定义、极光渐变、壁纸模糊、生物识别锁、动态图标、桌面小组件。
 
-列表已经停在底部了，你还往下拽，它会「咔哒」一声，像碰到了墙。甩上去靠惯性滑到尽头，它不出声，因为那不是你在拽。
+## 跟别人不一样在哪
 
-不想要的话，设置 → 外观里可以关掉，或者让它跟着系统走。
+### 玻璃
 
-## 还在搬的东西
+顶栏、输入框、回到底部的胶囊、菜单背后，这些控制层糊了一层玻璃。背后滚的消息会透过它虚化，圆角的地方能看到一点点折射。
 
-同一个源头的 Windows 桌面版，功能一件件搬过来，但界面不是照搬的 —— 每个都是按手机重做的：
+消息本身不加。看消息的时候你只想看消息，别让一层毛玻璃挡字。
 
-反撤回、幽灵模式、消息历史、本地 Premium、翻译器、过滤器。
+### 触感
 
-## 装上试试
+点按、长按、拨开关、列表拖到底，各有各的一下。列表已经顶到底了你还硬拽，会「咔」一声，像撞墙；靠惯性滑到底不响，因为那一下不是你拽的。
 
-从 [Releases](https://github.com/DaiWicked/GayGram-For-Android/releases) 下载最新的 APK，允许安装未知来源的应用，装上就可以。第一次登录需要自己的 Telegram 账号；想收推送，记得在系统设置里给它通知权限。
+嫌吵在设置 → 外观里关，或者跟着系统走。
+
+## 下载
+
+从 [Releases](https://github.com/DaiWicked/GayGram-For-Android/releases) 下最新 APK，允许未知来源安装。第一次登录用自己的 Telegram 账号；想收推送去系统设置给通知权限。
 
 Android 7.0 以上都能跑。
 
-> [!NOTE]
-> 这是个人项目，不是 Telegram 官方应用，也不在任何应用商店上架。用着有什么不对劲，开个 issue 告诉我。
+> 这是个人项目，不是 Telegram 官方应用，也不上架任何商店。用着哪里不对劲，开个 issue 说一声。
+
+## 从源码构建
+
+我们自己出包走 GitHub Actions。你想本地编译，需要：
+
+- JDK 17 以上
+- Android SDK（Platform 37）
+- Rust + NDK（mtproto 是 Rust 写的，走 UniFFI 绑定）
+- 自己的 Telegram `API_ID` / `API_HASH`
+- 与仓库**同级**检出的 `telers-mtproto-impl`（Cargo 清单读的是 `../telers-mtproto-impl`，只有 `vendor` 下的 submodule 不够）
+
+构建细节看根目录 `AGENTS.md`，本来是写给 AI 协作者的，人也能看懂。
 
 ## 缺德组织
 
@@ -50,7 +70,7 @@ GayGram 是**缺德组织**的作品。名字不太正经，做的事很正经�
 
 ## 许可
 
-GayGram 依据 [GNU General Public License v3.0](LICENSE) 发布，这份许可来自 Monogram。
+按 [GNU GPL v3.0](LICENSE) 发布，许可证继承自 Monogram。
 
 ---
 
