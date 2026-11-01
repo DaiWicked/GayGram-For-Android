@@ -161,11 +161,15 @@ internal class DialogExecutor(
                     is MtprotoUpdate.MessagesDeleted -> {
                         if (update.chatId == null || update.chatId == chatId) {
                             val deleted = update.messageIds.toSet()
-                            if (deleted.isNotEmpty() && !GayGramSettings.state.value.keepRevokedMessages) {
-                                dispatch(Msg.MessagesDeleted(deleted))
-                                rememberPinned()
-                                scope.launch {
-                                    warmup?.deleteMessages(chatId, deleted)
+                            if (deleted.isNotEmpty()) {
+                                if (GayGramSettings.state.value.keepRevokedMessages) {
+                                    dispatch(Msg.MessagesRevoked(deleted))
+                                } else {
+                                    dispatch(Msg.MessagesDeleted(deleted))
+                                    rememberPinned()
+                                    scope.launch {
+                                        warmup?.deleteMessages(chatId, deleted)
+                                    }
                                 }
                             }
                         }

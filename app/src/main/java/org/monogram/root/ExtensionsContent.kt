@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -83,6 +84,9 @@ private fun LazyListScope.extensionItems(
                 iconColor = MaterialTheme.colorScheme.primary,
                 toggle = keepRevoked,
                 onToggle = onKeepRevoked,
+                trailingContent = {
+                    Switch(checked = keepRevoked, onCheckedChange = null)
+                },
             )
         }
     }

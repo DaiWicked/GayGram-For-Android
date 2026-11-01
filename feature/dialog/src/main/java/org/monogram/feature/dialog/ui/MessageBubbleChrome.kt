@@ -1,7 +1,9 @@
 package org.monogram.feature.dialog.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +34,19 @@ internal fun MessageMetadata(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
+        if (message.revoked) {
+            Text(
+                text = stringResource(R.string.dialog_revoked),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(3.dp),
+                    )
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            )
+        }
         if (message.editDate != null) {
             Text(
                 text = stringResource(R.string.dialog_edited),

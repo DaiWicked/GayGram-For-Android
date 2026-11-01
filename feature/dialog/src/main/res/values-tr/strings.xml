@@ -231,6 +231,7 @@
     <string name="dialog_forwarded_message">İletilen mesaj</string>
     <string name="dialog_via_bot">@%1$s ile</string>
     <string name="dialog_edited">düzenlendi</string>
+    <string name="dialog_revoked">silindi</string>
     <string name="dialog_admin">Yönetici</string>
     <string name="dialog_owner">Sahip</string>
     <string name="dialog_bot">bot</string>

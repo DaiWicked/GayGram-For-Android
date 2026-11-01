@@ -231,6 +231,7 @@
     <string name="dialog_forwarded_message">Mensagem encaminhada</string>
     <string name="dialog_via_bot">via @%1$s</string>
     <string name="dialog_edited">editada</string>
+    <string name="dialog_revoked">apagada</string>
     <string name="dialog_admin">Admin</string>
     <string name="dialog_owner">Dono</string>
     <string name="dialog_bot">bot</string>

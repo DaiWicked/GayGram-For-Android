@@ -71,6 +71,7 @@ internal sealed interface Msg {
     data class BindPending(val randomId: Long, val messageId: Int) : Msg
     data class MessageEdited(val value: Message) : Msg
     data class MessagesDeleted(val ids: Set<Int>) : Msg
+    data class MessagesRevoked(val ids: Set<Int>) : Msg
     data class Append(val value: Message) : Msg
     data class HasOlder(val value: Boolean) : Msg
     data class HasNewer(val value: Boolean) : Msg

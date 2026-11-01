@@ -239,6 +239,7 @@
     <string name="dialog_forwarded_message">Переслане повідомлення</string>
     <string name="dialog_via_bot">через @%1$s</string>
     <string name="dialog_edited">змінено</string>
+    <string name="dialog_revoked">видалено</string>
     <string name="dialog_admin">Адміністратор</string>
     <string name="dialog_owner">Власник</string>
     <string name="dialog_bot">бот</string>

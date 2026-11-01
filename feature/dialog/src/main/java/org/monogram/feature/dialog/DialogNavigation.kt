@@ -442,6 +442,13 @@ fun applyMessageEdit(messages: List<Message>, edited: Message): List<Message> =
 fun removeDeletedMessages(messages: List<Message>, ids: Set<Int>): List<Message> =
     messages.filterNot { it.id.id in ids }
 
+fun markRevokedMessages(messages: List<Message>, ids: Set<Int>): List<Message> =
+    if (ids.isEmpty()) {
+        messages
+    } else {
+        messages.map { if (it.id.id in ids && !it.revoked) it.copy(revoked = true) else it }
+    }
+
 /** True when the target is outside the loaded window and needs a history fetch. */
 fun jumpNeedsFetch(messages: List<Message>, targetId: Int): Boolean =
     messages.none { it.id.id == targetId }

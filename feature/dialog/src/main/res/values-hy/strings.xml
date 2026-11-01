@@ -231,6 +231,7 @@
     <string name="dialog_forwarded_message">Վերահասցեավորված հաղորդագրություն</string>
     <string name="dialog_via_bot">@%1$s միջոցով</string>
     <string name="dialog_edited">խմբագրված</string>
+    <string name="dialog_revoked">հետ կանչված</string>
     <string name="dialog_admin">Ադմին</string>
     <string name="dialog_owner">Սեփականատեր</string>
     <string name="dialog_bot">բոտ</string>

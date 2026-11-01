@@ -11,6 +11,7 @@ import org.monogram.feature.dialog.applyMessageEdit
 import org.monogram.feature.dialog.mergeLiveEdgeMessages
 import org.monogram.feature.dialog.mergeOrReplaceMessages
 import org.monogram.feature.dialog.pinnedIndexAfterReload
+import org.monogram.feature.dialog.markRevokedMessages
 import org.monogram.feature.dialog.removeDeletedMessages
 
 internal object DialogReducer : Reducer<DialogStore.State, Msg> {
@@ -155,6 +156,10 @@ internal object DialogReducer : Reducer<DialogStore.State, Msg> {
             pinnedIndex = pinnedIndex.coerceAtMost(
                 (pinnedMessages.count { it.id.id !in msg.ids } - 1).coerceAtLeast(0),
             ),
+        )
+        is Msg.MessagesRevoked -> copy(
+            messages = markRevokedMessages(messages, msg.ids),
+            pinnedMessages = markRevokedMessages(pinnedMessages, msg.ids),
         )
         is Msg.Append -> copy(
             messages = Presence.withReadState(

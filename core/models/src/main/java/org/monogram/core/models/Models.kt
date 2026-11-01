@@ -217,6 +217,8 @@ data class Message(
     val randomId: Long? = null,
     val read: Boolean = false,
     val failed: Boolean = false,
+    /** Set when the sender recalled this message and GayGram kept it instead of deleting it. */
+    val revoked: Boolean = false,
     val replyQuote: String? = null,
     val replyQuoteEntities: List<TextEntity> = emptyList(),
     val entities: List<TextEntity> = emptyList(),

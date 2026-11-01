@@ -227,6 +227,7 @@
     <string name="dialog_forwarded_message">转发的消息</string>
     <string name="dialog_via_bot">通过 @%1$s</string>
     <string name="dialog_edited">已编辑</string>
+    <string name="dialog_revoked">已撤回</string>
     <string name="dialog_admin">管理员</string>
     <string name="dialog_owner">创建者</string>
     <string name="dialog_bot">机器人</string>
