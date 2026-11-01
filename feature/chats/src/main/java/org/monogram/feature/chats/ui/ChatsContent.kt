@@ -88,6 +88,7 @@ import org.monogram.core.models.Profile
 import org.monogram.core.models.peerAvatarCacheKey
 import org.monogram.core.ui.AppearanceSettings
 import org.monogram.core.ui.ExpressiveDefaults
+import org.monogram.core.ui.LocalBottomBarInset
 import org.monogram.core.ui.collectWhenActive
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.components.AppSyncStatus
@@ -731,7 +732,9 @@ fun ChatsContent(
                                 onMarkFolderRead = stableMarkFolderRead,
                                 onEditFolders = stableEditFolders,
                                 folderManagementEnabled = !selectingRecipient,
-                                modifier = Modifier.align(Alignment.BottomCenter),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = LocalBottomBarInset.current),
                             )
                         }
                     }
