@@ -9,11 +9,13 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -37,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -48,6 +51,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -78,7 +85,12 @@ import org.monogram.core.ui.DownloadSettings
 import org.monogram.core.ui.components.AppBarSyncTitle
 import org.monogram.core.ui.components.AppStatusBanner
 import org.monogram.core.ui.LocalBottomBarInset
+import org.monogram.core.ui.LocalTopChromeInset
 import org.monogram.core.ui.components.AppSyncStatus
+import org.monogram.core.ui.glass.GlassTokens
+import org.monogram.core.ui.glass.LiquidGlassSurface
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.monogram.core.ui.glass.GlassShowcase
 import org.monogram.core.ui.media.mediaViewerMotionEnabled
 import org.monogram.core.ui.rememberEnsuredFile
@@ -218,12 +230,225 @@ fun SettingsContent(
         SettingsPage.Glass -> stringResource(R.string.settings_glass)
     }
 
+    val glassBackdrop = rememberLayerBackdrop()
+    val density = LocalDensity.current
+    var chromeHeight by remember { mutableStateOf(0.dp) }
+
+    Box(modifier = modifier.fillMaxSize()) {
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().layerBackdrop(glassBackdrop),
         containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            if (page != SettingsPage.DeviceScanner) {
+        topBar = {},
+    ) { innerPadding ->
+        CompositionLocalProvider(LocalTopChromeInset provides chromeHeight) {
+        Children(
+            stack = component.pages,
+            modifier = Modifier.fillMaxSize(),
+            animation = pageAnimation,
+        ) { child ->
+            pageStates.SaveableStateProvider(settingsPageKey(child.instance)) {
+                Box(Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)) {
+                    when (val visiblePage = child.instance) {
+                        SettingsPage.Passkeys -> PasskeysSettings(component, Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current))
+                        SettingsPage.Devices -> DevicesSettings(
+                            component,
+                            Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current),
+                        )
+                        SettingsPage.DeviceScanner -> DeviceQrScanner(
+                            onScanned = component::onDeviceScanned,
+                            onBack = component::popPage,
+                            modifier = Modifier,
+                        )
+                        SettingsPage.Home -> SettingsPageList(innerPadding) {
+                            if (state.error != null) {
+                                item {
+                                    AppStatusBanner(
+                                        sync = AppSyncStatus.Hidden,
+                                        error = state.error,
+                                        onRetry = component::onRefresh,
+                                    )
+                                }
+                            }
+                            homeItems(
+                                component = component,
+                                stateTitle = accountTitle,
+                                stateSubtitle = accountSubtitle,
+                                avatarFile = avatarFile,
+                                avatarPreview = selfAvatarPreview,
+                                appVersion = state.appVersion,
+                                buildStamp = state.buildStamp,
+                                onOpen = component::openPage,
+                                onLogout = { confirmLogout = true },
+                                loading = state.loading || state.loggingOut,
+                                devicesSubtitle = activeDeviceCount.sessions
+                                    .count { !it.current && !it.passwordPending }
+                                    .takeIf { it > 0 },
+                                apiLayer = state.apiLayer,
+                            )
+                        }
+
+                        SettingsPage.Proxy -> ProxySettings(
+                            component,
+                            Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current)
+                        )
+
+                        SettingsPage.Data -> SettingsPageList(innerPadding) {
+                            dataItems(
+                                cacheBytes = state.cacheBytes,
+                                cacheByKind = state.cacheByKind,
+                                cacheChats = state.cacheChats,
+                                cacheMessage = state.cacheMessage,
+                                loading = state.loading || state.loggingOut,
+                                download = download,
+                                onOpenAutoDownload = { network ->
+                                    component.openPage(
+                                        SettingsPage.AutoDownload(autoDownloadNetworkKey(network)),
+                                    )
+                                },
+                                cacheLimitLabel = cacheLimitText,
+                                onPickLimit = { pickingLimit = true },
+                                onClear = {
+                                    clearSelection = selectableCacheKinds(state.cacheByKind).toSet()
+                                },
+                                onClearChat = { confirmChatId = it },
+                                onOpenDebugStats = if (DebugStats.enabled) {
+                                    { component.openPage(SettingsPage.DebugStats) }
+                                } else {
+                                    null
+                                },
+                                onOpenLogs = if (DebugLog.enabled) {
+                                    { component.openPage(SettingsPage.Logs) }
+                                } else {
+                                    null
+                                },
+                                mediaRepository = component.mediaRepository,
+                            )
+                        }
+
+                        SettingsPage.Logs -> SettingsLogs(
+                            query = logQuery,
+                            kind = debugLogKind(logKindName),
+                            shareFailed = logShareFailed,
+                            onQuery = {
+                                logQuery = it
+                                logShareFailed = false
+                            },
+                            onKind = { kind ->
+                                logKindName = kind?.name?.lowercase() ?: "all"
+                                logShareFailed = false
+                            },
+                            modifier = Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current),
+                        )
+
+                        SettingsPage.DebugStats -> SettingsPageList(innerPadding) {
+                            val expanded =
+                                debugStatsExpanded.split(',').filter { it.isNotEmpty() }.toSet()
+                            debugStatsItems(
+                                exportMessage = state.debugExportMessage,
+                                expanded = expanded,
+                                onToggleSection = { key ->
+                                    debugStatsExpanded = if (key in expanded) {
+                                        expanded.minus(key).joinToString(",")
+                                    } else {
+                                        expanded.plus(key).joinToString(",")
+                                    }
+                                },
+                                onExport = component::onExportDebugStats,
+                                onClear = component::onClearDebugStats,
+                            )
+                        }
+
+                        is SettingsPage.AutoDownload -> SettingsPageList(innerPadding) {
+                            autoDownloadItems(
+                                network = parseAutoDownloadNetwork(visiblePage.network),
+                                preset = download.presetFor(parseAutoDownloadNetwork(visiblePage.network)),
+                            )
+                        }
+
+                        SettingsPage.Appearance -> SettingsPageList(innerPadding) {
+                            appearanceItems(
+                                appearance = appearance,
+                                onOpenWallpaper = { component.openPage(SettingsPage.Wallpaper) },
+                            )
+                        }
+
+                        SettingsPage.Notifications -> SettingsPageList(innerPadding) {
+                            notificationsItems(
+                                component,
+                                notifications,
+                                debug = component.debugNotifications,
+                                onOpenDebug = { component.openPage(SettingsPage.NotificationDebug) },
+                                onOpenCategory = { kind ->
+                                    component.openPage(SettingsPage.NotificationCategory(kind))
+                                },
+                                onOpenExceptions = { component.openPage(SettingsPage.NotificationExceptions) },
+                            )
+                        }
+
+                        is SettingsPage.NotificationCategory -> SettingsPageList(innerPadding) {
+                            notificationCategoryItems(
+                                component,
+                                notifications,
+                                visiblePage.kind,
+                                onOpenExceptions = { component.openPage(SettingsPage.NotificationExceptions) },
+                            )
+                        }
+
+                        SettingsPage.NotificationExceptions -> {
+                            var editingChatId by remember { mutableStateOf<Long?>(null) }
+                            SettingsPageList(innerPadding) {
+                                notificationExceptionItems(
+                                    component,
+                                    notifications,
+                                    onEditChat = { editingChatId = it },
+                                )
+                            }
+                            editingChatId?.let { chatId ->
+                                NotificationChatModeDialog(
+                                    component = component,
+                                    state = notifications,
+                                    chatId = chatId,
+                                    onDismiss = { editingChatId = null },
+                                )
+                            }
+                        }
+
+                        SettingsPage.NotificationDebug -> SettingsPageList(innerPadding) {
+                            notificationDebugItems(component, notifications)
+                        }
+
+                        SettingsPage.Wallpaper -> WallpaperSettings(
+                            component,
+                            Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current)
+                        )
+
+                        SettingsPage.Folders -> folders?.content(innerPadding)
+
+                        SettingsPage.Glass -> GlassShowcase(Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current))
+                    }
+                }
+            }
+        }
+        }
+    }
+
+    if (page != SettingsPage.DeviceScanner) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .onSizeChanged { chromeHeight = with(density) { it.height.toDp() } },
+        ) {
+            LiquidGlassSurface(
+                backdrop = glassBackdrop,
+                shape = RectangleShape,
+                surface = GlassTokens.TabBar,
+                tint = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 TopAppBar(
                     windowInsets = WindowInsets.statusBars,
                     title = {
@@ -328,203 +553,14 @@ fun SettingsContent(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = Color.Transparent,
                     ),
                 )
             }
-        },
-    ) { innerPadding ->
-        Children(
-            stack = component.pages,
-            modifier = Modifier.fillMaxSize(),
-            animation = pageAnimation,
-        ) { child ->
-            pageStates.SaveableStateProvider(settingsPageKey(child.instance)) {
-                Box(Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)) {
-                    when (val visiblePage = child.instance) {
-                        SettingsPage.Passkeys -> PasskeysSettings(component, Modifier.padding(innerPadding))
-                        SettingsPage.Devices -> DevicesSettings(
-                            component,
-                            Modifier.padding(innerPadding),
-                        )
-                        SettingsPage.DeviceScanner -> DeviceQrScanner(
-                            onScanned = component::onDeviceScanned,
-                            onBack = component::popPage,
-                            modifier = Modifier,
-                        )
-                        SettingsPage.Home -> SettingsPageList(innerPadding) {
-                            if (state.error != null) {
-                                item {
-                                    AppStatusBanner(
-                                        sync = AppSyncStatus.Hidden,
-                                        error = state.error,
-                                        onRetry = component::onRefresh,
-                                    )
-                                }
-                            }
-                            homeItems(
-                                component = component,
-                                stateTitle = accountTitle,
-                                stateSubtitle = accountSubtitle,
-                                avatarFile = avatarFile,
-                                avatarPreview = selfAvatarPreview,
-                                appVersion = state.appVersion,
-                                buildStamp = state.buildStamp,
-                                onOpen = component::openPage,
-                                onLogout = { confirmLogout = true },
-                                loading = state.loading || state.loggingOut,
-                                devicesSubtitle = activeDeviceCount.sessions
-                                    .count { !it.current && !it.passwordPending }
-                                    .takeIf { it > 0 },
-                                apiLayer = state.apiLayer,
-                            )
-                        }
-
-                        SettingsPage.Proxy -> ProxySettings(
-                            component,
-                            Modifier.padding(innerPadding)
-                        )
-
-                        SettingsPage.Data -> SettingsPageList(innerPadding) {
-                            dataItems(
-                                cacheBytes = state.cacheBytes,
-                                cacheByKind = state.cacheByKind,
-                                cacheChats = state.cacheChats,
-                                cacheMessage = state.cacheMessage,
-                                loading = state.loading || state.loggingOut,
-                                download = download,
-                                onOpenAutoDownload = { network ->
-                                    component.openPage(
-                                        SettingsPage.AutoDownload(autoDownloadNetworkKey(network)),
-                                    )
-                                },
-                                cacheLimitLabel = cacheLimitText,
-                                onPickLimit = { pickingLimit = true },
-                                onClear = {
-                                    clearSelection = selectableCacheKinds(state.cacheByKind).toSet()
-                                },
-                                onClearChat = { confirmChatId = it },
-                                onOpenDebugStats = if (DebugStats.enabled) {
-                                    { component.openPage(SettingsPage.DebugStats) }
-                                } else {
-                                    null
-                                },
-                                onOpenLogs = if (DebugLog.enabled) {
-                                    { component.openPage(SettingsPage.Logs) }
-                                } else {
-                                    null
-                                },
-                                mediaRepository = component.mediaRepository,
-                            )
-                        }
-
-                        SettingsPage.Logs -> SettingsLogs(
-                            query = logQuery,
-                            kind = debugLogKind(logKindName),
-                            shareFailed = logShareFailed,
-                            onQuery = {
-                                logQuery = it
-                                logShareFailed = false
-                            },
-                            onKind = { kind ->
-                                logKindName = kind?.name?.lowercase() ?: "all"
-                                logShareFailed = false
-                            },
-                            modifier = Modifier.padding(innerPadding),
-                        )
-
-                        SettingsPage.DebugStats -> SettingsPageList(innerPadding) {
-                            val expanded =
-                                debugStatsExpanded.split(',').filter { it.isNotEmpty() }.toSet()
-                            debugStatsItems(
-                                exportMessage = state.debugExportMessage,
-                                expanded = expanded,
-                                onToggleSection = { key ->
-                                    debugStatsExpanded = if (key in expanded) {
-                                        expanded.minus(key).joinToString(",")
-                                    } else {
-                                        expanded.plus(key).joinToString(",")
-                                    }
-                                },
-                                onExport = component::onExportDebugStats,
-                                onClear = component::onClearDebugStats,
-                            )
-                        }
-
-                        is SettingsPage.AutoDownload -> SettingsPageList(innerPadding) {
-                            autoDownloadItems(
-                                network = parseAutoDownloadNetwork(visiblePage.network),
-                                preset = download.presetFor(parseAutoDownloadNetwork(visiblePage.network)),
-                            )
-                        }
-
-                        SettingsPage.Appearance -> SettingsPageList(innerPadding) {
-                            appearanceItems(
-                                appearance = appearance,
-                                onOpenWallpaper = { component.openPage(SettingsPage.Wallpaper) },
-                            )
-                        }
-
-                        SettingsPage.Notifications -> SettingsPageList(innerPadding) {
-                            notificationsItems(
-                                component,
-                                notifications,
-                                debug = component.debugNotifications,
-                                onOpenDebug = { component.openPage(SettingsPage.NotificationDebug) },
-                                onOpenCategory = { kind ->
-                                    component.openPage(SettingsPage.NotificationCategory(kind))
-                                },
-                                onOpenExceptions = { component.openPage(SettingsPage.NotificationExceptions) },
-                            )
-                        }
-
-                        is SettingsPage.NotificationCategory -> SettingsPageList(innerPadding) {
-                            notificationCategoryItems(
-                                component,
-                                notifications,
-                                visiblePage.kind,
-                                onOpenExceptions = { component.openPage(SettingsPage.NotificationExceptions) },
-                            )
-                        }
-
-                        SettingsPage.NotificationExceptions -> {
-                            var editingChatId by remember { mutableStateOf<Long?>(null) }
-                            SettingsPageList(innerPadding) {
-                                notificationExceptionItems(
-                                    component,
-                                    notifications,
-                                    onEditChat = { editingChatId = it },
-                                )
-                            }
-                            editingChatId?.let { chatId ->
-                                NotificationChatModeDialog(
-                                    component = component,
-                                    state = notifications,
-                                    chatId = chatId,
-                                    onDismiss = { editingChatId = null },
-                                )
-                            }
-                        }
-
-                        SettingsPage.NotificationDebug -> SettingsPageList(innerPadding) {
-                            notificationDebugItems(component, notifications)
-                        }
-
-                        SettingsPage.Wallpaper -> WallpaperSettings(
-                            component,
-                            Modifier.padding(innerPadding)
-                        )
-
-                        SettingsPage.Folders -> folders?.content(innerPadding)
-
-                        SettingsPage.Glass -> GlassShowcase(Modifier.padding(innerPadding))
-                    }
-                }
-            }
         }
     }
+    }
+
 
     if (confirmLogout || state.loggingOut) {
         AlertDialog(
@@ -652,7 +688,7 @@ private fun SettingsPageList(
             .widthIn(max = 720.dp),
         contentPadding = PaddingValues(
             start = 16.dp,
-            top = innerPadding.calculateTopPadding() + 8.dp,
+            top = innerPadding.calculateTopPadding() + LocalTopChromeInset.current + 8.dp,
             end = 16.dp,
             bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
                 LocalBottomBarInset.current + 16.dp,
