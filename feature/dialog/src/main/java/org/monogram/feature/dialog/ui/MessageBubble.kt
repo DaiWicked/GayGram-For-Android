@@ -313,28 +313,16 @@ fun MessageBubble(
                             Modifier
                                 .onGloballyPositioned { bubblePosition = it.positionInWindow() }
                                 .pointerInput(hasSpoiler) {
-                                    if (hasSpoiler) {
-                                        menuOrHold(
-                                            onTap = {
-                                                spoilersVisible = !spoilersVisible
-                                                openMenu.value.invoke(bubblePosition)
-                                            },
-                                            onLongPress = {
-                                                hold.value?.invoke() ?: openMenu.value.invoke(
-                                                    bubblePosition
-                                                )
-                                            },
-                                        )
-                                    } else {
-                                        menuOrHold(
-                                            onTap = { openMenu.value.invoke(bubblePosition + it) },
-                                            onLongPress = {
-                                                hold.value?.invoke() ?: openMenu.value.invoke(
-                                                    bubblePosition
-                                                )
-                                            },
-                                        )
-                                    }
+                                    // A tap never opens the menu: a slow scroll start used to be
+                                    // read as a click and popped it. The menu belongs to the long
+                                    // press, together with entering the selection it acts on.
+                                    menuOrHold(
+                                        onTap = { if (hasSpoiler) spoilersVisible = !spoilersVisible },
+                                        onLongPress = {
+                                            hold.value?.invoke()
+                                            openMenu.value.invoke(bubblePosition)
+                                        },
+                                    )
                                 }
                         } else if (!selectable && !passClicks && (onLongPress != null || hasSpoiler)) {
                             Modifier.combinedClickable(
@@ -483,13 +471,13 @@ fun MessageBubble(
                             messages = album,
                             mediaRepository = mediaRepository,
                             shape = shape,
-                            onLongPress = onLongPress ?: onOpenMenu?.let { open ->
+                            onLongPress = onOpenMenu?.let { open ->
                                 {
                                     open(
                                         bubblePosition
                                     )
                                 }
-                            },
+                            } ?: onLongPress,
                             modifier = if (mediaOnlyBubble) {
                                 Modifier
                             } else {
@@ -518,13 +506,13 @@ fun MessageBubble(
                                         }
                                     },
                                     onInstantView = onInstantView,
-                                    onLongPress = onLongPress ?: onOpenMenu?.let { open ->
+                                    onLongPress = onOpenMenu?.let { open ->
                                         {
                                             open(
                                                 bubblePosition
                                             )
                                         }
-                                    },
+                                    } ?: onLongPress,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -555,13 +543,13 @@ fun MessageBubble(
                                 }
                             },
                             onInstantView = onInstantView,
-                            onLongPress = onLongPress ?: onOpenMenu?.let { open ->
+                            onLongPress = onOpenMenu?.let { open ->
                                 {
                                     open(
                                         bubblePosition
                                     )
                                 }
-                            },
+                            } ?: onLongPress,
                             modifier = if (singleVisualMedia) {
                                 Modifier.bleedBubbleMedia(
                                     horizontal = 0.dp,
