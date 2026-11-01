@@ -77,6 +77,7 @@ import org.monogram.core.ui.AppearanceSettings
 import org.monogram.core.ui.DownloadSettings
 import org.monogram.core.ui.components.AppBarSyncTitle
 import org.monogram.core.ui.components.AppStatusBanner
+import org.monogram.core.ui.LocalBottomBarInset
 import org.monogram.core.ui.components.AppSyncStatus
 import org.monogram.core.ui.glass.GlassShowcase
 import org.monogram.core.ui.media.mediaViewerMotionEnabled
@@ -653,7 +654,8 @@ private fun SettingsPageList(
             start = 16.dp,
             top = innerPadding.calculateTopPadding() + 8.dp,
             end = 16.dp,
-            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
+            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                LocalBottomBarInset.current + 16.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         content = content,

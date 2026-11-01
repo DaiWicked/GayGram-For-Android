@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.monogram.core.common.telegram.TelegramError
+import org.monogram.core.ui.LocalBottomBarInset
 import org.monogram.core.models.Chat
 import org.monogram.core.models.Folder
 import org.monogram.core.models.Message
@@ -193,7 +194,7 @@ internal fun ChatsLazyList(
             .background(MaterialTheme.colorScheme.surface),
         contentPadding = PaddingValues(
             top = topInset,
-            bottom = 8.dp + miniPlayerPad +
+            bottom = 8.dp + miniPlayerPad + LocalBottomBarInset.current +
                 (if (foldersAtBottom && !archive && !searchOpen) 72.dp else 0.dp) +
                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         ),

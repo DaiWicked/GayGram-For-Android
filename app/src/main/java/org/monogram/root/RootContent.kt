@@ -113,10 +113,12 @@ import org.monogram.feature.dialog.ui.DialogContent
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.monogram.core.ui.glass.GlassBarTab
+import org.monogram.core.ui.LocalBottomBarInset
 import org.monogram.core.ui.glass.GlassBottomBar
 import org.monogram.feature.profile.ui.ProfileContent
 import org.monogram.feature.settings.ui.ProxySettingsContent
 import org.monogram.feature.settings.ui.SettingsContent
+import org.monogram.feature.settings.SettingsPage
 import kotlin.math.roundToInt
 
 @Composable
@@ -177,7 +179,17 @@ private fun RootPlaybackContent(
     val activeTab = component.activeTab
     val homeState = rememberSaveableStateHolder()
     val recipient by rememberUpdatedState((currentStack.active.instance as? RootComponent.Child.Recipients)?.component)
-    val showTabBar = currentStack.backStack.isEmpty() && activeTab != null && recipient == null
+    val settingsRootShown = when (val active = currentStack.active.instance) {
+        is RootComponent.Child.Settings -> {
+            val pages by active.component.pages.subscribeAsState()
+            pages.active.configuration == SettingsPage.Home
+        }
+
+        else -> true
+    }
+    val showTabBar = currentStack.backStack.isEmpty() && activeTab != null &&
+            recipient == null && settingsRootShown
+    val tabBarInset = if (showTabBar) 96.dp else 0.dp
     val homeContent = remember {
         movableContentOf<HomeComponent, Long?, Boolean> { homeComponent, selected, listActive ->
             homeState.SaveableStateProvider("home") {
@@ -498,11 +510,15 @@ private fun RootPlaybackContent(
 
                                 is RootComponent.Child.Extensions -> ExtensionsContent()
                                 is RootComponent.Child.Profile -> ProfileContent(instance.component)
-                                is RootComponent.Child.Settings -> SettingsContent(
-                                    component = instance.component,
-                                    gestureDispatcher = gestureDispatcher,
-                                    folders = rememberSettingsFolderHost(instance.folders),
-                                )
+                                is RootComponent.Child.Settings -> CompositionLocalProvider(
+                                    LocalBottomBarInset provides tabBarInset,
+                                ) {
+                                    SettingsContent(
+                                        component = instance.component,
+                                        gestureDispatcher = gestureDispatcher,
+                                        folders = rememberSettingsFolderHost(instance.folders),
+                                    )
+                                }
                             }
                         }
                         if (compactHome) {
@@ -518,7 +534,10 @@ private fun RootPlaybackContent(
                                         },
                                     ),
                             ) {
-                                CompositionLocalProvider(LocalMediaAnimationEnabled provides !homeMediaHeld) {
+                                CompositionLocalProvider(
+                                    LocalMediaAnimationEnabled provides !homeMediaHeld,
+                                    LocalBottomBarInset provides tabBarInset,
+                                ) {
                                     homeContent(home, selectedChatId, !homeCovered)
                                 }
                             }
