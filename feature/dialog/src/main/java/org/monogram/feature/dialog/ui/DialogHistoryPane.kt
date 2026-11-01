@@ -197,17 +197,20 @@ internal fun ColumnScope.DialogHistoryPane(
         touch: Offset?,
         forText: Boolean = false,
     ) {
+        val before = selectedIds
         val effect = historyMessageGesture(selectedIds, selectingMessageId, row, gesture, forText)
         selectedIds = effect.selectedIds
         selectingMessageId = effect.textSelectionId
         val headId = row.firstOrNull()?.id?.id
+        when {
+            gesture == HistoryMessageGesture.LongPress -> haptics.perform(HapticIntent.LongPress)
+            effect.selectedIds != before -> haptics.perform(HapticIntent.Tick)
+            effect.showMenu -> haptics.perform(HapticIntent.Press)
+        }
         if (effect.showMenu && headId != null) {
             menuTouch = touch
             menuMessageId = headId
             menuExpanded = true
-            if (gesture == HistoryMessageGesture.LongPress) {
-                haptics.perform(HapticIntent.LongPress)
-            }
             component.onLoadReadReceipts(headId)
         } else if (gesture == HistoryMessageGesture.LongPress) {
             menuExpanded = false
