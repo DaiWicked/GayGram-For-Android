@@ -176,6 +176,7 @@ private fun RootPlaybackContent(
         }
     }
     val tabBarBackdrop = rememberLayerBackdrop()
+    val homeTabBackdrop = rememberLayerBackdrop()
     val activeTab = component.activeTab
     val homeState = rememberSaveableStateHolder()
     val recipient by rememberUpdatedState((currentStack.active.instance as? RootComponent.Child.Recipients)?.component)
@@ -529,6 +530,13 @@ private fun RootPlaybackContent(
                             Box(
                                 Modifier
                                     .fillMaxSize()
+                                    .then(
+                                        if (showTabBar) {
+                                            Modifier.layerBackdrop(homeTabBackdrop)
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
                                     .zIndex(if (homeCovered) -1f else 0f)
                                     .then(
                                         if (homeCovered) {
@@ -589,7 +597,11 @@ private fun RootPlaybackContent(
                                 ),
                             )
                             GlassBottomBar(
-                                backdrop = tabBarBackdrop,
+                                backdrop = if (compactHome && activeTab == RootComponent.Tab.Chats) {
+                                    homeTabBackdrop
+                                } else {
+                                    tabBarBackdrop
+                                },
                                 tabs = tabs.map { it.second },
                                 selectedIndex = tabs.indexOfFirst { it.first == activeTab }
                                     .coerceAtLeast(0),
