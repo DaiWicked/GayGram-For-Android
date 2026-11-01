@@ -35,6 +35,7 @@ import org.monogram.core.ui.AppearanceSettings
 import org.monogram.core.ui.DownloadSettings
 import org.monogram.core.ui.DownloadState
 import org.monogram.core.ui.FileLeases
+import org.monogram.core.ui.GayGramSettings
 import org.monogram.core.ui.ImageCache
 import org.monogram.core.ui.perf.perfSpan
 import org.monogram.feature.settings.ProxySettingsStore
@@ -197,6 +198,7 @@ class MonogramApp : Application() {
                 perfSpan("app:appearance") {
                     AppearanceSettings.install(this)
                     AppUpdateSettings.install(this)
+                    GayGramSettings.install(this)
                 }
             },
             createClient = {
