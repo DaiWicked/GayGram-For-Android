@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
@@ -425,7 +427,14 @@ fun SettingsContent(
                             Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current)
                         )
 
-                        SettingsPage.Folders -> folders?.content(innerPadding)
+                        SettingsPage.Folders -> folders?.content(
+                            PaddingValues(
+                                start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                                top = innerPadding.calculateTopPadding() + LocalTopChromeInset.current,
+                                end = innerPadding.calculateEndPadding(LocalLayoutDirection.current),
+                                bottom = innerPadding.calculateBottomPadding(),
+                            ),
+                        )
 
                         SettingsPage.Glass -> GlassShowcase(Modifier.padding(innerPadding).padding(top = LocalTopChromeInset.current))
                     }

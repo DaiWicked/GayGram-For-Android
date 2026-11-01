@@ -101,7 +101,7 @@ fun GlassBottomBar(
 ) {
     if (tabs.isEmpty()) return
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (dark) 0.88f else 0.80f)
+    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (dark) 0.72f else 0.55f)
     val indicatorFill = if (dark) {
         Color.White.copy(alpha = 0.16f)
     } else {
@@ -357,7 +357,7 @@ private fun TabRow(
                 )
                 Text(
                     text = tab.label,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = color,
                     maxLines = 1,
                 )
