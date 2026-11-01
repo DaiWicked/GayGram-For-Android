@@ -527,6 +527,12 @@ private fun RootPlaybackContent(
                         val playbackVisible = recipient == null &&
                                 currentStack.active.instance !is RootComponent.Child.Dialog &&
                                 !restoreMiniPlayer
+                        val playableContext = LocalContext.current
+                        val playableSession = remember(playableContext) {
+                            MediaPlaybackHolder.session(playableContext)
+                        }
+                        val miniPlayerShowing = playbackVisible &&
+                                playableSession.showsMiniPlayer(LocalPictureInPictureActive.current)
                         if (restoreMiniPlayer) {
                             val context = LocalContext.current
                             val session = remember(context) { MediaPlaybackHolder.session(context) }
@@ -540,7 +546,7 @@ private fun RootPlaybackContent(
                             onExpand = { restoreMiniPlayer = true },
                             modifier = Modifier.align(Alignment.BottomCenter),
                         )
-                        if (showTabBar && !playbackVisible) {
+                        if (showTabBar && !miniPlayerShowing) {
                             val tabs = listOf(
                                 RootComponent.Tab.Chats to GlassBarTab(
                                     Icons.AutoMirrored.Outlined.Chat,
