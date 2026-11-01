@@ -52,6 +52,7 @@ import kotlin.time.Duration.Companion.milliseconds
 internal fun messageMenuActions(
     state: DialogStore.State,
     message: Message,
+    canSelect: Boolean = false,
 ): MessageMenuActions {
     val canSend = state.canSendPlain || state.canSendPhotos
     val sourceShape = message.isForwardSourceShape()
@@ -66,6 +67,7 @@ internal fun messageMenuActions(
         canDelete = canDeleteMessage(state, message),
         canForward = canForward,
         forwardRestricted = sourceShape && state.canForward && message.noforwards,
+        canSelect = canSelect,
     )
 }
 

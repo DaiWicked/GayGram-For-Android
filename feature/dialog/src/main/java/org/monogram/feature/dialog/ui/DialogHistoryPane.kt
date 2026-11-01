@@ -619,7 +619,7 @@ internal fun ColumnScope.DialogHistoryPane(
                                                         album.all { it.id.id in selectedIds }
                                                     applyHistoryGesture(
                                                         album,
-                                                        HistoryMessageGesture.LongPress,
+                                                        HistoryMessageGesture.Tap,
                                                         null,
                                                         forText = textSelection,
                                                     )
@@ -697,7 +697,17 @@ internal fun ColumnScope.DialogHistoryPane(
                                                 expanded = menuExpanded,
                                                 visibilityState = menuVisibility,
                                                 message = menuMessage,
-                                                actions = messageMenuActions(state, message),
+                                                actions = messageMenuActions(
+                                                    state = state,
+                                                    message = message,
+                                                    canSelect = selectableForForwarding && !multiSelecting,
+                                                ),
+                                                onSelect = { picked ->
+                                                    selectedIds = (selectedIds + picked.id.id)
+                                                        .distinct()
+                                                        .sorted()
+                                                    haptics.perform(HapticIntent.Tick)
+                                                },
                                                 outgoing = message.outgoing,
                                                 growth = menuPlacement.growth,
                                                 seenByRow = if (state.isGroup && !state.isChannel) {

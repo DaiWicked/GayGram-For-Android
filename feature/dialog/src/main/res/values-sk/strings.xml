@@ -158,6 +158,7 @@
     <string name="dialog_channel">Kanál</string>
     <string name="dialog_group">Skupina</string>
     <string name="dialog_reply">Odpovedať</string>
+    <string name="dialog_select">Vybrať</string>
     <string name="dialog_copy">Kopírovať</string>
     <string name="dialog_cut">Vystrihnúť</string>
     <string name="dialog_paste">Prilepiť</string>

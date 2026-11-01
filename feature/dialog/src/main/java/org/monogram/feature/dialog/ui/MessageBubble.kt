@@ -309,19 +309,18 @@ fun MessageBubble(
                     .then(
                         if (!selectable && !passClicks && onOpenMenu != null) {
                             val openMenu = rememberUpdatedState(onOpenMenu)
-                            val hold = rememberUpdatedState(onLongPress)
+                            val select = rememberUpdatedState(onLongPress)
                             Modifier
                                 .onGloballyPositioned { bubblePosition = it.positionInWindow() }
                                 .pointerInput(hasSpoiler) {
                                     // A tap never opens the menu: a slow scroll start used to be
-                                    // read as a click and popped it. The menu belongs to the long
-                                    // press, together with entering the selection it acts on.
+                                    // read as a click and popped it. Selecting is a menu action.
                                     menuOrHold(
-                                        onTap = { if (hasSpoiler) spoilersVisible = !spoilersVisible },
-                                        onLongPress = {
-                                            hold.value?.invoke()
-                                            openMenu.value.invoke(bubblePosition)
+                                        onTap = {
+                                            if (hasSpoiler) spoilersVisible = !spoilersVisible
+                                            select.value?.invoke()
                                         },
+                                        onLongPress = { openMenu.value.invoke(bubblePosition) },
                                     )
                                 }
                         } else if (!selectable && !passClicks && (onLongPress != null || hasSpoiler)) {

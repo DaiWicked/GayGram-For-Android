@@ -154,6 +154,7 @@
     <string name="dialog_channel">Kanal</string>
     <string name="dialog_group">Grup</string>
     <string name="dialog_reply">Yanıtla</string>
+    <string name="dialog_select">Seç</string>
     <string name="dialog_copy">Kopyala</string>
     <string name="dialog_cut">Kes</string>
     <string name="dialog_paste">Yapıştır</string>

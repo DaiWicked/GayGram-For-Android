@@ -208,6 +208,7 @@
     <string name="dialog_channel">Канал</string>
     <string name="dialog_group">Группа</string>
     <string name="dialog_reply">Ответить</string>
+    <string name="dialog_select">Выбрать</string>
     <string name="dialog_copy">Копировать</string>
     <string name="dialog_cut">Вырезать</string>
     <string name="dialog_paste">Вставить</string>

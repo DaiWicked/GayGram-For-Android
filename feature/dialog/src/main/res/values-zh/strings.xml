@@ -152,6 +152,7 @@
     <string name="dialog_channel">频道</string>
     <string name="dialog_group">群组</string>
     <string name="dialog_reply">回复</string>
+    <string name="dialog_select">多选</string>
     <string name="dialog_copy">复制</string>
     <string name="dialog_cut">剪切</string>
     <string name="dialog_paste">粘贴</string>

@@ -152,6 +152,7 @@
     <string name="dialog_channel">チャンネル</string>
     <string name="dialog_group">グループ</string>
     <string name="dialog_reply">返信</string>
+    <string name="dialog_select">選択</string>
     <string name="dialog_copy">コピー</string>
     <string name="dialog_cut">切り取り</string>
     <string name="dialog_paste">貼り付け</string>

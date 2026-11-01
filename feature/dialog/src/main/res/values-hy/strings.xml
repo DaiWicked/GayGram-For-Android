@@ -154,6 +154,7 @@
     <string name="dialog_channel">Ալիք</string>
     <string name="dialog_group">Խումբ</string>
     <string name="dialog_reply">Պատասխանել</string>
+    <string name="dialog_select">Ընտրել</string>
     <string name="dialog_copy">Պատճենել</string>
     <string name="dialog_cut">Կտրել</string>
     <string name="dialog_paste">Տեղադրել</string>

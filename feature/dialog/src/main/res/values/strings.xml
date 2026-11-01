@@ -171,6 +171,7 @@
     <string name="dialog_channel">Channel</string>
     <string name="dialog_group">Group</string>
     <string name="dialog_reply">Reply</string>
+    <string name="dialog_select">Select</string>
     <string name="dialog_copy">Copy</string>
     <string name="dialog_cut">Cut</string>
     <string name="dialog_paste">Paste</string>

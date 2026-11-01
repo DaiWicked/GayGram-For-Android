@@ -102,21 +102,7 @@ internal fun historyMessageGesture(
             else -> HistoryGestureEffect(kept, textSelectionId, showMenu = false)
         }
 
-        HistoryMessageGesture.LongPress -> when {
-            !selectable -> HistoryGestureEffect(kept, textSelectionId, showMenu = true)
-            rowSelected && forText && textId != null -> HistoryGestureEffect(
-                kept,
-                textId,
-                showMenu = false
-            )
-
-            rowSelected -> HistoryGestureEffect(kept, null, showMenu = false)
-            else -> HistoryGestureEffect(
-                toggleForwardSelection(kept, row),
-                textSelectionId = null,
-                showMenu = true,
-            )
-        }
+        HistoryMessageGesture.LongPress -> HistoryGestureEffect(kept, textSelectionId, showMenu = true)
     }
 }
 

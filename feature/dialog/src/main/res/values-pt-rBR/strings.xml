@@ -154,6 +154,7 @@
     <string name="dialog_channel">Canal</string>
     <string name="dialog_group">Grupo</string>
     <string name="dialog_reply">Responder</string>
+    <string name="dialog_select">Selecionar</string>
     <string name="dialog_copy">Copiar</string>
     <string name="dialog_cut">Recortar</string>
     <string name="dialog_paste">Colar</string>

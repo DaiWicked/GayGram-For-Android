@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Forward
 import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -42,6 +43,7 @@ data class MessageMenuActions(
     val canDelete: Boolean,
     val canForward: Boolean,
     val forwardRestricted: Boolean,
+    val canSelect: Boolean = false,
 )
 
 @Composable
@@ -55,6 +57,7 @@ fun MessageActionMenu(
     onEdit: (Message) -> Unit,
     onDelete: (Message) -> Unit,
     onForward: (Message) -> Unit,
+    onSelect: ((Message) -> Unit)? = null,
     onReact: ((emoticon: String, documentId: Long) -> Unit)? = null,
     recentReactions: List<org.monogram.core.models.ReactionChoice> = emptyList(),
     outgoing: Boolean = false,
@@ -123,6 +126,16 @@ fun MessageActionMenu(
                                 },
                                 onClick = {
                                     onForward(target)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                        if (actions.canSelect && onSelect != null) {
+                            AppMenuItem(
+                                text = stringResource(R.string.dialog_select),
+                                icon = Icons.Outlined.Check,
+                                onClick = {
+                                    onSelect(target)
                                     onDismiss()
                                 },
                             )
