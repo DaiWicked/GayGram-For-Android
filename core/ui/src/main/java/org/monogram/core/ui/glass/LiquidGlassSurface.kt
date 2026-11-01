@@ -74,7 +74,7 @@ fun LiquidGlassSurface(
             },
             highlight = { glassHighlight(dark) },
             shadow = if (lift > 0.dp) {
-                { Shadow(radius = lift, color = Color.Black.copy(alpha = if (dark) 0.20f else 0.10f)) }
+                { Shadow(radius = lift, color = Color.Black.copy(alpha = if (dark) 0.32f else 0.10f)) }
             } else {
                 null
             },
@@ -109,7 +109,7 @@ private fun Shape.canRefract(): Boolean = this is CornerBasedShape || this is Ab
  */
 private fun glassHighlight(dark: Boolean): Highlight =
     Highlight(
-        alpha = if (dark) 0.5f else 0.24f,
+        alpha = if (dark) 0.26f else 0.24f,
         style = if (dark) {
             HighlightStyle.Default
         } else {

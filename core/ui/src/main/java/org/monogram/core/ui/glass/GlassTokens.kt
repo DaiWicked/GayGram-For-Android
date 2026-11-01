@@ -65,7 +65,7 @@ object GlassTokens {
     // A tint absorbs part of the backdrop, so it has to absorb more of a bright one: the same alpha
     // that stays readable over dark content washes a light surface out completely.
     private const val LightTintAlpha = 0.22f
-    private const val DarkTintAlpha = 0.44f
+    private const val DarkTintAlpha = 0.62f
 
     /** Alpha of the tint layer drawn over a live glass surface. */
     fun tintAlpha(dark: Boolean): Float = if (dark) DarkTintAlpha else LightTintAlpha
