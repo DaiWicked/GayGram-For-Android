@@ -29,6 +29,7 @@ internal fun ProfileTopBar(
     atTop: Boolean,
     title: String?,
     onBack: () -> Unit,
+    showBack: Boolean = true,
 ) {
     val enterFade = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val enterScale = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
@@ -58,11 +59,13 @@ internal fun ProfileTopBar(
             }
         },
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = stringResource(R.string.profile_back),
-                )
+            if (showBack) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = stringResource(R.string.profile_back),
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(

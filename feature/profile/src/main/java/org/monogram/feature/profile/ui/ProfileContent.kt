@@ -63,7 +63,11 @@ private const val ProfilePullRefreshGraceMillis = 700L
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ProfileContent(component: ProfileComponent, modifier: Modifier = Modifier) {
+fun ProfileContent(
+    component: ProfileComponent,
+    modifier: Modifier = Modifier,
+    showBack: Boolean = true,
+) {
     val state by component.state.collectAsState()
     val profile = state.profile
     val snackbar = remember { SnackbarHostState() }
@@ -122,6 +126,7 @@ fun ProfileContent(component: ProfileComponent, modifier: Modifier = Modifier) {
                 atTop = atTop,
                 title = profile?.title,
                 onBack = component::onBack,
+                showBack = showBack,
             )
         },
     ) { inner ->

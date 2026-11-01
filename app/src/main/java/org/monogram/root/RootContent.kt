@@ -513,7 +513,10 @@ private fun RootPlaybackContent(
                                 is RootComponent.Child.Profile -> CompositionLocalProvider(
                                     LocalBottomBarInset provides tabBarInset,
                                 ) {
-                                    ProfileContent(instance.component)
+                                    ProfileContent(
+                                        component = instance.component,
+                                        showBack = currentStack.backStack.isNotEmpty(),
+                                    )
                                 }
                                 is RootComponent.Child.Settings -> CompositionLocalProvider(
                                     LocalBottomBarInset provides tabBarInset,
