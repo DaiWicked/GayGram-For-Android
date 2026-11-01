@@ -101,7 +101,7 @@ fun GlassBottomBar(
 ) {
     if (tabs.isEmpty()) return
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (dark) 0.72f else 0.55f)
+    val barFill = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (dark) 0.88f else 0.80f)
     val indicatorFill = if (dark) {
         Color.White.copy(alpha = 0.16f)
     } else {
@@ -139,7 +139,13 @@ fun GlassBottomBar(
         flatTint = barFill,
         thickness = 6.dp,
         lift = 10.dp,
-        modifier = modifier.height(BarHeight),
+        modifier = modifier
+            .height(BarHeight)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dark) 0.10f else 0.07f),
+                shape = BarShape,
+            ),
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(BarInnerPadding)) {
             val slot = maxWidth / tabs.size
