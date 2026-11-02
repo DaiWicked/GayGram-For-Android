@@ -178,6 +178,7 @@ fun GlassBottomBar(
                             pressed = true
                             var lastX = down.position.x
                             var moved = false
+                            var crossed = pressStartIndex
                             while (true) {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -193,6 +194,19 @@ fun GlassBottomBar(
                                 if (moved) {
                                     dragPx += dx
                                     change.consume()
+                                    // Feedback per tab crossed, so the drag reads as stepping
+                                    // through the bar instead of as one silent slide.
+                                    val live = if (slotPx > 0f) {
+                                        (pressStartIndex + dragPx / slotPx)
+                                            .roundToInt()
+                                            .coerceIn(0, tabs.lastIndex)
+                                    } else {
+                                        crossed
+                                    }
+                                    if (live != crossed) {
+                                        crossed = live
+                                        haptics.perform(HapticIntent.Tick)
+                                    }
                                 }
                             }
                             pressed = false
@@ -205,10 +219,7 @@ fun GlassBottomBar(
                                 dragPx = 0f
                                 dragging = false
                                 val index = target.coerceIn(0, tabs.lastIndex)
-                                if (index != currentSelected) {
-                                    haptics.perform(HapticIntent.Tick)
-                                    onSelect(index)
-                                }
+                                if (index != currentSelected) onSelect(index)
                             }
                         }
                     },

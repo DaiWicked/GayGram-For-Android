@@ -54,6 +54,7 @@ import android.graphics.Color as AndroidColor
 open class MainActivity : ComponentActivity() {
     private lateinit var root: RootComponent
     private val startupReady = CompletableDeferred<Unit>()
+
     private var startJob: Job? = null
     private var inPictureInPicture by mutableStateOf(false)
     private var pendingIncomingShare: IncomingShare? = null
@@ -62,6 +63,7 @@ open class MainActivity : ComponentActivity() {
     companion object {
         private const val STATE_INCOMING_SHARE = "main.incoming_share"
         private const val STATE_SHARE_INTENT_HANDLED = "main.share_intent_handled"
+        private const val SplashHoldMs = 700L
     }
 
     /** Only this activity owns the PiP window; the media viewer stays in its dialog. */
@@ -106,7 +108,14 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
-        splashScreen.setKeepOnScreenCondition { !startupReady.isCompleted }
+        // A cold start that has to open the database and the MTProto client can take a while; the
+        // splash must not sit on the window for all of it, so it gives up after a beat and lets the
+        // first frame through.
+        val splashStart = android.os.SystemClock.uptimeMillis()
+        splashScreen.setKeepOnScreenCondition {
+            !startupReady.isCompleted &&
+                android.os.SystemClock.uptimeMillis() - splashStart < SplashHoldMs
+        }
         super.onCreate(savedInstanceState)
         pendingIncomingShare = IncomingShare.fromBundle(
             savedInstanceState?.getBundle(STATE_INCOMING_SHARE),
