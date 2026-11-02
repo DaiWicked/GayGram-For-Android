@@ -4,12 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
@@ -35,17 +40,26 @@ internal fun MessageMetadata(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         if (message.revoked) {
-            Text(
-                text = stringResource(R.string.dialog_revoked),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.error,
+            Row(
                 modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
-                        shape = RoundedCornerShape(3.dp),
-                    )
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
-            )
+                    .clip(RoundedCornerShape(50))
+                    .background(color.copy(alpha = 0.12f))
+                    .padding(start = 4.dp, end = 5.dp, top = 1.dp, bottom = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Undo,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(10.dp),
+                )
+                Text(
+                    text = stringResource(R.string.dialog_revoked),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                )
+            }
         }
         if (message.editDate != null) {
             Text(

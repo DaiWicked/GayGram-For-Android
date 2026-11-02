@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.IntrinsicMeasurable
@@ -303,7 +304,9 @@ fun MessageBubble(
                         if (stickerOnly || mediaOnlyBubble) {
                             Modifier
                         } else {
-                            Modifier.background(container)
+                            Modifier.background(
+                                if (message.revoked) lerp(container, onContainer, 0.06f) else container,
+                            )
                         },
                     )
                     .then(
