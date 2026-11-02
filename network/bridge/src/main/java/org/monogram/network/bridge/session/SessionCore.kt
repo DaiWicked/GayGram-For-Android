@@ -229,6 +229,25 @@ internal class SessionCore(
 
     private val inflight = HashMap<String, SharedRead>()
 
+    /**
+     * Consecutive implicit connect failures, and the earliest time the next implicit attempt may run.
+     * Every RPC funnels through [ensureConnected], so a dead network used to spawn a fresh handshake
+     * per call: one debug session logged nine attempts inside eighteen seconds. Backing off keeps the
+     * already-struggling transport from being re-entered before it can finish.
+     */
+    @Volatile
+    private var connectFailureStreak: Int = 0
+
+    @Volatile
+    private var connectRetryAtMs: Long = 0L
+
+    @Volatile
+    private var connectFailure: Outcome.Err? = null
+
+    /** Last value pushed to the native client, so a no-op [setTestDc] never enters the RPC queue. */
+    @Volatile
+    private var appliedTestDc: Boolean? = null
+
     @Volatile
     internal var sessionDead: Boolean = false
 
@@ -462,7 +481,7 @@ internal class SessionCore(
             return Outcome.Ok(Unit)
         }
         AppLog.api("media", "ensureConnected connect handle=$active connected=$connectedHandle")
-        return connect()
+        return connectInternal(implicit = true)
     }
 
     internal fun ensureHandleLocked() {
@@ -483,6 +502,8 @@ internal class SessionCore(
                 apiHash = credentials.apiHash,
                 sessionPath = sessionPath,
             )
+            // A fresh native client starts on the production DC and knows nothing about the flag.
+            appliedTestDc = null
             updatesWake.trySend(Unit)
         }
     }
@@ -523,22 +544,41 @@ internal class SessionCore(
         }
     }
 
-    override suspend fun setTestDc(enabled: Boolean): Outcome<Unit> =
-        rpc("setTestDc failed") { activeHandle ->
+    override suspend fun setTestDc(enabled: Boolean): Outcome<Unit> {
+        // Every login attempt re-asserts the (default off) test-DC flag. It is a no-op when the
+        // native client already holds that value, but the call still occupies a slot on the shared
+        // RPC queue — with a slow network one debug session queued twelve of them, worst case 24s.
+        if (appliedTestDc == enabled) return Outcome.Ok(Unit)
+        val result = rpc("setTestDc failed") { activeHandle ->
             native.setTestDc(activeHandle, enabled)
         }
+        if (result is Outcome.Ok) appliedTestDc = enabled
+        return result
+    }
 
     override suspend fun usesTestDc(): Outcome<Boolean> =
         rpc("usesTestDc failed") { activeHandle ->
             native.usesTestDc(activeHandle)
         }
 
-    override suspend fun connect(): Outcome<Unit> {
+    override suspend fun connect(): Outcome<Unit> = connectInternal(implicit = false)
+
+    /**
+     * @param implicit true when an RPC needs a connection and would otherwise re-handshake on every
+     *   call. Explicit connects (startup prewarm, the retry the user taps) always go through.
+     */
+    private suspend fun connectInternal(implicit: Boolean): Outcome<Unit> {
         if (sessionDead) return deadSessionError()
         val already = if (closed) 0L else handle
         if (already != 0L && connectedHandle == already) {
             maybeStartUpdates(already)
             return Outcome.Ok(Unit)
+        }
+        if (implicit) {
+            val retryAt = connectRetryAtMs
+            if (retryAt > 0L && PerfLog.nowMs() < retryAt) {
+                return connectFailure ?: deadSessionError()
+            }
         }
         connectMutex.withLock {
             if (sessionDead) return deadSessionError()
@@ -546,6 +586,12 @@ internal class SessionCore(
             if (locked != 0L && connectedHandle == locked) {
                 maybeStartUpdates(locked)
                 return Outcome.Ok(Unit)
+            }
+            if (implicit) {
+                val retryAt = connectRetryAtMs
+                if (retryAt > 0L && PerfLog.nowMs() < retryAt) {
+                    return connectFailure ?: deadSessionError()
+                }
             }
             AppLog.api("connect", "start handle=$locked")
             if (nativeProxyConfigured()) proxyState = ProxyConnectionStatus.Connecting
@@ -567,12 +613,28 @@ internal class SessionCore(
             if (connected is Outcome.Ok) {
                 if (nativeProxyConfigured()) proxyState = ProxyConnectionStatus.Connected
                 maybeStartUpdates(connected.value)
+                connectFailureStreak = 0
+                connectRetryAtMs = 0L
+                connectFailure = null
+            } else if (connected is Outcome.Err) {
+                connectFailureStreak += 1
+                connectFailure = connected
+                connectRetryAtMs = PerfLog.nowMs() + connectBackoffMs(connectFailureStreak)
+                AppLog.api(
+                    "connect",
+                    "retry in ${connectBackoffMs(connectFailureStreak)}ms after ${connectFailureStreak} failure(s)",
+                )
             }
             return when (connected) {
                 is Outcome.Ok -> Outcome.Ok(Unit)
                 is Outcome.Err -> connected
             }
         }
+    }
+
+    private fun connectBackoffMs(streak: Int): Long {
+        val shift = (streak - 1).coerceIn(0, MAX_CONNECT_BACKOFF_SHIFT)
+        return (1_000L shl shift).coerceAtMost(MAX_CONNECT_BACKOFF_MS)
     }
 
     /** Reads the restored native session without waiting for a network connection. */
@@ -893,6 +955,10 @@ internal class SessionCore(
             ProxyConnectionStatus.Disconnected
         if (updatesStartedHandle == oldHandle) updatesStartedHandle = 0L
         if (oldHandle != 0L) native.destroyClient(oldHandle)
+        appliedTestDc = null
+        connectFailureStreak = 0
+        connectRetryAtMs = 0L
+        connectFailure = null
         updatesWake.trySend(Unit)
     }
 
@@ -900,3 +966,6 @@ internal class SessionCore(
 
     private fun nativeProxyConfigured(): Boolean = proxyState != ProxyConnectionStatus.Disabled
 }
+
+private const val MAX_CONNECT_BACKOFF_SHIFT = 5
+private const val MAX_CONNECT_BACKOFF_MS = 30_000L
