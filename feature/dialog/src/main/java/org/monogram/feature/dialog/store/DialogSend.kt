@@ -18,7 +18,6 @@ import org.monogram.core.models.UploadItem
 import org.monogram.core.models.prepareComposerText
 import org.monogram.core.models.remapTextEntities
 import org.monogram.core.ui.AppearanceSettings
-import org.monogram.core.ui.GayGramSettings
 import org.monogram.feature.dialog.DialogStore
 import org.monogram.feature.dialog.isTransientSendFailure
 import org.monogram.feature.dialog.localMediaCacheKey
@@ -590,20 +589,10 @@ internal fun DialogExecutor.send(
     }
 }
 
-/**
- * Revoking for everyone is the one deletion the keep-revoked switch is about: the message stays
- * where it was, marked as recalled, so both the update path and the outgoing path look the same.
- * Deleting for myself only stays a real deletion — that is tidying up, not an anti-revoke case.
- */
 internal fun DialogExecutor.delete(messageId: Int, revoke: Boolean) {
-    val keep = revoke && GayGramSettings.state.value.keepRevokedMessages
-    if (keep) {
-        emit(Msg.MessagesRevoked(setOf(messageId)))
-    } else {
-        emit(Msg.Drop(messageId))
-    }
+    emit(Msg.Drop(messageId))
     work.launch {
-        if (!keep) warmup?.deleteMessage(chatId, messageId)
+        warmup?.deleteMessage(chatId, messageId)
         when (val result = client.deleteMessage(chatId, messageId, revoke)) {
             is Outcome.Ok -> Unit
             is Outcome.Err -> {
