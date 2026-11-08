@@ -163,7 +163,23 @@ internal class DialogExecutor(
                             val deleted = update.messageIds.toSet()
                             if (deleted.isNotEmpty()) {
                                 if (GayGramSettings.state.value.keepRevokedMessages) {
-                                    dispatch(Msg.MessagesRevoked(deleted))
+                                    // The update never says who retracted, so the author is the only
+                                    // signal left: my own message being retracted — here or from another
+                                    // device — is a real deletion, everyone else's stays behind marked.
+                                    val mine = state().messages
+                                        .asSequence()
+                                        .filter { it.outgoing && it.id.id in deleted }
+                                        .map { it.id.id }
+                                        .toSet()
+                                    val others = deleted - mine
+                                    if (others.isNotEmpty()) dispatch(Msg.MessagesRevoked(others))
+                                    if (mine.isNotEmpty()) {
+                                        dispatch(Msg.MessagesDeleted(mine))
+                                        rememberPinned()
+                                        scope.launch {
+                                            warmup?.deleteMessages(chatId, mine)
+                                        }
+                                    }
                                 } else {
                                     dispatch(Msg.MessagesDeleted(deleted))
                                     rememberPinned()
