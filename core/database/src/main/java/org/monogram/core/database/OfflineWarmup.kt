@@ -404,6 +404,12 @@ open class OfflineWarmup(
         db?.messageDao()?.markFailed(chatId.value, messageId)
     }
 
+    open suspend fun markMessagesRevoked(chatId: PeerId, messageIds: Set<Int>) = roomIo {
+        recentHistory.invalidate(chatId.value)
+        val dao = db?.messageDao() ?: return@roomIo
+        messageIds.forEach { dao.markRevoked(chatId.value, it) }
+    }
+
     open suspend fun reconcileOutgoing(pendingId: Int, message: Message, randomId: Long?) = roomIo {
         require(message.id.id > 0)
         recentHistory.invalidate(message.id.chatId.value)

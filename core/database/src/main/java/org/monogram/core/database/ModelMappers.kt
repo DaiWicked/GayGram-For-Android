@@ -172,6 +172,7 @@ fun MessageEntity.toModel(): Message = Message(
     replyMarkup = ReplyMarkups.parse(replyMarkupJson),
     pending = pending,
     failed = failed,
+    revoked = revoked,
     randomId = randomId,
     checklist = Checklists.parse(checklistJson),
 )
@@ -211,6 +212,7 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     replyMarkupJson = ReplyMarkups.serialize(replyMarkup),
     pending = pending,
     failed = failed,
+    revoked = revoked,
     randomId = randomId,
     checklistJson = Checklists.serialize(checklist),
 )

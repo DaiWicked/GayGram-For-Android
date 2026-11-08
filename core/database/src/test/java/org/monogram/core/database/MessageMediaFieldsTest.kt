@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
 class MessageMediaFieldsTest {
     @Test
     fun schemaVersionIsCurrent() {
-        assertEquals(9, DatabaseProvider.SCHEMA_VERSION)
+        assertEquals(10, DatabaseProvider.SCHEMA_VERSION)
     }
 
     @Test
@@ -31,6 +31,7 @@ class MessageMediaFieldsTest {
         assertTrue(DatabaseProvider.hasMigrationPath(2, 3))
         assertTrue(DatabaseProvider.hasMigrationPath(3, 4))
         assertTrue(DatabaseProvider.hasMigrationPath(8, 9))
+        assertTrue(DatabaseProvider.hasMigrationPath(9, 10))
         assertFalse(DatabaseProvider.hasMigrationPath(32))
         assertFalse(DatabaseProvider.hasMigrationPath(3, 2))
     }
@@ -123,6 +124,23 @@ class MessageMediaFieldsTest {
         val back = chat.toEntity().toModel()
         assertEquals(3, back.unreadMentionsCount)
         assertEquals(2, back.unreadReactionsCount)
+    }
+
+    @Test
+    fun revokedSurvivesTheStorageRoundtrip() {
+        val kept = MessageEntity(
+            chatId = 7L,
+            id = 8,
+            senderId = null,
+            text = "gone",
+            date = 0L,
+            outgoing = false,
+            mediaCacheKey = null,
+            mediaKind = null,
+            revoked = true,
+        )
+        assertEquals(true, kept.toModel().revoked)
+        assertEquals(true, kept.toModel().toEntity().revoked)
     }
 
     @Test

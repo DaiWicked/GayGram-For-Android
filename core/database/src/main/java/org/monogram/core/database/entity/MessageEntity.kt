@@ -44,6 +44,7 @@ data class MessageEntity(
     val replyMarkupJson: String? = null,
     val pending: Boolean = false,
     @ColumnInfo(defaultValue = "0") val failed: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val revoked: Boolean = false,
     val randomId: Long? = null,
     val checklistJson: String? = null,
 )
