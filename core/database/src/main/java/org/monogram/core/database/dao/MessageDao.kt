@@ -38,8 +38,21 @@ interface MessageDao {
     @Query("UPDATE messages SET failed = 1, pending = 0 WHERE chatId = :chatId AND id = :messageId")
     suspend fun markFailed(chatId: Long, messageId: Int)
 
-    @Query("UPDATE messages SET revoked = 1 WHERE chatId = :chatId AND id = :messageId")
-    suspend fun markRevoked(chatId: Long, messageId: Int)
+    @Query(
+        """
+        UPDATE messages SET revoked = 1
+        WHERE outgoing = 0 AND id IN (:messageIds) AND (:chatId IS NULL OR chatId = :chatId)
+        """,
+    )
+    suspend fun markIncomingRevoked(chatId: Long?, messageIds: Collection<Int>)
+
+    @Query(
+        """
+        DELETE FROM messages
+        WHERE outgoing = 1 AND id IN (:messageIds) AND (:chatId IS NULL OR chatId = :chatId)
+        """,
+    )
+    suspend fun deleteOutgoing(chatId: Long?, messageIds: Collection<Int>)
 
     @Query(
         """

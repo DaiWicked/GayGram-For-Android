@@ -404,10 +404,15 @@ open class OfflineWarmup(
         db?.messageDao()?.markFailed(chatId.value, messageId)
     }
 
-    open suspend fun markMessagesRevoked(chatId: PeerId, messageIds: Set<Int>) = roomIo {
-        recentHistory.invalidate(chatId.value)
+    open suspend fun applyRevokedMessages(chatId: PeerId?, messageIds: Collection<Int>) = roomIo {
+        if (messageIds.isEmpty()) return@roomIo
         val dao = db?.messageDao() ?: return@roomIo
-        messageIds.forEach { dao.markRevoked(chatId.value, it) }
+        val scope = chatId?.value
+        // The update never names who retracted, so the stored author flag is the only
+        // reliable signal and it holds even for messages outside the loaded window.
+        dao.markIncomingRevoked(scope, messageIds)
+        dao.deleteOutgoing(scope, messageIds)
+        if (scope == null) recentHistory.clear() else recentHistory.invalidate(scope)
     }
 
     open suspend fun reconcileOutgoing(pendingId: Int, message: Message, randomId: Long?) = roomIo {

@@ -174,16 +174,13 @@ internal class DialogExecutor(
                                     val others = deleted - mine
                                     if (others.isNotEmpty()) {
                                         dispatch(Msg.MessagesRevoked(others))
-                                        scope.launch {
-                                            warmup?.markMessagesRevoked(chatId, others)
-                                        }
                                     }
                                     if (mine.isNotEmpty()) {
                                         dispatch(Msg.MessagesDeleted(mine))
                                         rememberPinned()
-                                        scope.launch {
-                                            warmup?.deleteMessages(chatId, mine)
-                                        }
+                                    }
+                                    scope.launch {
+                                        warmup?.applyRevokedMessages(chatId, deleted)
                                     }
                                 } else {
                                     dispatch(Msg.MessagesDeleted(deleted))

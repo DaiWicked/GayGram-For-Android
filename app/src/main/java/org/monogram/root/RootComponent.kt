@@ -355,12 +355,15 @@ class RootComponent(
                 cache.applyIncomingMessage(update.message, accountGeneration, acceptedOrder)
 
             is MtprotoUpdate.MessageEdited -> cache.applyMessageEdit(update.message)
-            is MtprotoUpdate.MessagesDeleted -> if (!GayGramSettings.state.value.keepRevokedMessages) {
-                cache.deleteMessages(
-                    update.chatId,
-                    update.messageIds
-                )
-            }
+            is MtprotoUpdate.MessagesDeleted ->
+                if (GayGramSettings.state.value.keepRevokedMessages) {
+                    cache.applyRevokedMessages(update.chatId, update.messageIds)
+                } else {
+                    cache.deleteMessages(
+                        update.chatId,
+                        update.messageIds
+                    )
+                }
 
             is MtprotoUpdate.MessageReactions ->
                 cache.applyReactions(update.chatId, update.messageId, update.reactionsJson)

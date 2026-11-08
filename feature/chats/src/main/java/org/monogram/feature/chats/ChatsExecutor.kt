@@ -265,8 +265,11 @@ internal class ChatsExecutor(
 
                     is MtprotoUpdate.MessagesDeleted -> {
                         scope.launch {
-                            if (GayGramSettings.state.value.keepRevokedMessages) return@launch
-                            warmup?.deleteMessages(update.chatId, update.messageIds)
+                            if (GayGramSettings.state.value.keepRevokedMessages) {
+                                warmup?.applyRevokedMessages(update.chatId, update.messageIds)
+                            } else {
+                                warmup?.deleteMessages(update.chatId, update.messageIds)
+                            }
                             val ids = update.messageIds.toSet()
                             listPublicationMutex.withLock {
                                 // Re-read after acquiring the publication boundary: refresh or
