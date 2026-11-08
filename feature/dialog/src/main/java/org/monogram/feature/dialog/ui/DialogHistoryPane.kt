@@ -156,7 +156,10 @@ internal fun ColumnScope.DialogHistoryPane(
         }
     }
     val rowMessageIndices = remember(messageHeads) { messageHeads.map { it.first } }
-    var followBottom by rememberSaveable(state.chatId.value) { mutableStateOf(false) }
+    // A chat opens on its newest message; scrolling away drops the follow flag and the
+    // jump-to-latest control brings it back. Jumping to a specific message overrides this
+    // through the anchor effect below.
+    var followBottom by rememberSaveable(state.chatId.value) { mutableStateOf(true) }
     var previousFromCache by rememberSaveable(state.chatId.value) { mutableStateOf(false) }
     var previousCount by rememberSaveable(state.chatId.value) { mutableIntStateOf(0) }
     var previousNewestId by rememberSaveable(state.chatId.value) { mutableStateOf<Int?>(null) }
@@ -297,6 +300,11 @@ internal fun ColumnScope.DialogHistoryPane(
                                 cacheToNetwork = cacheToNetwork,
                             )
                         ) {
+                            listState.scrollToItem(0)
+                        } else if (cacheToNetwork && followBottom && !listState.isScrollInProgress) {
+                            // The cached page is replaced by the network one; a reversed list keeps
+                            // the old row pinned at index 0, which would leave the freshest messages
+                            // just below the fold. The user asked to stay on the newest, so re-align.
                             listState.scrollToItem(0)
                         }
                         previousFromCache = state.fromCache
@@ -787,7 +795,9 @@ internal fun ColumnScope.DialogHistoryPane(
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp),
+                            // The composer floats over this pane, so the jump-to-latest control
+                            // has to clear its height or it ends up hidden behind the input row.
+                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + bottomInset),
                         horizontalAlignment = Alignment.End,
                     ) {
                         androidx.compose.animation.AnimatedVisibility(
